@@ -8,6 +8,33 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 
+// --- INIT DB (create feedback table if missing) ---
+async function initDb() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS feedback (
+        id SERIAL PRIMARY KEY,
+        restaurant_name TEXT NOT NULL DEFAULT 'Te Ta Gastronomi',
+        phone TEXT NOT NULL,
+
+        location_rating INT NOT NULL CHECK (location_rating BETWEEN 1 AND 5),
+        hospitality_rating INT NOT NULL CHECK (hospitality_rating BETWEEN 1 AND 5),
+        food_rating INT NOT NULL CHECK (food_rating BETWEEN 1 AND 5),
+        price_rating INT NOT NULL CHECK (price_rating BETWEEN 1 AND 5),
+
+        comment TEXT DEFAULT '',
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    console.log("✅ feedback table ready");
+  } catch (err) {
+    console.error("❌ initDb error:", err);
+  }
+}
+
+initDb();
+
 // Health check
 app.get("/", (req, res) => {
   res.status(200).send("Te Ta Backend is running ✅");
@@ -81,6 +108,60 @@ app.post("/reservations", requireApiKey, async (req, res) => {
     });
   } catch (err) {
     console.error("❌ DB ERROR:", err);
+    return res.status(500).json({ success: false, error: "DB insert failed" });
+  }
+});
+
+// POST /feedback -> insert feedback into DB
+app.post("/feedback", requireApiKey, async (req, res) => {
+  try {
+    const {
+      restaurant_name = "Te Ta Gastronomi",
+      phone,
+      location_rating,
+      hospitality_rating,
+      food_rating,
+      price_rating,
+      comment = ""
+    } = req.body;
+
+    // Required
+    if (!phone) {
+      return res.status(400).json({ success: false, error: "Missing field: phone" });
+    }
+
+    const ratings = [location_rating, hospitality_rating, food_rating, price_rating];
+    if (ratings.some(r => typeof r !== "number" || r < 1 || r > 5)) {
+      return res.status(400).json({
+        success: false,
+        error: "Ratings must be numbers between 1 and 5"
+      });
+    }
+
+    const result = await pool.query(
+      `
+      INSERT INTO feedback
+        (restaurant_name, phone, location_rating, hospitality_rating, food_rating, price_rating, comment)
+      VALUES ($1,$2,$3,$4,$5,$6,$7)
+      RETURNING id, created_at;
+      `,
+      [
+        restaurant_name,
+        phone,
+        location_rating,
+        hospitality_rating,
+        food_rating,
+        price_rating,
+        comment
+      ]
+    );
+
+    return res.status(201).json({
+      success: true,
+      data: result.rows[0]
+    });
+  } catch (err) {
+    console.error("❌ POST /feedback error:", err);
     return res.status(500).json({ success: false, error: "DB insert failed" });
   }
 });
