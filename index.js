@@ -166,6 +166,79 @@ app.post("/feedback", requireApiKey, async (req, res) => {
   }
 });
 
+// GET /feedback -> list ALL feedback by default
+// Optional filters:
+//   ?limit=20
+//   ?phone=069...
+//   ?date=YYYY-MM-DD
+//   ?min_avg=4
+//   ?max_avg=3  (negative only, optional)
+app.get("/feedback", requireApiKey, async (req, res) => {
+  try {
+    const limitRaw = Number(req.query.limit || 20);
+    const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 100) : 20;
+
+    const phone = req.query.phone ? String(req.query.phone).trim() : "";
+    const date = req.query.date ? String(req.query.date).trim() : "";
+    const minAvg = req.query.min_avg !== undefined ? Number(req.query.min_avg) : null;
+    const maxAvg = req.query.max_avg !== undefined ? Number(req.query.max_avg) : null;
+
+    const avgExpr = "(location_rating + hospitality_rating + food_rating + price_rating) / 4.0";
+
+    const where = [];
+    const params = [];
+    let i = 1;
+
+    if (phone) {
+      where.push(`phone = $${i++}`);
+      params.push(phone);
+    }
+
+    if (date) {
+      where.push(`created_at::date = $${i++}::date`);
+      params.push(date);
+    }
+
+    if (minAvg !== null && Number.isFinite(minAvg)) {
+      where.push(`${avgExpr} >= $${i++}`);
+      params.push(minAvg);
+    }
+
+    if (maxAvg !== null && Number.isFinite(maxAvg)) {
+      where.push(`${avgExpr} <= $${i++}`);
+      params.push(maxAvg);
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+    const q = `
+      SELECT
+        id,
+        restaurant_name,
+        phone,
+        location_rating,
+        hospitality_rating,
+        food_rating,
+        price_rating,
+        ${avgExpr} AS avg_rating,
+        comment,
+        created_at
+      FROM feedback
+      ${whereSql}
+      ORDER BY created_at DESC
+      LIMIT $${i++};
+    `;
+
+    params.push(limit);
+
+    const result = await pool.query(q, params);
+    return res.status(200).json({ success: true, data: result.rows });
+  } catch (err) {
+    console.error("❌ GET /feedback error:", err);
+    return res.status(500).json({ success: false, error: "DB read failed" });
+  }
+});
+
 // Railway provides PORT
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log("✅ Server listening on", PORT));
