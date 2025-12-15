@@ -328,6 +328,7 @@ app.get("/reports/today", requireApiKey, async (req, res) => {
       `)
     ).rows[0].d;
 
+    // ✅ reservations "today" = service date (date column), not created_at
     const reservations = await pool.query(
       `
       SELECT
@@ -336,8 +337,8 @@ app.get("/reports/today", requireApiKey, async (req, res) => {
         first_time, allergies, special_requests, created_at
       FROM public.reservations
       WHERE restaurant_id = $1
-        AND (created_at AT TIME ZONE 'Europe/Tirane')::date = $2::date
-      ORDER BY created_at DESC;
+        AND date::date = $2::date
+      ORDER BY time ASC;
       `,
       [RESTAURANT_ID, today]
     );
