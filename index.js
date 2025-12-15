@@ -11,6 +11,7 @@ app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 
 const RESTAURANT_ID = Number(process.env.RESTAURANT_ID || 2);
+const MAX_AUTO_CONFIRM_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 8);
 
 // ==================== TIME HELPERS ====================
 function formatALDate(d) {
@@ -25,9 +26,10 @@ function formatALDate(d) {
   });
 }
 
-// ==================== INIT DB ====================
+// ==================== INIT / MIGRATIONS ====================
 async function initDb() {
   try {
+    // feedback table (already)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS public.feedback (
         id SERIAL PRIMARY KEY,
@@ -45,7 +47,13 @@ async function initDb() {
       );
     `);
 
-    console.log("✅ feedback table ready");
+    // ✅ add status column to reservations (non-breaking)
+    await pool.query(`
+      ALTER TABLE public.reservations
+      ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'Confirmed';
+    `);
+
+    console.log("✅ DB ready (feedback + reservations.status)");
   } catch (err) {
     console.error("❌ initDb error:", err);
   }
@@ -73,6 +81,7 @@ app.get("/health/db", requireApiKey, async (req, res) => {
     now: r.rows[0].now,
     now_local: formatALDate(r.rows[0].now),
     restaurant_id: RESTAURANT_ID,
+    max_auto_confirm_people: MAX_AUTO_CONFIRM_PEOPLE,
   });
 });
 
@@ -124,18 +133,25 @@ function normalizeFeedbackRatings(body) {
 }
 
 // ==================== RESERVATIONS ====================
+
 // POST /reservations
+// Rule: if people > MAX_AUTO_CONFIRM_PEOPLE => status = 'Pending' (owner must approve)
 app.post("/reservations", requireApiKey, async (req, res) => {
   try {
     const r = req.body;
     const required = ["customer_name", "phone", "date", "time", "people"];
-
     for (const f of required) {
       if (!r[f]) {
         return res.status(400).json({ success: false, error: `Missing field: ${f}` });
       }
     }
 
+    const people = Number(r.people);
+    if (!Number.isFinite(people) || people <= 0) {
+      return res.status(400).json({ success: false, error: "people must be a positive number" });
+    }
+
+    const status = people > MAX_AUTO_CONFIRM_PEOPLE ? "Pending" : "Confirmed";
     const reservation_id = r.reservation_id || crypto.randomUUID();
 
     const result = await pool.query(
@@ -154,10 +170,11 @@ app.post("/reservations", requireApiKey, async (req, res) => {
         first_time,
         allergies,
         special_requests,
-        raw
+        raw,
+        status
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
-      RETURNING id, reservation_id, created_at;
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+      RETURNING id, reservation_id, created_at, status;
       `,
       [
         RESTAURANT_ID,
@@ -167,19 +184,28 @@ app.post("/reservations", requireApiKey, async (req, res) => {
         r.phone,
         r.date,
         r.time,
-        Number(r.people),
+        people,
         r.channel || null,
         r.area || null,
         r.first_time || null,
         r.allergies || "",
         r.special_requests || "",
         r,
+        status,
       ]
     );
 
     const row = result.rows[0];
-    res.status(201).json({
+
+    // If pending, return 202 Accepted (created but not confirmed)
+    const httpStatus = status === "Pending" ? 202 : 201;
+
+    res.status(httpStatus).json({
       success: true,
+      message:
+        status === "Pending"
+          ? `Reservation is pending owner approval (people > ${MAX_AUTO_CONFIRM_PEOPLE}).`
+          : "Reservation confirmed.",
       data: { ...row, created_at_local: formatALDate(row.created_at) },
     });
   } catch (err) {
@@ -210,6 +236,7 @@ app.get("/reservations", requireApiKey, async (req, res) => {
         first_time,
         allergies,
         special_requests,
+        status,
         created_at
       FROM public.reservations
       WHERE restaurant_id = $1
@@ -231,7 +258,139 @@ app.get("/reservations", requireApiKey, async (req, res) => {
   }
 });
 
+// GET /reservations/upcoming?days=30
+app.get("/reservations/upcoming", requireApiKey, async (req, res) => {
+  try {
+    const days = Math.min(Math.max(Number(req.query.days || 30), 1), 365);
+
+    const today = (
+      await pool.query(`
+        SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d
+      `)
+    ).rows[0].d;
+
+    const end = (
+      await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [
+        today,
+        days,
+      ])
+    ).rows[0].d;
+
+    const result = await pool.query(
+      `
+      SELECT
+        id,
+        restaurant_id,
+        reservation_id,
+        restaurant_name,
+        customer_name,
+        phone,
+        date,
+        time,
+        people,
+        channel,
+        area,
+        first_time,
+        allergies,
+        special_requests,
+        status,
+        created_at
+      FROM public.reservations
+      WHERE restaurant_id = $1
+        AND date::date >= $2::date
+        AND date::date <= $3::date
+      ORDER BY date ASC, time ASC, created_at ASC;
+      `,
+      [RESTAURANT_ID, today, end]
+    );
+
+    const rows = result.rows.map((r) => ({
+      ...r,
+      created_at_local: formatALDate(r.created_at),
+    }));
+
+    res.json({
+      success: true,
+      range: { from: today, to: end, days },
+      restaurant_id: RESTAURANT_ID,
+      count: rows.length,
+      data: rows,
+    });
+  } catch (err) {
+    console.error("❌ GET /reservations/upcoming error:", err);
+    res.status(500).json({ success: false, error: "DB read failed" });
+  }
+});
+
+// Owner actions (manual confirmation)
+app.post("/reservations/:id/approve", requireApiKey, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ success: false, error: "Invalid id" });
+    }
+
+    const result = await pool.query(
+      `
+      UPDATE public.reservations
+      SET status = 'Confirmed'
+      WHERE restaurant_id = $1 AND id = $2
+      RETURNING id, reservation_id, status, created_at;
+      `,
+      [RESTAURANT_ID, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: "Reservation not found" });
+    }
+
+    const row = result.rows[0];
+    res.json({
+      success: true,
+      message: "Reservation approved (Confirmed).",
+      data: { ...row, created_at_local: formatALDate(row.created_at) },
+    });
+  } catch (err) {
+    console.error("❌ POST /reservations/:id/approve error:", err);
+    res.status(500).json({ success: false, error: "DB update failed" });
+  }
+});
+
+app.post("/reservations/:id/reject", requireApiKey, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ success: false, error: "Invalid id" });
+    }
+
+    const result = await pool.query(
+      `
+      UPDATE public.reservations
+      SET status = 'Rejected'
+      WHERE restaurant_id = $1 AND id = $2
+      RETURNING id, reservation_id, status, created_at;
+      `,
+      [RESTAURANT_ID, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: "Reservation not found" });
+    }
+
+    const row = result.rows[0];
+    res.json({
+      success: true,
+      message: "Reservation rejected.",
+      data: { ...row, created_at_local: formatALDate(row.created_at) },
+    });
+  } catch (err) {
+    console.error("❌ POST /reservations/:id/reject error:", err);
+    res.status(500).json({ success: false, error: "DB update failed" });
+  }
+});
+
 // ==================== FEEDBACK ====================
+
 // POST /feedback
 app.post("/feedback", requireApiKey, async (req, res) => {
   try {
@@ -319,6 +478,7 @@ app.get("/feedback", requireApiKey, async (req, res) => {
 });
 
 // ==================== REPORTS ====================
+
 // GET /reports/today
 app.get("/reports/today", requireApiKey, async (req, res) => {
   try {
@@ -328,13 +488,13 @@ app.get("/reports/today", requireApiKey, async (req, res) => {
       `)
     ).rows[0].d;
 
-    // ✅ reservations "today" = service date (date column), not created_at
+    // ✅ Reservations "today" = service date (date column), not created_at
     const reservations = await pool.query(
       `
       SELECT
         id, restaurant_id, reservation_id, restaurant_name,
         customer_name, phone, date, time, people, channel, area,
-        first_time, allergies, special_requests, created_at
+        first_time, allergies, special_requests, status, created_at
       FROM public.reservations
       WHERE restaurant_id = $1
         AND date::date = $2::date
