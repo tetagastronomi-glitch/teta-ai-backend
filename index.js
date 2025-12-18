@@ -13,6 +13,9 @@ app.use(express.json({ limit: "1mb" }));
 const RESTAURANT_ID = Number(process.env.RESTAURANT_ID || 2);
 const MAX_AUTO_CONFIRM_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 8);
 
+// ✅ version marker (ndryshoje kur bën deploy)
+const APP_VERSION = "v-2025-12-18-01";
+
 // ==================== TIME HELPERS ====================
 function formatALDate(d) {
   if (!d) return null;
@@ -29,7 +32,7 @@ function formatALDate(d) {
 // ==================== INIT / MIGRATIONS ====================
 async function initDb() {
   try {
-    // feedback table
+    // feedback table (safe)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS public.feedback (
         id SERIAL PRIMARY KEY,
@@ -47,30 +50,8 @@ async function initDb() {
       );
     `);
 
-    // reservations table (only if you don't have it, safe)
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS public.reservations (
-        id SERIAL PRIMARY KEY,
-        restaurant_id INT NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
-        reservation_id TEXT,
-        restaurant_name TEXT NOT NULL DEFAULT 'Te Ta Gastronomi',
-        customer_name TEXT NOT NULL,
-        phone TEXT NOT NULL,
-        date TEXT NOT NULL,
-        time TEXT NOT NULL,
-        people INT NOT NULL,
-        channel TEXT,
-        area TEXT,
-        first_time TEXT,
-        allergies TEXT DEFAULT '',
-        special_requests TEXT DEFAULT '',
-        raw JSONB,
-        status TEXT NOT NULL DEFAULT 'Confirmed',
-        created_at TIMESTAMP DEFAULT NOW()
-      );
-    `);
-
-    // Ensure new columns exist (non-breaking)
+    // ✅ reservations: mos u mbështet te CREATE TABLE për schema ekzistuese
+    // vetëm siguro kolonat që i përdorim në INSERT/SELECT
     await pool.query(`
       ALTER TABLE public.reservations
         ADD COLUMN IF NOT EXISTS reservation_id TEXT;
@@ -78,7 +59,57 @@ async function initDb() {
 
     await pool.query(`
       ALTER TABLE public.reservations
+        ADD COLUMN IF NOT EXISTS restaurant_name TEXT NOT NULL DEFAULT 'Te Ta Gastronomi';
+    `);
+
+    await pool.query(`
+      ALTER TABLE public.reservations
+        ADD COLUMN IF NOT EXISTS customer_name TEXT;
+    `);
+
+    await pool.query(`
+      ALTER TABLE public.reservations
+        ADD COLUMN IF NOT EXISTS phone TEXT;
+    `);
+
+    await pool.query(`
+      ALTER TABLE public.reservations
+        ADD COLUMN IF NOT EXISTS date TEXT;
+    `);
+
+    await pool.query(`
+      ALTER TABLE public.reservations
+        ADD COLUMN IF NOT EXISTS time TEXT;
+    `);
+
+    await pool.query(`
+      ALTER TABLE public.reservations
+        ADD COLUMN IF NOT EXISTS people INT;
+    `);
+
+    await pool.query(`
+      ALTER TABLE public.reservations
+        ADD COLUMN IF NOT EXISTS channel TEXT;
+    `);
+
+    await pool.query(`
+      ALTER TABLE public.reservations
+        ADD COLUMN IF NOT EXISTS area TEXT;
+    `);
+
+    await pool.query(`
+      ALTER TABLE public.reservations
         ADD COLUMN IF NOT EXISTS first_time TEXT;
+    `);
+
+    await pool.query(`
+      ALTER TABLE public.reservations
+        ADD COLUMN IF NOT EXISTS allergies TEXT DEFAULT '';
+    `);
+
+    await pool.query(`
+      ALTER TABLE public.reservations
+        ADD COLUMN IF NOT EXISTS special_requests TEXT DEFAULT '';
     `);
 
     await pool.query(`
@@ -91,7 +122,7 @@ async function initDb() {
         ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'Confirmed';
     `);
 
-    console.log("✅ DB ready (feedback + reservations columns ensured)");
+    console.log("✅ DB ready (migrations applied)");
   } catch (err) {
     console.error("❌ initDb error:", err);
   }
@@ -109,18 +140,30 @@ function requireApiKey(req, res, next) {
 
 // ==================== HEALTH ====================
 app.get("/", (req, res) => {
-  res.status(200).send("Te Ta Backend is running ✅");
+  res.status(200).send(`Te Ta Backend is running ✅ (${APP_VERSION})`);
 });
 
 app.get("/health/db", requireApiKey, async (req, res) => {
   const r = await pool.query("SELECT NOW() as now");
   res.json({
     success: true,
+    version: APP_VERSION,
     now: r.rows[0].now,
     now_local: formatALDate(r.rows[0].now),
     restaurant_id: RESTAURANT_ID,
     max_auto_confirm_people: MAX_AUTO_CONFIRM_PEOPLE,
   });
+});
+
+// ✅ Debug schema (vetëm me api-key)
+app.get("/debug/reservations-schema", requireApiKey, async (req, res) => {
+  const q = await pool.query(`
+    SELECT column_name, data_type, is_nullable
+    FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='reservations'
+    ORDER BY ordinal_position;
+  `);
+  res.json({ success: true, version: APP_VERSION, columns: q.rows });
 });
 
 // ==================== RATINGS HELPERS ====================
@@ -225,7 +268,7 @@ app.post("/reservations", requireApiKey, async (req, res) => {
       r.first_time || null,
       r.allergies || "",
       r.special_requests || "",
-      r, // json -> raw JSONB
+      r,
       status,
     ];
 
@@ -236,6 +279,7 @@ app.post("/reservations", requireApiKey, async (req, res) => {
 
     return res.status(httpStatus).json({
       success: true,
+      version: APP_VERSION,
       message:
         status === "Pending"
           ? `Reservation is pending owner approval (people > ${MAX_AUTO_CONFIRM_PEOPLE}).`
@@ -244,9 +288,9 @@ app.post("/reservations", requireApiKey, async (req, res) => {
     });
   } catch (err) {
     console.error("❌ POST /reservations error:", err);
-    // Kthe arsyen reale (për debug)
     return res.status(500).json({
       success: false,
+      version: APP_VERSION,
       error: err.message,
       code: err.code || null,
     });
@@ -290,10 +334,10 @@ app.get("/reservations", requireApiKey, async (req, res) => {
       created_at_local: formatALDate(x.created_at),
     }));
 
-    return res.json({ success: true, data: rows });
+    return res.json({ success: true, version: APP_VERSION, data: rows });
   } catch (err) {
     console.error("❌ GET /reservations error:", err);
-    return res.status(500).json({ success: false, error: err.message, code: err.code || null });
+    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
   }
 });
 
@@ -348,6 +392,7 @@ app.get("/reservations/upcoming", requireApiKey, async (req, res) => {
 
     return res.json({
       success: true,
+      version: APP_VERSION,
       range: { from: today, to: end, days },
       restaurant_id: RESTAURANT_ID,
       count: rows.length,
@@ -355,7 +400,7 @@ app.get("/reservations/upcoming", requireApiKey, async (req, res) => {
     });
   } catch (err) {
     console.error("❌ GET /reservations/upcoming error:", err);
-    return res.status(500).json({ success: false, error: err.message, code: err.code || null });
+    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
   }
 });
 
@@ -384,12 +429,13 @@ app.post("/reservations/:id/approve", requireApiKey, async (req, res) => {
     const row = result.rows[0];
     return res.json({
       success: true,
+      version: APP_VERSION,
       message: "Reservation approved (Confirmed).",
       data: { ...row, created_at_local: formatALDate(row.created_at) },
     });
   } catch (err) {
     console.error("❌ POST /reservations/:id/approve error:", err);
-    return res.status(500).json({ success: false, error: err.message, code: err.code || null });
+    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
   }
 });
 
@@ -417,12 +463,13 @@ app.post("/reservations/:id/reject", requireApiKey, async (req, res) => {
     const row = result.rows[0];
     return res.json({
       success: true,
+      version: APP_VERSION,
       message: "Reservation rejected.",
       data: { ...row, created_at_local: formatALDate(row.created_at) },
     });
   } catch (err) {
     console.error("❌ POST /reservations/:id/reject error:", err);
-    return res.status(500).json({ success: false, error: err.message, code: err.code || null });
+    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
   }
 });
 
@@ -467,11 +514,12 @@ app.post("/feedback", requireApiKey, async (req, res) => {
     const row = result.rows[0];
     return res.status(201).json({
       success: true,
+      version: APP_VERSION,
       data: { ...row, created_at_local: formatALDate(row.created_at) },
     });
   } catch (err) {
     console.error("❌ POST /feedback error:", err);
-    return res.status(500).json({ success: false, error: err.message, code: err.code || null });
+    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
   }
 });
 
@@ -507,10 +555,10 @@ app.get("/feedback", requireApiKey, async (req, res) => {
       created_at_local: formatALDate(x.created_at),
     }));
 
-    return res.json({ success: true, data: rows });
+    return res.json({ success: true, version: APP_VERSION, data: rows });
   } catch (err) {
     console.error("❌ GET /feedback error:", err);
-    return res.status(500).json({ success: false, error: err.message, code: err.code || null });
+    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
   }
 });
 
@@ -578,6 +626,7 @@ app.get("/reports/today", requireApiKey, async (req, res) => {
 
     return res.json({
       success: true,
+      version: APP_VERSION,
       date_local: today,
       restaurant_id: RESTAURANT_ID,
       summary: {
@@ -592,7 +641,7 @@ app.get("/reports/today", requireApiKey, async (req, res) => {
     });
   } catch (err) {
     console.error("❌ GET /reports/today error:", err);
-    return res.status(500).json({ success: false, error: err.message, code: err.code || null });
+    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
   }
 });
 
