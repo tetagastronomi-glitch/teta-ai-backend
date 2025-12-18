@@ -29,7 +29,7 @@ function formatALDate(d) {
 // ==================== INIT / MIGRATIONS ====================
 async function initDb() {
   try {
-    // feedback table (already)
+    // feedback table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS public.feedback (
         id SERIAL PRIMARY KEY,
@@ -47,13 +47,51 @@ async function initDb() {
       );
     `);
 
-    // ✅ add status column to reservations (non-breaking)
+    // reservations table (only if you don't have it, safe)
     await pool.query(`
-      ALTER TABLE public.reservations
-      ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'Confirmed';
+      CREATE TABLE IF NOT EXISTS public.reservations (
+        id SERIAL PRIMARY KEY,
+        restaurant_id INT NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
+        reservation_id TEXT,
+        restaurant_name TEXT NOT NULL DEFAULT 'Te Ta Gastronomi',
+        customer_name TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        date TEXT NOT NULL,
+        time TEXT NOT NULL,
+        people INT NOT NULL,
+        channel TEXT,
+        area TEXT,
+        first_time TEXT,
+        allergies TEXT DEFAULT '',
+        special_requests TEXT DEFAULT '',
+        raw JSONB,
+        status TEXT NOT NULL DEFAULT 'Confirmed',
+        created_at TIMESTAMP DEFAULT NOW()
+      );
     `);
 
-    console.log("✅ DB ready (feedback + reservations.status)");
+    // Ensure new columns exist (non-breaking)
+    await pool.query(`
+      ALTER TABLE public.reservations
+        ADD COLUMN IF NOT EXISTS reservation_id TEXT;
+    `);
+
+    await pool.query(`
+      ALTER TABLE public.reservations
+        ADD COLUMN IF NOT EXISTS first_time TEXT;
+    `);
+
+    await pool.query(`
+      ALTER TABLE public.reservations
+        ADD COLUMN IF NOT EXISTS raw JSONB;
+    `);
+
+    await pool.query(`
+      ALTER TABLE public.reservations
+        ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'Confirmed';
+    `);
+
+    console.log("✅ DB ready (feedback + reservations columns ensured)");
   } catch (err) {
     console.error("❌ initDb error:", err);
   }
@@ -100,7 +138,6 @@ function normalizeFeedbackRatings(body) {
   let food = body.food_rating;
   let price = body.price_rating;
 
-  // ratings object: {location, hospitality, food, price}
   if (
     (loc === undefined || hos === undefined || food === undefined || price === undefined) &&
     body.ratings &&
@@ -112,7 +149,6 @@ function normalizeFeedbackRatings(body) {
     price = price ?? body.ratings.price;
   }
 
-  // single rating -> replicate to all 4
   const single = body.rating ?? body.ratings;
   if (
     (loc === undefined || hos === undefined || food === undefined || price === undefined) &&
@@ -135,13 +171,12 @@ function normalizeFeedbackRatings(body) {
 // ==================== RESERVATIONS ====================
 
 // POST /reservations
-// Rule: if people > MAX_AUTO_CONFIRM_PEOPLE => status = 'Pending' (owner must approve)
 app.post("/reservations", requireApiKey, async (req, res) => {
   try {
-    const r = req.body;
+    const r = req.body || {};
     const required = ["customer_name", "phone", "date", "time", "people"];
     for (const f of required) {
-      if (!r[f]) {
+      if (r[f] === undefined || r[f] === null || r[f] === "") {
         return res.status(400).json({ success: false, error: `Missing field: ${f}` });
       }
     }
@@ -154,8 +189,7 @@ app.post("/reservations", requireApiKey, async (req, res) => {
     const status = people > MAX_AUTO_CONFIRM_PEOPLE ? "Pending" : "Confirmed";
     const reservation_id = r.reservation_id || crypto.randomUUID();
 
-    const result = await pool.query(
-      `
+    const sql = `
       INSERT INTO public.reservations (
         restaurant_id,
         reservation_id,
@@ -175,32 +209,32 @@ app.post("/reservations", requireApiKey, async (req, res) => {
       )
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
       RETURNING id, reservation_id, created_at, status;
-      `,
-      [
-        RESTAURANT_ID,
-        reservation_id,
-        r.restaurant_name || "Te Ta Gastronomi",
-        r.customer_name,
-        r.phone,
-        r.date,
-        r.time,
-        people,
-        r.channel || null,
-        r.area || null,
-        r.first_time || null,
-        r.allergies || "",
-        r.special_requests || "",
-        r,
-        status,
-      ]
-    );
+    `;
 
+    const values = [
+      RESTAURANT_ID,
+      reservation_id,
+      r.restaurant_name || "Te Ta Gastronomi",
+      r.customer_name,
+      r.phone,
+      r.date,
+      r.time,
+      people,
+      r.channel || null,
+      r.area || null,
+      r.first_time || null,
+      r.allergies || "",
+      r.special_requests || "",
+      r, // json -> raw JSONB
+      status,
+    ];
+
+    const result = await pool.query(sql, values);
     const row = result.rows[0];
 
-    // If pending, return 202 Accepted (created but not confirmed)
     const httpStatus = status === "Pending" ? 202 : 201;
 
-    res.status(httpStatus).json({
+    return res.status(httpStatus).json({
       success: true,
       message:
         status === "Pending"
@@ -210,7 +244,12 @@ app.post("/reservations", requireApiKey, async (req, res) => {
     });
   } catch (err) {
     console.error("❌ POST /reservations error:", err);
-    res.status(500).json({ success: false, error: "DB insert failed" });
+    // Kthe arsyen reale (për debug)
+    return res.status(500).json({
+      success: false,
+      error: err.message,
+      code: err.code || null,
+    });
   }
 });
 
@@ -246,15 +285,15 @@ app.get("/reservations", requireApiKey, async (req, res) => {
       [RESTAURANT_ID, limit]
     );
 
-    const rows = result.rows.map((r) => ({
-      ...r,
-      created_at_local: formatALDate(r.created_at),
+    const rows = result.rows.map((x) => ({
+      ...x,
+      created_at_local: formatALDate(x.created_at),
     }));
 
-    res.json({ success: true, data: rows });
+    return res.json({ success: true, data: rows });
   } catch (err) {
     console.error("❌ GET /reservations error:", err);
-    res.status(500).json({ success: false, error: "DB read failed" });
+    return res.status(500).json({ success: false, error: err.message, code: err.code || null });
   }
 });
 
@@ -264,9 +303,7 @@ app.get("/reservations/upcoming", requireApiKey, async (req, res) => {
     const days = Math.min(Math.max(Number(req.query.days || 30), 1), 365);
 
     const today = (
-      await pool.query(`
-        SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d
-      `)
+      await pool.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`)
     ).rows[0].d;
 
     const end = (
@@ -304,12 +341,12 @@ app.get("/reservations/upcoming", requireApiKey, async (req, res) => {
       [RESTAURANT_ID, today, end]
     );
 
-    const rows = result.rows.map((r) => ({
-      ...r,
-      created_at_local: formatALDate(r.created_at),
+    const rows = result.rows.map((x) => ({
+      ...x,
+      created_at_local: formatALDate(x.created_at),
     }));
 
-    res.json({
+    return res.json({
       success: true,
       range: { from: today, to: end, days },
       restaurant_id: RESTAURANT_ID,
@@ -318,11 +355,11 @@ app.get("/reservations/upcoming", requireApiKey, async (req, res) => {
     });
   } catch (err) {
     console.error("❌ GET /reservations/upcoming error:", err);
-    res.status(500).json({ success: false, error: "DB read failed" });
+    return res.status(500).json({ success: false, error: err.message, code: err.code || null });
   }
 });
 
-// Owner actions (manual confirmation)
+// Owner actions
 app.post("/reservations/:id/approve", requireApiKey, async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -345,14 +382,14 @@ app.post("/reservations/:id/approve", requireApiKey, async (req, res) => {
     }
 
     const row = result.rows[0];
-    res.json({
+    return res.json({
       success: true,
       message: "Reservation approved (Confirmed).",
       data: { ...row, created_at_local: formatALDate(row.created_at) },
     });
   } catch (err) {
     console.error("❌ POST /reservations/:id/approve error:", err);
-    res.status(500).json({ success: false, error: "DB update failed" });
+    return res.status(500).json({ success: false, error: err.message, code: err.code || null });
   }
 });
 
@@ -378,14 +415,14 @@ app.post("/reservations/:id/reject", requireApiKey, async (req, res) => {
     }
 
     const row = result.rows[0];
-    res.json({
+    return res.json({
       success: true,
       message: "Reservation rejected.",
       data: { ...row, created_at_local: formatALDate(row.created_at) },
     });
   } catch (err) {
     console.error("❌ POST /reservations/:id/reject error:", err);
-    res.status(500).json({ success: false, error: "DB update failed" });
+    return res.status(500).json({ success: false, error: err.message, code: err.code || null });
   }
 });
 
@@ -394,7 +431,7 @@ app.post("/reservations/:id/reject", requireApiKey, async (req, res) => {
 // POST /feedback
 app.post("/feedback", requireApiKey, async (req, res) => {
   try {
-    const phone = req.body.phone;
+    const phone = req.body?.phone;
     if (!phone) {
       return res.status(400).json({ success: false, error: "Missing field: phone" });
     }
@@ -428,13 +465,13 @@ app.post("/feedback", requireApiKey, async (req, res) => {
     );
 
     const row = result.rows[0];
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       data: { ...row, created_at_local: formatALDate(row.created_at) },
     });
   } catch (err) {
     console.error("❌ POST /feedback error:", err);
-    res.status(500).json({ success: false, error: "DB insert failed" });
+    return res.status(500).json({ success: false, error: err.message, code: err.code || null });
   }
 });
 
@@ -465,15 +502,15 @@ app.get("/feedback", requireApiKey, async (req, res) => {
       [RESTAURANT_ID, limit]
     );
 
-    const rows = result.rows.map((r) => ({
-      ...r,
-      created_at_local: formatALDate(r.created_at),
+    const rows = result.rows.map((x) => ({
+      ...x,
+      created_at_local: formatALDate(x.created_at),
     }));
 
-    res.json({ success: true, data: rows });
+    return res.json({ success: true, data: rows });
   } catch (err) {
     console.error("❌ GET /feedback error:", err);
-    res.status(500).json({ success: false, error: "DB read failed" });
+    return res.status(500).json({ success: false, error: err.message, code: err.code || null });
   }
 });
 
@@ -483,12 +520,9 @@ app.get("/feedback", requireApiKey, async (req, res) => {
 app.get("/reports/today", requireApiKey, async (req, res) => {
   try {
     const today = (
-      await pool.query(`
-        SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d
-      `)
+      await pool.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`)
     ).rows[0].d;
 
-    // ✅ Reservations "today" = service date (date column), not created_at
     const reservations = await pool.query(
       `
       SELECT
@@ -503,9 +537,9 @@ app.get("/reports/today", requireApiKey, async (req, res) => {
       [RESTAURANT_ID, today]
     );
 
-    const reservationsRows = reservations.rows.map((r) => ({
-      ...r,
-      created_at_local: formatALDate(r.created_at),
+    const reservationsRows = reservations.rows.map((x) => ({
+      ...x,
+      created_at_local: formatALDate(x.created_at),
     }));
 
     const feedback = await pool.query(
@@ -558,7 +592,7 @@ app.get("/reports/today", requireApiKey, async (req, res) => {
     });
   } catch (err) {
     console.error("❌ GET /reports/today error:", err);
-    return res.status(500).json({ success: false, error: "Report failed" });
+    return res.status(500).json({ success: false, error: err.message, code: err.code || null });
   }
 });
 
