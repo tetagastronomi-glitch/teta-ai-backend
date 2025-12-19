@@ -14,7 +14,7 @@ const RESTAURANT_ID = Number(process.env.RESTAURANT_ID || 2);
 const MAX_AUTO_CONFIRM_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 8);
 
 // ✅ version marker (ndryshoje kur bën deploy)
-const APP_VERSION = "v-2025-12-19-events-core";
+const APP_VERSION = "v-2025-12-19-events-core-2";
 
 // ==================== TIME HELPERS ====================
 function formatALDate(d) {
@@ -32,7 +32,7 @@ function formatALDate(d) {
 // ==================== INIT / MIGRATIONS ====================
 async function initDb() {
   try {
-    // restaurants table (optional guard - only if missing)
+    // restaurants
     await pool.query(`
       CREATE TABLE IF NOT EXISTS public.restaurants (
         id SERIAL PRIMARY KEY,
@@ -41,7 +41,7 @@ async function initDb() {
       );
     `);
 
-    // feedback table (safe)
+    // feedback
     await pool.query(`
       CREATE TABLE IF NOT EXISTS public.feedback (
         id SERIAL PRIMARY KEY,
@@ -59,7 +59,7 @@ async function initDb() {
       );
     `);
 
-    // reservations table (safe create if missing) — date is DATE
+    // reservations
     await pool.query(`
       CREATE TABLE IF NOT EXISTS public.reservations (
         id SERIAL PRIMARY KEY,
@@ -99,13 +99,14 @@ async function initDb() {
     );
 
     // ==================== EVENTS (CORE) ====================
-    // Krijo tabelën nëse mungon (safe)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS public.events (
         id SERIAL PRIMARY KEY,
 
         restaurant_id INTEGER NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
         customer_id INTEGER NULL,
+
+        reservation_id TEXT NULL,
 
         event_type VARCHAR(50) NOT NULL DEFAULT 'restaurant_reservation',
         event_date DATE NOT NULL,
@@ -125,23 +126,6 @@ async function initDb() {
         created_at TIMESTAMP DEFAULT NOW()
       );
     `);
-
-    // Shtojmë një kolonë për link me reservations (që approve/reject të sinkronizohet)
-    await pool.query(`ALTER TABLE public.events ADD COLUMN IF NOT EXISTS reservation_id TEXT;`);
-
-    // FK për customer_id (nëse tabela customers ekziston) – safe try/catch
-    // (Nëse customers s'është e krijuar/ndryshe, nuk e bllokon deploy)
-    try {
-      await pool.query(`
-        ALTER TABLE public.events
-        ADD CONSTRAINT fk_events_customer
-        FOREIGN KEY (customer_id)
-        REFERENCES public.customers(id)
-        ON DELETE SET NULL;
-      `);
-    } catch (e) {
-      // ignore if already exists or customers table not compatible
-    }
 
     // Index për shpejtësi
     await pool.query(`
@@ -282,7 +266,8 @@ app.post("/events", requireApiKey, async (req, res) => {
     // required minimal
     const required = ["event_date", "event_time"];
     for (const f of required) {
-      if (!b[f]) return res.status(400).json({ success: false, version: APP_VERSION, error: `Missing field: ${f}` });
+      if (!b[f])
+        return res.status(400).json({ success: false, version: APP_VERSION, error: `Missing field: ${f}` });
     }
 
     const restaurant_id = Number(b.restaurant_id || RESTAURANT_ID);
@@ -290,7 +275,8 @@ app.post("/events", requireApiKey, async (req, res) => {
       return res.status(400).json({ success: false, version: APP_VERSION, error: "restaurant_id invalid" });
     }
 
-    const people = b.people === undefined || b.people === null || b.people === "" ? null : Number(b.people);
+    const people =
+      b.people === undefined || b.people === null || b.people === "" ? null : Number(b.people);
     if (people !== null && (!Number.isFinite(people) || people <= 0)) {
       return res.status(400).json({ success: false, version: APP_VERSION, error: "people must be positive number" });
     }
@@ -316,9 +302,9 @@ app.post("/events", requireApiKey, async (req, res) => {
         status,
         b.source || b.channel || null,
         b.area || null,
-        b.allergies || "",
-        b.special_requests || "",
-        b.notes || "",
+        b.allergies ?? "",
+        b.special_requests ?? "",
+        b.notes ?? "",
         b.created_by || "AI",
       ]
     );
@@ -363,6 +349,51 @@ app.get("/events", requireApiKey, async (req, res) => {
   }
 });
 
+// ✅ GET /events/upcoming?days=30  (CORE)
+app.get("/events/upcoming", requireApiKey, async (req, res) => {
+  try {
+    const days = Math.min(Math.max(Number(req.query.days || 30), 1), 365);
+
+    const today = (
+      await pool.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`)
+    ).rows[0].d;
+
+    const end = (
+      await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [today, days])
+    ).rows[0].d;
+
+    const result = await pool.query(
+      `
+      SELECT
+        id, restaurant_id, reservation_id,
+        event_type, event_date, event_time, people,
+        status, source, area, allergies, special_requests, notes,
+        created_by, created_at
+      FROM public.events
+      WHERE restaurant_id = $1
+        AND event_date::date >= $2::date
+        AND event_date::date <= $3::date
+      ORDER BY event_date ASC, event_time ASC, created_at ASC;
+      `,
+      [RESTAURANT_ID, today, end]
+    );
+
+    const rows = result.rows.map((x) => ({ ...x, created_at_local: formatALDate(x.created_at) }));
+
+    return res.json({
+      success: true,
+      version: APP_VERSION,
+      range: { from: today, to: end, days },
+      restaurant_id: RESTAURANT_ID,
+      count: rows.length,
+      data: rows,
+    });
+  } catch (err) {
+    console.error("❌ GET /events/upcoming error:", err);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
+  }
+});
+
 // ==================== RESERVATIONS ====================
 
 // POST /reservations
@@ -373,16 +404,19 @@ app.post("/reservations", requireApiKey, async (req, res) => {
     const required = ["customer_name", "phone", "date", "time", "people"];
     for (const f of required) {
       if (r[f] === undefined || r[f] === null || r[f] === "") {
-        return res.status(400).json({ success: false, version: APP_VERSION, error: `Missing field: ${f}` });
+        return res
+          .status(400)
+          .json({ success: false, version: APP_VERSION, error: `Missing field: ${f}` });
       }
     }
 
     const people = Number(r.people);
     if (!Number.isFinite(people) || people <= 0) {
-      return res.status(400).json({ success: false, version: APP_VERSION, error: "people must be a positive number" });
+      return res
+        .status(400)
+        .json({ success: false, version: APP_VERSION, error: "people must be a positive number" });
     }
 
-    // date në DB është DATE -> cast
     const dateStr = String(r.date).trim(); // "YYYY-MM-DD"
     const status = people > MAX_AUTO_CONFIRM_PEOPLE ? "Pending" : "Confirmed";
     const reservation_id = r.reservation_id || crypto.randomUUID();
@@ -428,7 +462,7 @@ app.post("/reservations", requireApiKey, async (req, res) => {
       ]
     );
 
-    // ✅ SYNC INTO EVENTS (CORE) – pa prishur asgjë
+    // ✅ SYNC INTO EVENTS (CORE) – non-blocking
     try {
       await pool.query(
         `
@@ -439,7 +473,7 @@ app.post("/reservations", requireApiKey, async (req, res) => {
         `,
         [
           RESTAURANT_ID,
-          null, // customer_id (do e lidhim më vonë kur të kemi schema të saktë customers)
+          null, // customer_id (do e lidhim në hapin CRM)
           reservation_id,
           dateStr,
           String(r.time).trim(),
@@ -472,7 +506,6 @@ app.post("/reservations", requireApiKey, async (req, res) => {
   } catch (err) {
     console.error("❌ POST /reservations error:", err);
 
-    // ✅ Duplicate -> 409 (jo 500)
     if (err && err.code === "23505") {
       return res.status(409).json({
         success: false,
@@ -537,9 +570,13 @@ app.get("/reservations/upcoming", requireApiKey, async (req, res) => {
   try {
     const days = Math.min(Math.max(Number(req.query.days || 30), 1), 365);
 
-    const today = (await pool.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`)).rows[0].d;
+    const today = (
+      await pool.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`)
+    ).rows[0].d;
 
-    const end = (await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [today, days])).rows[0].d;
+    const end = (
+      await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [today, days])
+    ).rows[0].d;
 
     const result = await pool.query(
       `
@@ -589,7 +626,8 @@ app.get("/reservations/upcoming", requireApiKey, async (req, res) => {
 app.post("/reservations/:id/approve", requireApiKey, async (req, res) => {
   try {
     const id = Number(req.params.id);
-    if (!Number.isFinite(id)) return res.status(400).json({ success: false, version: APP_VERSION, error: "Invalid id" });
+    if (!Number.isFinite(id))
+      return res.status(400).json({ success: false, version: APP_VERSION, error: "Invalid id" });
 
     const result = await pool.query(
       `
@@ -607,14 +645,10 @@ app.post("/reservations/:id/approve", requireApiKey, async (req, res) => {
 
     const row = result.rows[0];
 
-    // ✅ sync events status
+    // sync events status (best-effort)
     try {
       await pool.query(
-        `
-        UPDATE public.events
-        SET status = 'Confirmed'
-        WHERE restaurant_id = $1 AND reservation_id = $2;
-        `,
+        `UPDATE public.events SET status='Confirmed' WHERE restaurant_id=$1 AND reservation_id=$2;`,
         [RESTAURANT_ID, row.reservation_id]
       );
     } catch (e) {
@@ -636,7 +670,8 @@ app.post("/reservations/:id/approve", requireApiKey, async (req, res) => {
 app.post("/reservations/:id/reject", requireApiKey, async (req, res) => {
   try {
     const id = Number(req.params.id);
-    if (!Number.isFinite(id)) return res.status(400).json({ success: false, version: APP_VERSION, error: "Invalid id" });
+    if (!Number.isFinite(id))
+      return res.status(400).json({ success: false, version: APP_VERSION, error: "Invalid id" });
 
     const result = await pool.query(
       `
@@ -654,14 +689,10 @@ app.post("/reservations/:id/reject", requireApiKey, async (req, res) => {
 
     const row = result.rows[0];
 
-    // ✅ sync events status
+    // sync events status (best-effort)
     try {
       await pool.query(
-        `
-        UPDATE public.events
-        SET status = 'Rejected'
-        WHERE restaurant_id = $1 AND reservation_id = $2;
-        `,
+        `UPDATE public.events SET status='Rejected' WHERE restaurant_id=$1 AND reservation_id=$2;`,
         [RESTAURANT_ID, row.reservation_id]
       );
     } catch (e) {
@@ -686,11 +717,14 @@ app.post("/reservations/:id/reject", requireApiKey, async (req, res) => {
 app.post("/feedback", requireApiKey, async (req, res) => {
   try {
     const phone = req.body?.phone;
-    if (!phone) return res.status(400).json({ success: false, version: APP_VERSION, error: "Missing field: phone" });
+    if (!phone)
+      return res.status(400).json({ success: false, version: APP_VERSION, error: "Missing field: phone" });
 
     const ratings = normalizeFeedbackRatings(req.body);
     if (Object.values(ratings).some((v) => v === null)) {
-      return res.status(400).json({ success: false, version: APP_VERSION, error: "Ratings must be numbers between 1 and 5" });
+      return res
+        .status(400)
+        .json({ success: false, version: APP_VERSION, error: "Ratings must be numbers between 1 and 5" });
     }
 
     const result = await pool.query(
@@ -765,7 +799,9 @@ app.get("/feedback", requireApiKey, async (req, res) => {
 // GET /reports/today
 app.get("/reports/today", requireApiKey, async (req, res) => {
   try {
-    const today = (await pool.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`)).rows[0].d;
+    const today = (
+      await pool.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`)
+    ).rows[0].d;
 
     // Reservations "today" = service date (date column)
     const reservations = await pool.query(
@@ -811,7 +847,8 @@ app.get("/reports/today", requireApiKey, async (req, res) => {
     const avgOfAvg =
       feedbackCount === 0
         ? null
-        : Math.round((feedbackRows.reduce((s, x) => s + Number(x.avg_rating), 0) / feedbackCount) * 10) / 10;
+        : Math.round((feedbackRows.reduce((s, x) => s + Number(x.avg_rating), 0) / feedbackCount) * 10) /
+          10;
 
     const fiveStars = feedbackCount === 0 ? 0 : feedbackRows.filter((x) => Number(x.avg_rating) >= 5).length;
     const fiveStarsPct = feedbackCount === 0 ? 0 : Math.round((fiveStars / feedbackCount) * 100);
