@@ -14,7 +14,7 @@ const RESTAURANT_ID = Number(process.env.RESTAURANT_ID || 2);
 const MAX_AUTO_CONFIRM_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 8);
 
 // ✅ version marker (ndryshoje kur bën deploy)
-const APP_VERSION = "v-2025-12-18-final";
+const APP_VERSION = "v-2025-12-19-events-core";
 
 // ==================== TIME HELPERS ====================
 function formatALDate(d) {
@@ -92,13 +92,72 @@ async function initDb() {
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS area TEXT;`);
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS first_time TEXT;`);
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS allergies TEXT DEFAULT '';`);
-    await pool.query(
-      `ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS special_requests TEXT DEFAULT '';`
-    );
+    await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS special_requests TEXT DEFAULT '';`);
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS raw JSON;`);
     await pool.query(
       `ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'Confirmed';`
     );
+
+    // ==================== EVENTS (CORE) ====================
+    // Krijo tabelën nëse mungon (safe)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS public.events (
+        id SERIAL PRIMARY KEY,
+
+        restaurant_id INTEGER NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
+        customer_id INTEGER NULL,
+
+        event_type VARCHAR(50) NOT NULL DEFAULT 'restaurant_reservation',
+        event_date DATE NOT NULL,
+        event_time TIME NOT NULL,
+
+        people INTEGER,
+        status VARCHAR(20) NOT NULL DEFAULT 'Pending',
+
+        source VARCHAR(50),
+        area VARCHAR(50),
+
+        allergies TEXT,
+        special_requests TEXT,
+        notes TEXT,
+
+        created_by VARCHAR(20) DEFAULT 'AI',
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    // Shtojmë një kolonë për link me reservations (që approve/reject të sinkronizohet)
+    await pool.query(`ALTER TABLE public.events ADD COLUMN IF NOT EXISTS reservation_id TEXT;`);
+
+    // FK për customer_id (nëse tabela customers ekziston) – safe try/catch
+    // (Nëse customers s'është e krijuar/ndryshe, nuk e bllokon deploy)
+    try {
+      await pool.query(`
+        ALTER TABLE public.events
+        ADD CONSTRAINT fk_events_customer
+        FOREIGN KEY (customer_id)
+        REFERENCES public.customers(id)
+        ON DELETE SET NULL;
+      `);
+    } catch (e) {
+      // ignore if already exists or customers table not compatible
+    }
+
+    // Index për shpejtësi
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_events_restaurant_date
+      ON public.events (restaurant_id, event_date);
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_events_status
+      ON public.events (status);
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_events_reservation_id
+      ON public.events (reservation_id);
+    `);
 
     console.log("✅ DB ready (migrations applied)");
   } catch (err) {
@@ -213,6 +272,97 @@ function normalizeFeedbackRatings(body) {
   };
 }
 
+// ==================== EVENTS (CORE) ====================
+
+// POST /events
+app.post("/events", requireApiKey, async (req, res) => {
+  try {
+    const b = req.body || {};
+
+    // required minimal
+    const required = ["event_date", "event_time"];
+    for (const f of required) {
+      if (!b[f]) return res.status(400).json({ success: false, version: APP_VERSION, error: `Missing field: ${f}` });
+    }
+
+    const restaurant_id = Number(b.restaurant_id || RESTAURANT_ID);
+    if (!Number.isFinite(restaurant_id)) {
+      return res.status(400).json({ success: false, version: APP_VERSION, error: "restaurant_id invalid" });
+    }
+
+    const people = b.people === undefined || b.people === null || b.people === "" ? null : Number(b.people);
+    if (people !== null && (!Number.isFinite(people) || people <= 0)) {
+      return res.status(400).json({ success: false, version: APP_VERSION, error: "people must be positive number" });
+    }
+
+    const status = b.status || "Pending";
+
+    const result = await pool.query(
+      `
+      INSERT INTO public.events
+      (restaurant_id, customer_id, reservation_id, event_type, event_date, event_time, people, status, source, area, allergies, special_requests, notes, created_by)
+      VALUES
+      ($1,$2,$3,$4,$5::date,$6::time,$7,$8,$9,$10,$11,$12,$13,$14)
+      RETURNING id, created_at;
+      `,
+      [
+        restaurant_id,
+        b.customer_id || null,
+        b.reservation_id || null,
+        b.event_type || "restaurant_reservation",
+        String(b.event_date).trim(),
+        String(b.event_time).trim(),
+        people,
+        status,
+        b.source || b.channel || null,
+        b.area || null,
+        b.allergies || "",
+        b.special_requests || "",
+        b.notes || "",
+        b.created_by || "AI",
+      ]
+    );
+
+    const row = result.rows[0];
+    return res.status(201).json({
+      success: true,
+      version: APP_VERSION,
+      data: { id: row.id, created_at: row.created_at, created_at_local: formatALDate(row.created_at) },
+    });
+  } catch (err) {
+    console.error("❌ POST /events error:", err);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message, code: err.code || null });
+  }
+});
+
+// GET /events?limit=10
+app.get("/events", requireApiKey, async (req, res) => {
+  try {
+    const limit = Math.min(Number(req.query.limit || 10), 50);
+
+    const result = await pool.query(
+      `
+      SELECT
+        id, restaurant_id, customer_id, reservation_id,
+        event_type, event_date, event_time, people,
+        status, source, area, allergies, special_requests, notes,
+        created_by, created_at
+      FROM public.events
+      WHERE restaurant_id = $1
+      ORDER BY created_at DESC
+      LIMIT $2;
+      `,
+      [RESTAURANT_ID, limit]
+    );
+
+    const rows = result.rows.map((x) => ({ ...x, created_at_local: formatALDate(x.created_at) }));
+    return res.json({ success: true, version: APP_VERSION, data: rows });
+  } catch (err) {
+    console.error("❌ GET /events error:", err);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
+  }
+});
+
 // ==================== RESERVATIONS ====================
 
 // POST /reservations
@@ -277,6 +427,35 @@ app.post("/reservations", requireApiKey, async (req, res) => {
         status,
       ]
     );
+
+    // ✅ SYNC INTO EVENTS (CORE) – pa prishur asgjë
+    try {
+      await pool.query(
+        `
+        INSERT INTO public.events
+        (restaurant_id, customer_id, reservation_id, event_type, event_date, event_time, people, status, source, area, allergies, special_requests, notes, created_by)
+        VALUES
+        ($1,$2,$3,'restaurant_reservation',$4::date,$5::time,$6,$7,$8,$9,$10,$11,$12,$13);
+        `,
+        [
+          RESTAURANT_ID,
+          null, // customer_id (do e lidhim më vonë kur të kemi schema të saktë customers)
+          reservation_id,
+          dateStr,
+          String(r.time).trim(),
+          people,
+          status,
+          r.channel || null,
+          r.area || null,
+          r.allergies || "",
+          r.special_requests || "",
+          "Synced from /reservations",
+          "AI",
+        ]
+      );
+    } catch (e) {
+      console.error("⚠️ Sync to events failed (non-blocking):", e.message);
+    }
 
     const row = result.rows[0];
     const httpStatus = status === "Pending" ? 202 : 201;
@@ -358,13 +537,9 @@ app.get("/reservations/upcoming", requireApiKey, async (req, res) => {
   try {
     const days = Math.min(Math.max(Number(req.query.days || 30), 1), 365);
 
-    const today = (
-      await pool.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`)
-    ).rows[0].d;
+    const today = (await pool.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`)).rows[0].d;
 
-    const end = (
-      await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [today, days])
-    ).rows[0].d;
+    const end = (await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [today, days])).rows[0].d;
 
     const result = await pool.query(
       `
@@ -431,6 +606,21 @@ app.post("/reservations/:id/approve", requireApiKey, async (req, res) => {
     }
 
     const row = result.rows[0];
+
+    // ✅ sync events status
+    try {
+      await pool.query(
+        `
+        UPDATE public.events
+        SET status = 'Confirmed'
+        WHERE restaurant_id = $1 AND reservation_id = $2;
+        `,
+        [RESTAURANT_ID, row.reservation_id]
+      );
+    } catch (e) {
+      console.error("⚠️ Sync approve to events failed (non-blocking):", e.message);
+    }
+
     return res.json({
       success: true,
       version: APP_VERSION,
@@ -463,6 +653,21 @@ app.post("/reservations/:id/reject", requireApiKey, async (req, res) => {
     }
 
     const row = result.rows[0];
+
+    // ✅ sync events status
+    try {
+      await pool.query(
+        `
+        UPDATE public.events
+        SET status = 'Rejected'
+        WHERE restaurant_id = $1 AND reservation_id = $2;
+        `,
+        [RESTAURANT_ID, row.reservation_id]
+      );
+    } catch (e) {
+      console.error("⚠️ Sync reject to events failed (non-blocking):", e.message);
+    }
+
     return res.json({
       success: true,
       version: APP_VERSION,
@@ -560,9 +765,7 @@ app.get("/feedback", requireApiKey, async (req, res) => {
 // GET /reports/today
 app.get("/reports/today", requireApiKey, async (req, res) => {
   try {
-    const today = (
-      await pool.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`)
-    ).rows[0].d;
+    const today = (await pool.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`)).rows[0].d;
 
     // Reservations "today" = service date (date column)
     const reservations = await pool.query(
