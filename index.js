@@ -14,7 +14,7 @@ const RESTAURANT_ID = Number(process.env.RESTAURANT_ID || 2);
 const MAX_AUTO_CONFIRM_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 8);
 
 // ✅ FINAL version marker
-const APP_VERSION = "v-2025-12-19-events-crm-final";
+const APP_VERSION = "v-2025-12-19-events-crm-final-fix1";
 
 // ==================== TIME HELPERS ====================
 function formatALDate(d) {
@@ -41,20 +41,28 @@ async function initDb() {
       );
     `);
 
-    // customers (CRM)
+    // customers (CRM) - create if missing
     await pool.query(`
       CREATE TABLE IF NOT EXISTS public.customers (
         id SERIAL PRIMARY KEY,
         restaurant_id INT NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
-        full_name TEXT NOT NULL DEFAULT '',
         phone TEXT NOT NULL,
-        visits_count INT NOT NULL DEFAULT 0,
-        last_visit_at TIMESTAMP NULL,
-        created_at TIMESTAMP DEFAULT NOW(),
-        CONSTRAINT unique_customer_phone_per_restaurant UNIQUE (restaurant_id, phone)
+        created_at TIMESTAMP DEFAULT NOW()
       );
     `);
 
+    // ✅ MIGRATIONS for existing customers table (safe)
+    await pool.query(`ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS full_name TEXT NOT NULL DEFAULT '';`);
+    await pool.query(`ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS visits_count INT NOT NULL DEFAULT 0;`);
+    await pool.query(`ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS last_visit_at TIMESTAMP NULL;`);
+
+    // ✅ Unique on (restaurant_id, phone) as unique index (works with ON CONFLICT (restaurant_id, phone))
+    await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_unique_phone
+      ON public.customers (restaurant_id, phone);
+    `);
+
+    // helpful indexes
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_customers_restaurant_visits
       ON public.customers (restaurant_id, visits_count DESC);
@@ -191,7 +199,6 @@ async function getOrCreateCustomer(restaurant_id, full_name, phone) {
   const p = String(phone || "").trim();
   if (!p) return null;
 
-  // Upsert by unique (restaurant_id, phone)
   const q = await pool.query(
     `
     INSERT INTO public.customers (restaurant_id, full_name, phone)
@@ -213,18 +220,12 @@ async function getOrCreateCustomer(restaurant_id, full_name, phone) {
 async function touchCustomerVisit(restaurant_id, customer_id, event_date, event_time) {
   if (!customer_id) return;
 
-  // event_date: YYYY-MM-DD, event_time: HH:MM or HH:MM:SS
-  // We compose a timestamp in Europe/Tirane (approx) by letting DB parse it.
-  // If parsing fails for any reason, we still increment visits_count.
   await pool.query(
     `
     UPDATE public.customers
     SET
       visits_count = visits_count + 1,
-      last_visit_at = COALESCE(
-        ( ($3::date + $4::time) ),
-        last_visit_at
-      )
+      last_visit_at = COALESCE((($3::date + $4::time)), last_visit_at)
     WHERE restaurant_id = $1 AND id = $2;
     `,
     [restaurant_id, customer_id, String(event_date).trim(), String(event_time).trim()]
@@ -402,7 +403,6 @@ app.post("/events", requireApiKey, async (req, res) => {
 
     const row = result.rows[0];
 
-    // ✅ update visit stats if customer exists
     if (customer_id) {
       try {
         await touchCustomerVisit(restaurant_id, customer_id, b.event_date, b.event_time);
@@ -459,54 +459,8 @@ app.get("/events", requireApiKey, async (req, res) => {
   }
 });
 
-// GET /events/upcoming?days=30
-app.get("/events/upcoming", requireApiKey, async (req, res) => {
-  try {
-    const days = Math.min(Math.max(Number(req.query.days || 30), 1), 365);
-
-    const today = (await pool.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`)).rows[0].d;
-    const end = (await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [today, days]))
-      .rows[0].d;
-
-    const result = await pool.query(
-      `
-      SELECT
-        e.id, e.restaurant_id, e.customer_id, e.reservation_id,
-        e.event_type, e.event_date, e.event_time, e.people,
-        e.status, e.source, e.area, e.allergies, e.special_requests, e.notes,
-        e.created_by, e.created_at,
-        c.full_name as customer_name,
-        c.phone as customer_phone,
-        c.visits_count as customer_visits
-      FROM public.events e
-      LEFT JOIN public.customers c ON c.id = e.customer_id
-      WHERE e.restaurant_id = $1
-        AND e.event_date::date >= $2::date
-        AND e.event_date::date <= $3::date
-      ORDER BY e.event_date ASC, e.event_time ASC, e.created_at ASC;
-      `,
-      [RESTAURANT_ID, today, end]
-    );
-
-    const rows = result.rows.map((x) => ({ ...x, created_at_local: formatALDate(x.created_at) }));
-
-    return res.json({
-      success: true,
-      version: APP_VERSION,
-      range: { from: today, to: end, days },
-      restaurant_id: RESTAURANT_ID,
-      count: rows.length,
-      data: rows,
-    });
-  } catch (err) {
-    console.error("❌ GET /events/upcoming error:", err);
-    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
-  }
-});
-
 // ==================== RESERVATIONS (legacy/compat) ====================
 
-// POST /reservations -> insert reservations + sync event + CRM visit
 app.post("/reservations", requireApiKey, async (req, res) => {
   try {
     const r = req.body || {};
@@ -522,8 +476,8 @@ app.post("/reservations", requireApiKey, async (req, res) => {
       return res.status(400).json({ success: false, version: APP_VERSION, error: "people must be a positive number" });
     }
 
-    const dateStr = String(r.date).trim(); // YYYY-MM-DD
-    const timeStr = String(r.time).trim(); // HH:MM
+    const dateStr = String(r.date).trim();
+    const timeStr = String(r.time).trim();
     const status = people > MAX_AUTO_CONFIRM_PEOPLE ? "Pending" : "Confirmed";
     const reservation_id = r.reservation_id || crypto.randomUUID();
 
@@ -572,7 +526,7 @@ app.post("/reservations", requireApiKey, async (req, res) => {
       ]
     );
 
-    // ✅ Sync into events (CORE) with customer_id
+    // ✅ Sync event with customer_id
     try {
       await pool.query(
         `
@@ -601,7 +555,7 @@ app.post("/reservations", requireApiKey, async (req, res) => {
       console.error("⚠️ Sync to events failed (non-blocking):", e.message);
     }
 
-    // ✅ Update customer visit stats
+    // ✅ Update visit stats
     if (customer_id) {
       try {
         await touchCustomerVisit(RESTAURANT_ID, customer_id, dateStr, timeStr);
@@ -641,248 +595,6 @@ app.post("/reservations", requireApiKey, async (req, res) => {
       error: err.message,
       code: err.code || null,
     });
-  }
-});
-
-// GET /reservations?limit=10
-app.get("/reservations", requireApiKey, async (req, res) => {
-  try {
-    const limit = Math.min(Number(req.query.limit || 10), 50);
-
-    const result = await pool.query(
-      `
-      SELECT
-        id,
-        restaurant_id,
-        reservation_id,
-        restaurant_name,
-        customer_name,
-        phone,
-        date,
-        time,
-        people,
-        channel,
-        area,
-        first_time,
-        allergies,
-        special_requests,
-        status,
-        created_at
-      FROM public.reservations
-      WHERE restaurant_id = $1
-      ORDER BY created_at DESC
-      LIMIT $2;
-      `,
-      [RESTAURANT_ID, limit]
-    );
-
-    const rows = result.rows.map((x) => ({ ...x, created_at_local: formatALDate(x.created_at) }));
-    return res.json({ success: true, version: APP_VERSION, data: rows });
-  } catch (err) {
-    console.error("❌ GET /reservations error:", err);
-    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
-  }
-});
-
-// ==================== FEEDBACK ====================
-
-function toInt1to5(x) {
-  const n = Number(x);
-  if (!Number.isFinite(n)) return null;
-  const i = Math.trunc(n);
-  if (i < 1 || i > 5) return null;
-  return i;
-}
-
-function normalizeFeedbackRatings(body) {
-  let loc = body.location_rating;
-  let hos = body.hospitality_rating;
-  let food = body.food_rating;
-  let price = body.price_rating;
-
-  if (
-    (loc === undefined || hos === undefined || food === undefined || price === undefined) &&
-    body.ratings &&
-    typeof body.ratings === "object"
-  ) {
-    loc = loc ?? body.ratings.location;
-    hos = hos ?? body.ratings.hospitality;
-    food = food ?? body.ratings.food;
-    price = price ?? body.ratings.price;
-  }
-
-  const single = body.rating ?? body.ratings;
-  if (
-    (loc === undefined || hos === undefined || food === undefined || price === undefined) &&
-    (typeof single === "number" || typeof single === "string")
-  ) {
-    loc = loc ?? single;
-    hos = hos ?? single;
-    food = food ?? single;
-    price = price ?? single;
-  }
-
-  return {
-    location_rating: toInt1to5(loc),
-    hospitality_rating: toInt1to5(hos),
-    food_rating: toInt1to5(food),
-    price_rating: toInt1to5(price),
-  };
-}
-
-app.post("/feedback", requireApiKey, async (req, res) => {
-  try {
-    const phone = req.body?.phone;
-    if (!phone) return res.status(400).json({ success: false, version: APP_VERSION, error: "Missing field: phone" });
-
-    const ratings = normalizeFeedbackRatings(req.body);
-    if (Object.values(ratings).some((v) => v === null)) {
-      return res.status(400).json({ success: false, version: APP_VERSION, error: "Ratings must be numbers between 1 and 5" });
-    }
-
-    const result = await pool.query(
-      `
-      INSERT INTO public.feedback
-        (restaurant_id, restaurant_name, phone,
-         location_rating, hospitality_rating, food_rating, price_rating, comment)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-      RETURNING id, created_at;
-      `,
-      [
-        RESTAURANT_ID,
-        "Te Ta Gastronomi",
-        phone,
-        ratings.location_rating,
-        ratings.hospitality_rating,
-        ratings.food_rating,
-        ratings.price_rating,
-        req.body.comment || "",
-      ]
-    );
-
-    const row = result.rows[0];
-    return res.status(201).json({
-      success: true,
-      version: APP_VERSION,
-      data: { ...row, created_at_local: formatALDate(row.created_at) },
-    });
-  } catch (err) {
-    console.error("❌ POST /feedback error:", err);
-    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
-  }
-});
-
-app.get("/feedback", requireApiKey, async (req, res) => {
-  try {
-    const limit = Math.min(Number(req.query.limit || 20), 100);
-
-    const result = await pool.query(
-      `
-      SELECT
-        id,
-        restaurant_id,
-        restaurant_name,
-        phone,
-        location_rating,
-        hospitality_rating,
-        food_rating,
-        price_rating,
-        ROUND((location_rating + hospitality_rating + food_rating + price_rating) / 4.0, 1) AS avg_rating,
-        comment,
-        created_at
-      FROM public.feedback
-      WHERE restaurant_id = $1
-      ORDER BY created_at DESC
-      LIMIT $2;
-      `,
-      [RESTAURANT_ID, limit]
-    );
-
-    const rows = result.rows.map((x) => ({ ...x, created_at_local: formatALDate(x.created_at) }));
-    return res.json({ success: true, version: APP_VERSION, data: rows });
-  } catch (err) {
-    console.error("❌ GET /feedback error:", err);
-    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
-  }
-});
-
-// ==================== REPORTS ====================
-
-// GET /reports/today (events + feedback)
-app.get("/reports/today", requireApiKey, async (req, res) => {
-  try {
-    const today = (await pool.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`)).rows[0].d;
-
-    const eventsQ = await pool.query(
-      `
-      SELECT
-        e.id, e.restaurant_id, e.customer_id, e.reservation_id,
-        e.event_type, e.event_date, e.event_time, e.people,
-        e.status, e.source, e.area, e.allergies, e.special_requests, e.notes,
-        e.created_by, e.created_at,
-        c.full_name as customer_name,
-        c.phone as customer_phone,
-        c.visits_count as customer_visits
-      FROM public.events e
-      LEFT JOIN public.customers c ON c.id = e.customer_id
-      WHERE e.restaurant_id = $1
-        AND e.event_date::date = $2::date
-      ORDER BY e.event_time ASC, e.created_at ASC;
-      `,
-      [RESTAURANT_ID, today]
-    );
-
-    const eventsRows = eventsQ.rows.map((x) => ({ ...x, created_at_local: formatALDate(x.created_at) }));
-
-    const total = eventsRows.length;
-    const confirmed = eventsRows.filter((x) => x.status === "Confirmed").length;
-    const pending = eventsRows.filter((x) => x.status === "Pending").length;
-    const rejected = eventsRows.filter((x) => x.status === "Rejected").length;
-    const totalPeople = eventsRows.reduce((s, x) => s + (Number(x.people) || 0), 0);
-
-    const feedback = await pool.query(
-      `
-      SELECT
-        id, restaurant_id, restaurant_name, phone,
-        location_rating, hospitality_rating, food_rating, price_rating,
-        ROUND((location_rating + hospitality_rating + food_rating + price_rating) / 4.0, 1) AS avg_rating,
-        comment, created_at
-      FROM public.feedback
-      WHERE restaurant_id = $1
-        AND (created_at AT TIME ZONE 'Europe/Tirane')::date = $2::date
-      ORDER BY created_at DESC;
-      `,
-      [RESTAURANT_ID, today]
-    );
-
-    const feedbackRows = feedback.rows.map((f) => ({ ...f, created_at_local: formatALDate(f.created_at) }));
-
-    const feedbackCount = feedbackRows.length;
-    const avgOfAvg =
-      feedbackCount === 0
-        ? null
-        : Math.round((feedbackRows.reduce((s, x) => s + Number(x.avg_rating), 0) / feedbackCount) * 10) / 10;
-
-    return res.json({
-      success: true,
-      version: APP_VERSION,
-      date_local: today,
-      restaurant_id: RESTAURANT_ID,
-      summary: {
-        events_today: total,
-        confirmed,
-        pending,
-        rejected,
-        total_people: totalPeople,
-        feedback_today: feedbackCount,
-        avg_rating_today: avgOfAvg,
-      },
-      events: eventsRows,
-      feedback: feedbackRows,
-    });
-  } catch (err) {
-    console.error("❌ GET /reports/today error:", err);
-    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
   }
 });
 
