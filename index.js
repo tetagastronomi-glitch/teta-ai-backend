@@ -13,8 +13,8 @@ app.use(express.json({ limit: "1mb" }));
 const RESTAURANT_ID = Number(process.env.RESTAURANT_ID || 2);
 const MAX_AUTO_CONFIRM_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 8);
 
-// ✅ version marker (ndryshoje kur bën deploy)
-const APP_VERSION = "v-2025-12-19-events-core-3";
+// ✅ FINAL version marker
+const APP_VERSION = "v-2025-12-19-events-final";
 
 // ==================== TIME HELPERS ====================
 function formatALDate(d) {
@@ -127,7 +127,7 @@ async function initDb() {
       );
     `);
 
-    // Indexes (shpejtësi)
+    // Indexes
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_events_restaurant_date
       ON public.events (restaurant_id, event_date);
@@ -177,8 +177,6 @@ app.get("/health/db", requireApiKey, async (req, res) => {
 });
 
 // ==================== DEBUG ====================
-
-// Debug schema (vetëm me api-key)
 app.get("/debug/reservations-schema", requireApiKey, async (req, res) => {
   const q = await pool.query(`
     SELECT column_name, data_type, is_nullable
@@ -189,7 +187,6 @@ app.get("/debug/reservations-schema", requireApiKey, async (req, res) => {
   res.json({ success: true, version: APP_VERSION, columns: q.rows });
 });
 
-// Debug constraints
 app.get("/debug/reservations-constraints", requireApiKey, async (req, res) => {
   try {
     const q = await pool.query(`
@@ -354,8 +351,8 @@ app.get("/events/upcoming", requireApiKey, async (req, res) => {
     const days = Math.min(Math.max(Number(req.query.days || 30), 1), 365);
 
     const today = (await pool.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`)).rows[0].d;
-    const end = (await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [today, days])).rows[0]
-      .d;
+    const end = (await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [today, days]))
+      .rows[0].d;
 
     const result = await pool.query(
       `
@@ -391,7 +388,7 @@ app.get("/events/upcoming", requireApiKey, async (req, res) => {
 
 // ==================== RESERVATIONS ====================
 
-// POST /reservations
+// POST /reservations  (auto Pending if > MAX)
 app.post("/reservations", requireApiKey, async (req, res) => {
   try {
     const r = req.body || {};
@@ -407,7 +404,7 @@ app.post("/reservations", requireApiKey, async (req, res) => {
       return res.status(400).json({ success: false, version: APP_VERSION, error: "people must be a positive number" });
     }
 
-    const dateStr = String(r.date).trim(); // "YYYY-MM-DD"
+    const dateStr = String(r.date).trim(); // YYYY-MM-DD
     const status = people > MAX_AUTO_CONFIRM_PEOPLE ? "Pending" : "Confirmed";
     const reservation_id = r.reservation_id || crypto.randomUUID();
 
@@ -561,8 +558,8 @@ app.get("/reservations/upcoming", requireApiKey, async (req, res) => {
     const days = Math.min(Math.max(Number(req.query.days || 30), 1), 365);
 
     const today = (await pool.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`)).rows[0].d;
-    const end = (await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [today, days])).rows[0]
-      .d;
+    const end = (await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [today, days]))
+      .rows[0].d;
 
     const result = await pool.query(
       `
@@ -608,7 +605,7 @@ app.get("/reservations/upcoming", requireApiKey, async (req, res) => {
   }
 });
 
-// Owner actions: approve/reject (manual)
+// Owner approve/reject (manual) + sync to events
 app.post("/reservations/:id/approve", requireApiKey, async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -630,7 +627,6 @@ app.post("/reservations/:id/approve", requireApiKey, async (req, res) => {
 
     const row = result.rows[0];
 
-    // sync events status (best-effort)
     try {
       await pool.query(`UPDATE public.events SET status='Confirmed' WHERE restaurant_id=$1 AND reservation_id=$2;`, [
         RESTAURANT_ID,
@@ -673,7 +669,6 @@ app.post("/reservations/:id/reject", requireApiKey, async (req, res) => {
 
     const row = result.rows[0];
 
-    // sync events status (best-effort)
     try {
       await pool.query(`UPDATE public.events SET status='Rejected' WHERE restaurant_id=$1 AND reservation_id=$2;`, [
         RESTAURANT_ID,
@@ -696,8 +691,6 @@ app.post("/reservations/:id/reject", requireApiKey, async (req, res) => {
 });
 
 // ==================== FEEDBACK ====================
-
-// POST /feedback
 app.post("/feedback", requireApiKey, async (req, res) => {
   try {
     const phone = req.body?.phone;
@@ -740,7 +733,6 @@ app.post("/feedback", requireApiKey, async (req, res) => {
   }
 });
 
-// GET /feedback?limit=20
 app.get("/feedback", requireApiKey, async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 20), 100);
@@ -777,30 +769,39 @@ app.get("/feedback", requireApiKey, async (req, res) => {
 
 // ==================== REPORTS ====================
 
-// GET /reports/today  (legacy: reservations + feedback)
+// ✅ FINAL: GET /reports/today (events + feedback)
 app.get("/reports/today", requireApiKey, async (req, res) => {
   try {
     const today = (await pool.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`)).rows[0].d;
 
-    const reservations = await pool.query(
+    // events today
+    const eventsQ = await pool.query(
       `
       SELECT
-        id, restaurant_id, reservation_id, restaurant_name,
-        customer_name, phone, date, time, people, channel, area,
-        first_time, allergies, special_requests, status, created_at
-      FROM public.reservations
+        id, restaurant_id, reservation_id,
+        event_type, event_date, event_time, people,
+        status, source, area, allergies, special_requests, notes,
+        created_by, created_at
+      FROM public.events
       WHERE restaurant_id = $1
-        AND date::date = $2::date
-      ORDER BY time ASC;
+        AND event_date::date = $2::date
+      ORDER BY event_time ASC, created_at ASC;
       `,
       [RESTAURANT_ID, today]
     );
 
-    const reservationsRows = reservations.rows.map((x) => ({
+    const eventsRows = eventsQ.rows.map((x) => ({
       ...x,
       created_at_local: formatALDate(x.created_at),
     }));
 
+    const total = eventsRows.length;
+    const confirmed = eventsRows.filter((x) => x.status === "Confirmed").length;
+    const pending = eventsRows.filter((x) => x.status === "Pending").length;
+    const rejected = eventsRows.filter((x) => x.status === "Rejected").length;
+    const totalPeople = eventsRows.reduce((s, x) => s + (Number(x.people) || 0), 0);
+
+    // feedback today
     const feedback = await pool.query(
       `
       SELECT
@@ -836,13 +837,18 @@ app.get("/reports/today", requireApiKey, async (req, res) => {
       date_local: today,
       restaurant_id: RESTAURANT_ID,
       summary: {
-        reservations_today: reservationsRows.length,
+        events_today: total,
+        confirmed,
+        pending,
+        rejected,
+        total_people: totalPeople,
+
         feedback_today: feedbackCount,
         avg_rating_today: avgOfAvg,
         five_star_feedback_today: fiveStars,
         five_star_pct_today: fiveStarsPct,
       },
-      reservations: reservationsRows,
+      events: eventsRows,
       feedback: feedbackRows,
     });
   } catch (err) {
@@ -851,7 +857,7 @@ app.get("/reports/today", requireApiKey, async (req, res) => {
   }
 });
 
-// ✅ GET /reports/today-events (CORE: events only)
+// GET /reports/today-events (events only)
 app.get("/reports/today-events", requireApiKey, async (req, res) => {
   try {
     const today = (await pool.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`)).rows[0].d;
