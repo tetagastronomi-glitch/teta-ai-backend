@@ -14,7 +14,7 @@ const RESTAURANT_ID = Number(process.env.RESTAURANT_ID || 2);
 const MAX_AUTO_CONFIRM_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 8);
 
 // ✅ version marker (ndryshoje kur bën deploy)
-const APP_VERSION = "v-2025-12-19-events-core-2";
+const APP_VERSION = "v-2025-12-19-events-core-3";
 
 // ==================== TIME HELPERS ====================
 function formatALDate(d) {
@@ -127,7 +127,7 @@ async function initDb() {
       );
     `);
 
-    // Index për shpejtësi
+    // Indexes (shpejtësi)
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_events_restaurant_date
       ON public.events (restaurant_id, event_date);
@@ -189,7 +189,7 @@ app.get("/debug/reservations-schema", requireApiKey, async (req, res) => {
   res.json({ success: true, version: APP_VERSION, columns: q.rows });
 });
 
-// Debug constraints (p.sh. unique_reservation)
+// Debug constraints
 app.get("/debug/reservations-constraints", requireApiKey, async (req, res) => {
   try {
     const q = await pool.query(`
@@ -263,11 +263,11 @@ app.post("/events", requireApiKey, async (req, res) => {
   try {
     const b = req.body || {};
 
-    // required minimal
     const required = ["event_date", "event_time"];
     for (const f of required) {
-      if (!b[f])
+      if (!b[f]) {
         return res.status(400).json({ success: false, version: APP_VERSION, error: `Missing field: ${f}` });
+      }
     }
 
     const restaurant_id = Number(b.restaurant_id || RESTAURANT_ID);
@@ -275,8 +275,7 @@ app.post("/events", requireApiKey, async (req, res) => {
       return res.status(400).json({ success: false, version: APP_VERSION, error: "restaurant_id invalid" });
     }
 
-    const people =
-      b.people === undefined || b.people === null || b.people === "" ? null : Number(b.people);
+    const people = b.people === undefined || b.people === null || b.people === "" ? null : Number(b.people);
     if (people !== null && (!Number.isFinite(people) || people <= 0)) {
       return res.status(400).json({ success: false, version: APP_VERSION, error: "people must be positive number" });
     }
@@ -349,18 +348,14 @@ app.get("/events", requireApiKey, async (req, res) => {
   }
 });
 
-// ✅ GET /events/upcoming?days=30  (CORE)
+// GET /events/upcoming?days=30
 app.get("/events/upcoming", requireApiKey, async (req, res) => {
   try {
     const days = Math.min(Math.max(Number(req.query.days || 30), 1), 365);
 
-    const today = (
-      await pool.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`)
-    ).rows[0].d;
-
-    const end = (
-      await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [today, days])
-    ).rows[0].d;
+    const today = (await pool.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`)).rows[0].d;
+    const end = (await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [today, days])).rows[0]
+      .d;
 
     const result = await pool.query(
       `
@@ -397,24 +392,19 @@ app.get("/events/upcoming", requireApiKey, async (req, res) => {
 // ==================== RESERVATIONS ====================
 
 // POST /reservations
-// Rule: if people > MAX_AUTO_CONFIRM_PEOPLE => Pending
 app.post("/reservations", requireApiKey, async (req, res) => {
   try {
     const r = req.body || {};
     const required = ["customer_name", "phone", "date", "time", "people"];
     for (const f of required) {
       if (r[f] === undefined || r[f] === null || r[f] === "") {
-        return res
-          .status(400)
-          .json({ success: false, version: APP_VERSION, error: `Missing field: ${f}` });
+        return res.status(400).json({ success: false, version: APP_VERSION, error: `Missing field: ${f}` });
       }
     }
 
     const people = Number(r.people);
     if (!Number.isFinite(people) || people <= 0) {
-      return res
-        .status(400)
-        .json({ success: false, version: APP_VERSION, error: "people must be a positive number" });
+      return res.status(400).json({ success: false, version: APP_VERSION, error: "people must be a positive number" });
     }
 
     const dateStr = String(r.date).trim(); // "YYYY-MM-DD"
@@ -457,12 +447,12 @@ app.post("/reservations", requireApiKey, async (req, res) => {
         r.first_time || null,
         r.allergies || "",
         r.special_requests || "",
-        r, // raw json
+        r,
         status,
       ]
     );
 
-    // ✅ SYNC INTO EVENTS (CORE) – non-blocking
+    // ✅ Sync into events (non-blocking)
     try {
       await pool.query(
         `
@@ -473,7 +463,7 @@ app.post("/reservations", requireApiKey, async (req, res) => {
         `,
         [
           RESTAURANT_ID,
-          null, // customer_id (do e lidhim në hapin CRM)
+          null,
           reservation_id,
           dateStr,
           String(r.time).trim(),
@@ -570,13 +560,9 @@ app.get("/reservations/upcoming", requireApiKey, async (req, res) => {
   try {
     const days = Math.min(Math.max(Number(req.query.days || 30), 1), 365);
 
-    const today = (
-      await pool.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`)
-    ).rows[0].d;
-
-    const end = (
-      await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [today, days])
-    ).rows[0].d;
+    const today = (await pool.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`)).rows[0].d;
+    const end = (await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [today, days])).rows[0]
+      .d;
 
     const result = await pool.query(
       `
@@ -626,8 +612,7 @@ app.get("/reservations/upcoming", requireApiKey, async (req, res) => {
 app.post("/reservations/:id/approve", requireApiKey, async (req, res) => {
   try {
     const id = Number(req.params.id);
-    if (!Number.isFinite(id))
-      return res.status(400).json({ success: false, version: APP_VERSION, error: "Invalid id" });
+    if (!Number.isFinite(id)) return res.status(400).json({ success: false, version: APP_VERSION, error: "Invalid id" });
 
     const result = await pool.query(
       `
@@ -647,10 +632,10 @@ app.post("/reservations/:id/approve", requireApiKey, async (req, res) => {
 
     // sync events status (best-effort)
     try {
-      await pool.query(
-        `UPDATE public.events SET status='Confirmed' WHERE restaurant_id=$1 AND reservation_id=$2;`,
-        [RESTAURANT_ID, row.reservation_id]
-      );
+      await pool.query(`UPDATE public.events SET status='Confirmed' WHERE restaurant_id=$1 AND reservation_id=$2;`, [
+        RESTAURANT_ID,
+        row.reservation_id,
+      ]);
     } catch (e) {
       console.error("⚠️ Sync approve to events failed (non-blocking):", e.message);
     }
@@ -670,8 +655,7 @@ app.post("/reservations/:id/approve", requireApiKey, async (req, res) => {
 app.post("/reservations/:id/reject", requireApiKey, async (req, res) => {
   try {
     const id = Number(req.params.id);
-    if (!Number.isFinite(id))
-      return res.status(400).json({ success: false, version: APP_VERSION, error: "Invalid id" });
+    if (!Number.isFinite(id)) return res.status(400).json({ success: false, version: APP_VERSION, error: "Invalid id" });
 
     const result = await pool.query(
       `
@@ -691,10 +675,10 @@ app.post("/reservations/:id/reject", requireApiKey, async (req, res) => {
 
     // sync events status (best-effort)
     try {
-      await pool.query(
-        `UPDATE public.events SET status='Rejected' WHERE restaurant_id=$1 AND reservation_id=$2;`,
-        [RESTAURANT_ID, row.reservation_id]
-      );
+      await pool.query(`UPDATE public.events SET status='Rejected' WHERE restaurant_id=$1 AND reservation_id=$2;`, [
+        RESTAURANT_ID,
+        row.reservation_id,
+      ]);
     } catch (e) {
       console.error("⚠️ Sync reject to events failed (non-blocking):", e.message);
     }
@@ -717,14 +701,11 @@ app.post("/reservations/:id/reject", requireApiKey, async (req, res) => {
 app.post("/feedback", requireApiKey, async (req, res) => {
   try {
     const phone = req.body?.phone;
-    if (!phone)
-      return res.status(400).json({ success: false, version: APP_VERSION, error: "Missing field: phone" });
+    if (!phone) return res.status(400).json({ success: false, version: APP_VERSION, error: "Missing field: phone" });
 
     const ratings = normalizeFeedbackRatings(req.body);
     if (Object.values(ratings).some((v) => v === null)) {
-      return res
-        .status(400)
-        .json({ success: false, version: APP_VERSION, error: "Ratings must be numbers between 1 and 5" });
+      return res.status(400).json({ success: false, version: APP_VERSION, error: "Ratings must be numbers between 1 and 5" });
     }
 
     const result = await pool.query(
@@ -796,14 +777,11 @@ app.get("/feedback", requireApiKey, async (req, res) => {
 
 // ==================== REPORTS ====================
 
-// GET /reports/today
+// GET /reports/today  (legacy: reservations + feedback)
 app.get("/reports/today", requireApiKey, async (req, res) => {
   try {
-    const today = (
-      await pool.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`)
-    ).rows[0].d;
+    const today = (await pool.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`)).rows[0].d;
 
-    // Reservations "today" = service date (date column)
     const reservations = await pool.query(
       `
       SELECT
@@ -847,8 +825,7 @@ app.get("/reports/today", requireApiKey, async (req, res) => {
     const avgOfAvg =
       feedbackCount === 0
         ? null
-        : Math.round((feedbackRows.reduce((s, x) => s + Number(x.avg_rating), 0) / feedbackCount) * 10) /
-          10;
+        : Math.round((feedbackRows.reduce((s, x) => s + Number(x.avg_rating), 0) / feedbackCount) * 10) / 10;
 
     const fiveStars = feedbackCount === 0 ? 0 : feedbackRows.filter((x) => Number(x.avg_rating) >= 5).length;
     const fiveStarsPct = feedbackCount === 0 ? 0 : Math.round((fiveStars / feedbackCount) * 100);
@@ -870,6 +847,54 @@ app.get("/reports/today", requireApiKey, async (req, res) => {
     });
   } catch (err) {
     console.error("❌ GET /reports/today error:", err);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
+  }
+});
+
+// ✅ GET /reports/today-events (CORE: events only)
+app.get("/reports/today-events", requireApiKey, async (req, res) => {
+  try {
+    const today = (await pool.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`)).rows[0].d;
+
+    const eventsQ = await pool.query(
+      `
+      SELECT
+        id, restaurant_id, reservation_id,
+        event_type, event_date, event_time, people,
+        status, source, area, allergies, special_requests, notes,
+        created_by, created_at
+      FROM public.events
+      WHERE restaurant_id = $1
+        AND event_date::date = $2::date
+      ORDER BY event_time ASC, created_at ASC;
+      `,
+      [RESTAURANT_ID, today]
+    );
+
+    const rows = eventsQ.rows.map((x) => ({ ...x, created_at_local: formatALDate(x.created_at) }));
+
+    const total = rows.length;
+    const confirmed = rows.filter((x) => x.status === "Confirmed").length;
+    const pending = rows.filter((x) => x.status === "Pending").length;
+    const rejected = rows.filter((x) => x.status === "Rejected").length;
+    const totalPeople = rows.reduce((s, x) => s + (Number(x.people) || 0), 0);
+
+    return res.json({
+      success: true,
+      version: APP_VERSION,
+      date_local: today,
+      restaurant_id: RESTAURANT_ID,
+      summary: {
+        events_today: total,
+        confirmed,
+        pending,
+        rejected,
+        total_people: totalPeople,
+      },
+      data: rows,
+    });
+  } catch (err) {
+    console.error("❌ GET /reports/today-events error:", err);
     return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
   }
 });
