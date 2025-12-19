@@ -13,7 +13,9 @@ app.use(express.json({ limit: "1mb" }));
 // ==================== CONFIG ====================
 const RESTAURANT_ID = Number(process.env.RESTAURANT_ID || 2);
 const MAX_AUTO_CONFIRM_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 8);
-const APP_VERSION = "v-2025-12-19-core-events-crm-pro-FINAL";
+const DEFAULT_RESTAURANT_NAME = process.env.RESTAURANT_NAME || "Te Ta Gastronomi";
+
+const APP_VERSION = "v-2025-12-19-core-events-crm-pro-FINAL-2";
 
 // ==================== HELPERS ====================
 function formatALDate(d) {
@@ -52,7 +54,6 @@ function isValidYMD(s) {
 }
 
 function isValidTime(s) {
-  // HH:MM or HH:MM:SS
   return /^\d{2}:\d{2}(:\d{2})?$/.test(String(s || "").trim());
 }
 
@@ -68,7 +69,7 @@ function requireApiKey(req, res, next) {
 // ==================== INIT / MIGRATIONS (BULLETPROOF) ====================
 async function initDb() {
   try {
-    // 1) restaurants
+    // restaurants
     await pool.query(`
       CREATE TABLE IF NOT EXISTS public.restaurants (
         id SERIAL PRIMARY KEY,
@@ -77,7 +78,7 @@ async function initDb() {
       );
     `);
 
-    // 2) customers (CRM) - create minimal first
+    // customers (create minimal)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS public.customers (
         id SERIAL PRIMARY KEY,
@@ -86,18 +87,27 @@ async function initDb() {
       );
     `);
 
-    // --- customers migrations (cover ALL missing columns cases)
+    // customers migrations (covers old schemas)
+    await pool.query(`ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS restaurant_name TEXT;`);
+    await pool.query(`ALTER TABLE public.customers ALTER COLUMN restaurant_name SET DEFAULT '${DEFAULT_RESTAURANT_NAME.replace(/'/g, "''")}';`);
+    await pool.query(`UPDATE public.customers SET restaurant_name='${DEFAULT_RESTAURANT_NAME.replace(/'/g, "''")}' WHERE restaurant_name IS NULL;`);
+
+    // If DB has NOT NULL constraint, enforce it safely after fill
+    try {
+      await pool.query(`ALTER TABLE public.customers ALTER COLUMN restaurant_name SET NOT NULL;`);
+    } catch (_) {
+      // ignore (some DBs might not allow if column missing in older versions)
+    }
+
     await pool.query(`ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS full_name TEXT NOT NULL DEFAULT '';`);
     await pool.query(`ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS visits_count INT NOT NULL DEFAULT 0;`);
     await pool.query(`ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS last_visit_at TIMESTAMP NULL;`);
     await pool.query(`ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS last_source TEXT NULL;`);
     await pool.query(`ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT '';`);
     await pool.query(`ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();`);
-
-    // Backfill created_at if it exists but has NULLs
     await pool.query(`UPDATE public.customers SET created_at = NOW() WHERE created_at IS NULL;`);
 
-    // Unique index needed for ON CONFLICT (restaurant_id, phone)
+    // Unique index for upsert
     await pool.query(`
       CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_unique_phone
       ON public.customers (restaurant_id, phone);
@@ -113,12 +123,12 @@ async function initDb() {
       ON public.customers (restaurant_id, last_visit_at DESC);
     `);
 
-    // 3) feedback
+    // feedback
     await pool.query(`
       CREATE TABLE IF NOT EXISTS public.feedback (
         id SERIAL PRIMARY KEY,
         restaurant_id INT NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
-        restaurant_name TEXT NOT NULL DEFAULT 'Te Ta Gastronomi',
+        restaurant_name TEXT NOT NULL DEFAULT '${DEFAULT_RESTAURANT_NAME.replace(/'/g, "''")}',
         phone TEXT NOT NULL,
 
         location_rating INT NOT NULL CHECK (location_rating BETWEEN 1 AND 5),
@@ -131,13 +141,13 @@ async function initDb() {
       );
     `);
 
-    // 4) reservations (legacy)
+    // reservations (legacy)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS public.reservations (
         id SERIAL PRIMARY KEY,
         restaurant_id INT REFERENCES public.restaurants(id) ON DELETE CASCADE,
         reservation_id TEXT,
-        restaurant_name TEXT NOT NULL DEFAULT 'Te Ta Gastronomi',
+        restaurant_name TEXT NOT NULL DEFAULT '${DEFAULT_RESTAURANT_NAME.replace(/'/g, "''")}',
         customer_name TEXT NOT NULL,
         phone TEXT NOT NULL,
         date DATE NOT NULL,
@@ -154,10 +164,10 @@ async function initDb() {
       );
     `);
 
-    // reservations safe migrations
+    // reservations migrations
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS restaurant_id INT;`);
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS reservation_id TEXT;`);
-    await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS restaurant_name TEXT NOT NULL DEFAULT 'Te Ta Gastronomi';`);
+    await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS restaurant_name TEXT NOT NULL DEFAULT '${DEFAULT_RESTAURANT_NAME.replace(/'/g, "''")}';`);
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS channel TEXT;`);
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS area TEXT;`);
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS first_time TEXT;`);
@@ -167,7 +177,7 @@ async function initDb() {
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'Confirmed';`);
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();`);
 
-    // 5) events (CORE)
+    // events (core)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS public.events (
         id SERIAL PRIMARY KEY,
@@ -195,7 +205,7 @@ async function initDb() {
       );
     `);
 
-    // events safe migrations (in case it existed older)
+    // events migrations
     await pool.query(`ALTER TABLE public.events ADD COLUMN IF NOT EXISTS customer_id INTEGER NULL;`);
     await pool.query(`ALTER TABLE public.events ADD COLUMN IF NOT EXISTS reservation_id TEXT NULL;`);
     await pool.query(`ALTER TABLE public.events ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();`);
@@ -224,10 +234,11 @@ async function getOrCreateCustomer({ restaurant_id, full_name, phone, source }) 
 
   const q = await pool.query(
     `
-    INSERT INTO public.customers (restaurant_id, full_name, phone, last_source)
-    VALUES ($1, $2, $3, $4)
+    INSERT INTO public.customers (restaurant_id, restaurant_name, full_name, phone, last_source)
+    VALUES ($1, $2, $3, $4, $5)
     ON CONFLICT (restaurant_id, phone)
     DO UPDATE SET
+      restaurant_name = EXCLUDED.restaurant_name,
       full_name = CASE
         WHEN public.customers.full_name = '' AND EXCLUDED.full_name <> '' THEN EXCLUDED.full_name
         ELSE public.customers.full_name
@@ -236,9 +247,9 @@ async function getOrCreateCustomer({ restaurant_id, full_name, phone, source }) 
         WHEN EXCLUDED.last_source <> '' THEN EXCLUDED.last_source
         ELSE public.customers.last_source
       END
-    RETURNING id, restaurant_id, full_name, phone, visits_count, last_visit_at, last_source, created_at;
+    RETURNING id, restaurant_id, restaurant_name, full_name, phone, visits_count, last_visit_at, last_source, created_at;
     `,
-    [restaurant_id, name, p, src]
+    [restaurant_id, DEFAULT_RESTAURANT_NAME, name, p, src]
   );
 
   return q.rows[0];
@@ -246,14 +257,12 @@ async function getOrCreateCustomer({ restaurant_id, full_name, phone, source }) 
 
 async function touchCustomerVisit({ restaurant_id, customer_id, event_date, event_time }) {
   if (!customer_id) return;
-
-  // store last_visit_at as date + time
   await pool.query(
     `
     UPDATE public.customers
     SET
       visits_count = visits_count + 1,
-      last_visit_at = COALESCE((($3::date + $4::time)), last_visit_at)
+      last_visit_at = ($3::date + $4::time)
     WHERE restaurant_id = $1 AND id = $2;
     `,
     [restaurant_id, customer_id, String(event_date).trim(), String(event_time).trim()]
@@ -327,14 +336,13 @@ app.get("/debug/constraints", requireApiKey, async (req, res) => {
 });
 
 // ==================== CUSTOMERS (CRM) ====================
-// GET /customers?limit=20
 app.get("/customers", requireApiKey, async (req, res) => {
   try {
     const limit = clampInt(req.query.limit, 1, 200, 20);
 
     const q = await pool.query(
       `
-      SELECT id, restaurant_id, full_name, phone, visits_count, last_visit_at, last_source, notes, created_at
+      SELECT id, restaurant_id, restaurant_name, full_name, phone, visits_count, last_visit_at, last_source, notes, created_at
       FROM public.customers
       WHERE restaurant_id = $1
       ORDER BY visits_count DESC, last_visit_at DESC NULLS LAST, created_at DESC
@@ -356,7 +364,6 @@ app.get("/customers", requireApiKey, async (req, res) => {
   }
 });
 
-// GET /customers/vip?min_visits=3&limit=50
 app.get("/customers/vip", requireApiKey, async (req, res) => {
   try {
     const min = clampInt(req.query.min_visits, 1, 9999, 3);
@@ -364,7 +371,7 @@ app.get("/customers/vip", requireApiKey, async (req, res) => {
 
     const q = await pool.query(
       `
-      SELECT id, restaurant_id, full_name, phone, visits_count, last_visit_at, last_source, created_at
+      SELECT id, restaurant_id, restaurant_name, full_name, phone, visits_count, last_visit_at, last_source, created_at
       FROM public.customers
       WHERE restaurant_id = $1 AND visits_count >= $2
       ORDER BY visits_count DESC, last_visit_at DESC NULLS LAST
@@ -386,7 +393,6 @@ app.get("/customers/vip", requireApiKey, async (req, res) => {
   }
 });
 
-// GET /customers/by-phone?phone=069...
 app.get("/customers/by-phone", requireApiKey, async (req, res) => {
   try {
     const phone = String(req.query.phone || "").trim();
@@ -394,7 +400,7 @@ app.get("/customers/by-phone", requireApiKey, async (req, res) => {
 
     const q = await pool.query(
       `
-      SELECT id, restaurant_id, full_name, phone, visits_count, last_visit_at, last_source, notes, created_at
+      SELECT id, restaurant_id, restaurant_name, full_name, phone, visits_count, last_visit_at, last_source, notes, created_at
       FROM public.customers
       WHERE restaurant_id = $1 AND phone = $2
       LIMIT 1;
@@ -420,7 +426,6 @@ app.get("/customers/by-phone", requireApiKey, async (req, res) => {
   }
 });
 
-// GET /customers/insights
 app.get("/customers/insights", requireApiKey, async (req, res) => {
   try {
     const today = (await pool.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`)).rows[0].d;
@@ -482,7 +487,6 @@ app.get("/customers/insights", requireApiKey, async (req, res) => {
 });
 
 // ==================== EVENTS (CORE) ====================
-// POST /events
 app.post("/events", requireApiKey, async (req, res) => {
   try {
     const b = req.body || {};
@@ -507,7 +511,7 @@ app.post("/events", requireApiKey, async (req, res) => {
     const status = safeText(b.status || "Pending", 20);
     const source = safeText(b.source || b.channel || "", 50) || null;
 
-    // CRM linkage if phone exists
+    // CRM link if phone exists
     const phone = b.phone ? String(b.phone).trim() : "";
     const customer_name = safeText(b.customer_name || b.full_name || "", 120);
     const customer = phone
@@ -562,7 +566,6 @@ app.post("/events", requireApiKey, async (req, res) => {
   }
 });
 
-// GET /events?limit=10
 app.get("/events", requireApiKey, async (req, res) => {
   try {
     const limit = clampInt(req.query.limit, 1, 200, 10);
@@ -594,7 +597,6 @@ app.get("/events", requireApiKey, async (req, res) => {
   }
 });
 
-// GET /events/upcoming?days=30
 app.get("/events/upcoming", requireApiKey, async (req, res) => {
   try {
     const days = clampInt(req.query.days, 1, 365, 30);
@@ -637,7 +639,6 @@ app.get("/events/upcoming", requireApiKey, async (req, res) => {
   }
 });
 
-// Approve / Reject EVENT
 app.post("/events/:id/approve", requireApiKey, async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -696,7 +697,7 @@ app.post("/events/:id/reject", requireApiKey, async (req, res) => {
   }
 });
 
-// ==================== RESERVATIONS (LEGACY → SYNC TO EVENTS + CRM) ====================
+// ==================== RESERVATIONS (LEGACY → SYNC EVENTS + CRM) ====================
 app.post("/reservations", requireApiKey, async (req, res) => {
   try {
     const r = req.body || {};
@@ -740,7 +741,7 @@ app.post("/reservations", requireApiKey, async (req, res) => {
       [
         RESTAURANT_ID,
         reservation_id,
-        r.restaurant_name || "Te Ta Gastronomi",
+        r.restaurant_name || DEFAULT_RESTAURANT_NAME,
         safeText(r.customer_name, 120),
         String(r.phone).trim(),
         dateStr,
@@ -785,7 +786,7 @@ app.post("/reservations", requireApiKey, async (req, res) => {
       console.error("⚠️ Sync reservations->events failed (non-blocking):", e.message);
     }
 
-    // update CRM stats
+    // update CRM stats (non-blocking)
     if (customer_id) {
       try {
         await touchCustomerVisit({ restaurant_id: RESTAURANT_ID, customer_id, event_date: dateStr, event_time: timeStr });
@@ -818,7 +819,6 @@ app.post("/reservations", requireApiKey, async (req, res) => {
   }
 });
 
-// GET /reservations?limit=10
 app.get("/reservations", requireApiKey, async (req, res) => {
   try {
     const limit = clampInt(req.query.limit, 1, 100, 10);
@@ -846,7 +846,6 @@ app.get("/reservations", requireApiKey, async (req, res) => {
   }
 });
 
-// GET /reservations/upcoming?days=30
 app.get("/reservations/upcoming", requireApiKey, async (req, res) => {
   try {
     const days = clampInt(req.query.days, 1, 365, 30);
@@ -881,83 +880,6 @@ app.get("/reservations/upcoming", requireApiKey, async (req, res) => {
     });
   } catch (err) {
     console.error("❌ GET /reservations/upcoming error:", err);
-    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
-  }
-});
-
-// Owner approve/reject reservations + sync events
-app.post("/reservations/:id/approve", requireApiKey, async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isFinite(id)) return res.status(400).json({ success: false, version: APP_VERSION, error: "Invalid id" });
-
-    const q = await pool.query(
-      `
-      UPDATE public.reservations
-      SET status='Confirmed'
-      WHERE restaurant_id=$1 AND id=$2
-      RETURNING id, reservation_id, status, created_at;
-      `,
-      [RESTAURANT_ID, id]
-    );
-
-    if (q.rows.length === 0) return res.status(404).json({ success: false, version: APP_VERSION, error: "Reservation not found" });
-
-    try {
-      await pool.query(`UPDATE public.events SET status='Confirmed' WHERE restaurant_id=$1 AND reservation_id=$2;`, [
-        RESTAURANT_ID,
-        q.rows[0].reservation_id,
-      ]);
-    } catch (e) {
-      console.error("⚠️ Sync reservation approve -> events failed (non-blocking):", e.message);
-    }
-
-    return res.json({
-      success: true,
-      version: APP_VERSION,
-      message: "Reservation approved (Confirmed).",
-      data: { ...q.rows[0], created_at_local: formatALDate(q.rows[0].created_at) },
-    });
-  } catch (err) {
-    console.error("❌ POST /reservations/:id/approve error:", err);
-    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
-  }
-});
-
-app.post("/reservations/:id/reject", requireApiKey, async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isFinite(id)) return res.status(400).json({ success: false, version: APP_VERSION, error: "Invalid id" });
-
-    const q = await pool.query(
-      `
-      UPDATE public.reservations
-      SET status='Rejected'
-      WHERE restaurant_id=$1 AND id=$2
-      RETURNING id, reservation_id, status, created_at;
-      `,
-      [RESTAURANT_ID, id]
-    );
-
-    if (q.rows.length === 0) return res.status(404).json({ success: false, version: APP_VERSION, error: "Reservation not found" });
-
-    try {
-      await pool.query(`UPDATE public.events SET status='Rejected' WHERE restaurant_id=$1 AND reservation_id=$2;`, [
-        RESTAURANT_ID,
-        q.rows[0].reservation_id,
-      ]);
-    } catch (e) {
-      console.error("⚠️ Sync reservation reject -> events failed (non-blocking):", e.message);
-    }
-
-    return res.json({
-      success: true,
-      version: APP_VERSION,
-      message: "Reservation rejected.",
-      data: { ...q.rows[0], created_at_local: formatALDate(q.rows[0].created_at) },
-    });
-  } catch (err) {
-    console.error("❌ POST /reservations/:id/reject error:", err);
     return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
   }
 });
@@ -1007,7 +929,6 @@ function normalizeFeedbackRatings(body) {
   };
 }
 
-// POST /feedback
 app.post("/feedback", requireApiKey, async (req, res) => {
   try {
     const phone = String(req.body?.phone || "").trim();
@@ -1026,16 +947,7 @@ app.post("/feedback", requireApiKey, async (req, res) => {
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
       RETURNING id, created_at;
       `,
-      [
-        RESTAURANT_ID,
-        "Te Ta Gastronomi",
-        phone,
-        ratings.location_rating,
-        ratings.hospitality_rating,
-        ratings.food_rating,
-        ratings.price_rating,
-        safeText(req.body?.comment || "", 800),
-      ]
+      [RESTAURANT_ID, DEFAULT_RESTAURANT_NAME, phone, ratings.location_rating, ratings.hospitality_rating, ratings.food_rating, ratings.price_rating, safeText(req.body?.comment || "", 800)]
     );
 
     const row = result.rows[0];
@@ -1050,7 +962,6 @@ app.post("/feedback", requireApiKey, async (req, res) => {
   }
 });
 
-// GET /feedback?limit=20
 app.get("/feedback", requireApiKey, async (req, res) => {
   try {
     const limit = clampInt(req.query.limit, 1, 200, 20);
@@ -1079,8 +990,6 @@ app.get("/feedback", requireApiKey, async (req, res) => {
 });
 
 // ==================== REPORTS ====================
-
-// GET /reports/today (events + feedback) + five_star stats
 app.get("/reports/today", requireApiKey, async (req, res) => {
   try {
     const today = (await pool.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`)).rows[0].d;
@@ -1088,14 +997,14 @@ app.get("/reports/today", requireApiKey, async (req, res) => {
     const eventsQ = await pool.query(
       `
       SELECT
-        e.id, e.restaurant_id, e.customer_id, e.reservation_id,
-        e.event_type, e.event_date, e.event_time, e.people,
-        e.status, e.source, e.area, e.allergies, e.special_requests, e.notes,
-        e.created_by, e.created_at
-      FROM public.events e
-      WHERE e.restaurant_id = $1
-        AND e.event_date::date = $2::date
-      ORDER BY e.event_time ASC, e.created_at ASC;
+        id, restaurant_id, customer_id, reservation_id,
+        event_type, event_date, event_time, people,
+        status, source, area, allergies, special_requests, notes,
+        created_by, created_at
+      FROM public.events
+      WHERE restaurant_id = $1
+        AND event_date::date = $2::date
+      ORDER BY event_time ASC, created_at ASC;
       `,
       [RESTAURANT_ID, today]
     );
@@ -1158,7 +1067,6 @@ app.get("/reports/today", requireApiKey, async (req, res) => {
   }
 });
 
-// GET /reports/today-events (events only)
 app.get("/reports/today-events", requireApiKey, async (req, res) => {
   try {
     const today = (await pool.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`)).rows[0].d;
