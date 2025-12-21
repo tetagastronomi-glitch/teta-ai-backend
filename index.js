@@ -3,7 +3,7 @@
  * Te Ta AI Backend — Reservations + Feedback + Events(CORE) + Reports (Today + Dashboard)
  */
 
-require("dotenv").config();
+require("dotenv").config({ override: true });
 process.env.TZ = "Europe/Tirane";
 
 const express = require("express");
@@ -20,6 +20,29 @@ const MAX_AUTO_CONFIRM_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 8)
 
 // ✅ version marker (ndryshoje kur bën deploy)
 const APP_VERSION = "v-2025-12-20-dashboard-core-1";
+
+// ==================== DB READY FLAG ====================
+let DB_READY = false;
+
+async function testDbConnection() {
+  try {
+    const r = await pool.query("SELECT 1 as ok");
+    return r.rows[0]?.ok === 1;
+  } catch (_) {
+    return false;
+  }
+}
+
+function requireDbReady(req, res, next) {
+  if (!DB_READY) {
+    return res.status(503).json({
+      success: false,
+      version: APP_VERSION,
+      error: "DB not reachable. Check DATABASE_URL / network.",
+    });
+  }
+  next();
+}
 
 // ==================== TIME HELPERS ====================
 function formatALDate(d) {
@@ -51,6 +74,16 @@ async function initDb() {
         created_at TIMESTAMP DEFAULT NOW()
       );
     `);
+
+    // Ensure restaurant exists (id = RESTAURANT_ID)
+    await pool.query(
+      `
+      INSERT INTO public.restaurants (id, name)
+      VALUES ($1, $2)
+      ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name;
+      `,
+      [RESTAURANT_ID, "Te Ta Gastronomi"]
+    );
 
     // feedback
     await pool.query(`
@@ -170,7 +203,18 @@ async function initDb() {
     console.error("❌ initDb error:", err);
   }
 }
-initDb();
+
+// Boot DB (safe: server can still run even if DB down)
+(async () => {
+  const ok = await testDbConnection();
+  if (!ok) {
+    DB_READY = false;
+    console.log("⚠️ DB not reachable right now. Server will run, DB endpoints will return 503 until DB is reachable.");
+    return;
+  }
+  await initDb();
+  DB_READY = true;
+})();
 
 // ==================== API KEY ====================
 function requireApiKey(req, res, next) {
@@ -187,21 +231,34 @@ app.get("/", (req, res) => {
 });
 
 app.get("/health/db", requireApiKey, async (req, res) => {
-  const r = await pool.query("SELECT NOW() as now");
-  res.json({
-    success: true,
-    version: APP_VERSION,
-    now: r.rows[0].now,
-    now_local: formatALDate(r.rows[0].now),
-    restaurant_id: RESTAURANT_ID,
-    max_auto_confirm_people: MAX_AUTO_CONFIRM_PEOPLE,
-  });
+  try {
+    const r = await pool.query("SELECT NOW() as now");
+    DB_READY = true;
+    return res.json({
+      success: true,
+      db: "ok",
+      version: APP_VERSION,
+      now: r.rows[0].now,
+      now_local: formatALDate(r.rows[0].now),
+      restaurant_id: RESTAURANT_ID,
+      max_auto_confirm_people: MAX_AUTO_CONFIRM_PEOPLE,
+    });
+  } catch (err) {
+    DB_READY = false;
+    return res.status(503).json({
+      success: false,
+      db: "down",
+      version: APP_VERSION,
+      error: err.message,
+      restaurant_id: RESTAURANT_ID,
+    });
+  }
 });
 
 // ==================== DEBUG ====================
 
 // Debug schema (vetëm me api-key)
-app.get("/debug/reservations-schema", requireApiKey, async (req, res) => {
+app.get("/debug/reservations-schema", requireApiKey, requireDbReady, async (req, res) => {
   const q = await pool.query(`
     SELECT column_name, data_type, is_nullable
     FROM information_schema.columns
@@ -212,7 +269,7 @@ app.get("/debug/reservations-schema", requireApiKey, async (req, res) => {
 });
 
 // Debug constraints (p.sh. unique_reservation)
-app.get("/debug/reservations-constraints", requireApiKey, async (req, res) => {
+app.get("/debug/reservations-constraints", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const q = await pool.query(`
       SELECT
@@ -281,15 +338,16 @@ function normalizeFeedbackRatings(body) {
 // ==================== EVENTS (CORE) ====================
 
 // POST /events
-app.post("/events", requireApiKey, async (req, res) => {
+app.post("/events", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const b = req.body || {};
 
     // required minimal
     const required = ["event_date", "event_time"];
     for (const f of required) {
-      if (!b[f])
+      if (!b[f]) {
         return res.status(400).json({ success: false, version: APP_VERSION, error: `Missing field: ${f}` });
+      }
     }
 
     const restaurant_id = Number(b.restaurant_id || RESTAURANT_ID);
@@ -343,7 +401,7 @@ app.post("/events", requireApiKey, async (req, res) => {
 });
 
 // GET /events?limit=10
-app.get("/events", requireApiKey, async (req, res) => {
+app.get("/events", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 10), 50);
 
@@ -371,12 +429,11 @@ app.get("/events", requireApiKey, async (req, res) => {
 });
 
 // ✅ GET /events/upcoming?days=30  (CORE)
-app.get("/events/upcoming", requireApiKey, async (req, res) => {
+app.get("/events/upcoming", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const days = Math.min(Math.max(Number(req.query.days || 30), 1), 365);
 
     const today = await getTodayAL();
-
     const end = (
       await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [today, days])
     ).rows[0].d;
@@ -417,7 +474,7 @@ app.get("/events/upcoming", requireApiKey, async (req, res) => {
 
 // POST /reservations
 // Rule: if people > MAX_AUTO_CONFIRM_PEOPLE => Pending
-app.post("/reservations", requireApiKey, async (req, res) => {
+app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const r = req.body || {};
     const required = ["customer_name", "phone", "date", "time", "people"];
@@ -541,7 +598,7 @@ app.post("/reservations", requireApiKey, async (req, res) => {
 });
 
 // GET /reservations?limit=10
-app.get("/reservations", requireApiKey, async (req, res) => {
+app.get("/reservations", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 10), 50);
 
@@ -581,12 +638,11 @@ app.get("/reservations", requireApiKey, async (req, res) => {
 });
 
 // GET /reservations/upcoming?days=30
-app.get("/reservations/upcoming", requireApiKey, async (req, res) => {
+app.get("/reservations/upcoming", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const days = Math.min(Math.max(Number(req.query.days || 30), 1), 365);
 
     const today = await getTodayAL();
-
     const end = (
       await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [today, days])
     ).rows[0].d;
@@ -636,11 +692,12 @@ app.get("/reservations/upcoming", requireApiKey, async (req, res) => {
 });
 
 // Owner actions: approve/reject (manual)
-app.post("/reservations/:id/approve", requireApiKey, async (req, res) => {
+app.post("/reservations/:id/approve", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const id = Number(req.params.id);
-    if (!Number.isFinite(id))
+    if (!Number.isFinite(id)) {
       return res.status(400).json({ success: false, version: APP_VERSION, error: "Invalid id" });
+    }
 
     const result = await pool.query(
       `
@@ -680,11 +737,12 @@ app.post("/reservations/:id/approve", requireApiKey, async (req, res) => {
   }
 });
 
-app.post("/reservations/:id/reject", requireApiKey, async (req, res) => {
+app.post("/reservations/:id/reject", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const id = Number(req.params.id);
-    if (!Number.isFinite(id))
+    if (!Number.isFinite(id)) {
       return res.status(400).json({ success: false, version: APP_VERSION, error: "Invalid id" });
+    }
 
     const result = await pool.query(
       `
@@ -727,7 +785,7 @@ app.post("/reservations/:id/reject", requireApiKey, async (req, res) => {
 // ==================== FEEDBACK ====================
 
 // POST /feedback
-app.post("/feedback", requireApiKey, async (req, res) => {
+app.post("/feedback", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const phone = req.body?.phone;
     if (!phone) return res.status(400).json({ success: false, version: APP_VERSION, error: "Missing field: phone" });
@@ -772,7 +830,7 @@ app.post("/feedback", requireApiKey, async (req, res) => {
 });
 
 // GET /feedback?limit=20
-app.get("/feedback", requireApiKey, async (req, res) => {
+app.get("/feedback", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 20), 100);
 
@@ -809,7 +867,7 @@ app.get("/feedback", requireApiKey, async (req, res) => {
 // ==================== REPORTS ====================
 
 // GET /reports/today
-app.get("/reports/today", requireApiKey, async (req, res) => {
+app.get("/reports/today", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const today = await getTodayAL();
 
@@ -887,7 +945,7 @@ app.get("/reports/today", requireApiKey, async (req, res) => {
  * GET /reports/dashboard?days=30&restaurant_id=2&vip_limit=10
  * Returns: APS (today/7/days), Peak Hours (hour buckets), Frequency summary, VIP list
  */
-app.get("/reports/dashboard", requireApiKey, async (req, res) => {
+app.get("/reports/dashboard", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const restaurantId = Number(req.query.restaurant_id || RESTAURANT_ID);
     if (!Number.isFinite(restaurantId)) {
