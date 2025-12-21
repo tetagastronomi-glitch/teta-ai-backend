@@ -1,12 +1,10 @@
+// db.js
 const { Pool } = require("pg");
 
-const connectionString = process.env.DATABASE_URL;
-
 const pool = new Pool({
-  connectionString,
-  ssl: process.env.NODE_ENV === "production"
-    ? { rejectUnauthorized: false }
-    : false,
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }, // fix self-signed chain on Railway
+  connectionTimeoutMillis: 5000,
 });
 
 module.exports = pool;
