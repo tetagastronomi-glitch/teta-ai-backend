@@ -395,9 +395,13 @@ app.get("/debug/owner-key", requireApiKey, (req, res) => {
     has_owner_key: !!process.env.OWNER_KEY,
     owner_key_length: process.env.OWNER_KEY ? String(process.env.OWNER_KEY).length : 0,
   });
+});
+
+// Debug customers (vetëm me api-key)
 app.get("/debug/customers", requireApiKey, requireDbReady, async (req, res) => {
   const q = await pool.query(
-    `SELECT
+    `
+    SELECT
       id,
       restaurant_id,
       phone,
@@ -406,21 +410,21 @@ app.get("/debug/customers", requireApiKey, requireDbReady, async (req, res) => {
       first_seen_at,
       last_seen_at,
       created_at
-     FROM public.customers
-     WHERE restaurant_id = $1
-     ORDER BY id DESC
-     LIMIT 20;`,
+    FROM public.customers
+    WHERE restaurant_id = $1
+    ORDER BY id DESC
+    LIMIT 20;
+    `,
     [RESTAURANT_ID]
   );
 
-  res.json({
+  return res.json({
     success: true,
     version: APP_VERSION,
     count: q.rows.length,
     data: q.rows,
   });
 });
-
 
 // Debug compare (tregon pse s'po kalon 401 pa ekspozuar sekretin)
 app.get("/debug/owner-auth", requireApiKey, (req, res) => {
@@ -716,7 +720,7 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
       return res.status(400).json({ success: false, version: APP_VERSION, error: "people must be a positive number" });
     }
 
-    const dateStr = String(r.date).trim();
+    const dateStr = String(r.date).trim(); // "YYYY-MM-DD"
     const timeStr = normalizeTimeHHMI(r.time);
     const status = people > MAX_AUTO_CONFIRM_PEOPLE ? "Pending" : "Confirmed";
     const reservation_id = r.reservation_id || crypto.randomUUID();
@@ -757,7 +761,7 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
         r.first_time || null,
         r.allergies || "",
         r.special_requests || "",
-        r,
+        r, // raw json
         status,
       ]
     );
@@ -808,7 +812,7 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
         `,
         [
           RESTAURANT_ID,
-          null,
+          null, // customer_id (do e lidhim më vonë në CRM advanced)
           reservation_id,
           dateStr,
           timeStr,
@@ -1133,6 +1137,7 @@ app.get("/reports/today", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const today = await getTodayAL();
 
+    // Reservations "today" = service date (date column)
     const reservations = await pool.query(
       `
       SELECT
@@ -1217,6 +1222,7 @@ app.get("/reports/dashboard", requireApiKey, requireDbReady, async (req, res) =>
 
     const todayAL = await getTodayAL();
 
+    // -------------------- APS (today / 7 / days) --------------------
     const apsTodayQ = await pool.query(
       `
       SELECT
@@ -1270,6 +1276,7 @@ app.get("/reports/dashboard", requireApiKey, requireDbReady, async (req, res) =>
 
     const overallAps = Number(apsDaysQ.rows[0]?.avg || 0);
 
+    // -------------------- Peak Hours (hour buckets) --------------------
     const peakQ = await pool.query(
       `
       SELECT
@@ -1291,6 +1298,7 @@ app.get("/reports/dashboard", requireApiKey, requireDbReady, async (req, res) =>
 
     const peak_hours = peakQ.rows || [];
 
+    // -------------------- Frequency summary --------------------
     const freqSummaryQ = await pool.query(
       `
       WITH visits AS (
@@ -1349,6 +1357,7 @@ app.get("/reports/dashboard", requireApiKey, requireDbReady, async (req, res) =>
       customers_with_2plus_visits: 0,
     };
 
+    // -------------------- VIP list --------------------
     const vipQ = await pool.query(
       `
       WITH base AS (
