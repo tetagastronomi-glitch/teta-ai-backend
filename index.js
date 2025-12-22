@@ -20,7 +20,7 @@ const RESTAURANT_ID = Number(process.env.RESTAURANT_ID || 2);
 const MAX_AUTO_CONFIRM_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 8);
 
 // ✅ version marker (ndryshoje kur bën deploy)
-const APP_VERSION = "v-2025-12-22-crm-consents-owner-1";
+const APP_VERSION = "v-2025-12-22-crm-consents-owner-2";
 
 // ==================== DB READY FLAG ====================
 let DB_READY = false;
@@ -154,9 +154,7 @@ async function initDb() {
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS allergies TEXT DEFAULT '';`);
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS special_requests TEXT DEFAULT '';`);
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS raw JSON;`);
-    await pool.query(
-      `ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'Confirmed';`
-    );
+    await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'Confirmed';`);
 
     // --------- Ensure restaurant_id NOT NULL + FK (safe) ----------
     await pool.query(`UPDATE public.reservations SET restaurant_id = $1 WHERE restaurant_id IS NULL;`, [RESTAURANT_ID]);
@@ -176,7 +174,6 @@ async function initDb() {
     `);
 
     // ==================== CRM: CUSTOMERS + CONSENTS (LEGAL) ====================
-    // updated_at helper function + trigger (safe)
     await pool.query(`
       CREATE OR REPLACE FUNCTION public.set_updated_at()
       RETURNS TRIGGER AS $$
@@ -280,7 +277,6 @@ async function initDb() {
       );
     `);
 
-    // Index për shpejtësi
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_events_restaurant_date
       ON public.events (restaurant_id, event_date);
@@ -296,7 +292,6 @@ async function initDb() {
       ON public.events (reservation_id);
     `);
 
-    // (opsional) Index për reports mbi reservations
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_res_rest_status_date
       ON public.reservations (restaurant_id, status, date);
@@ -335,11 +330,27 @@ function requireApiKey(req, res, next) {
 }
 
 // ==================== OWNER KEY (READ-ONLY) ====================
+function safeEqual(a, b) {
+  const aa = String(a ?? "");
+  const bb = String(b ?? "");
+  const aBuf = Buffer.from(aa);
+  const bBuf = Buffer.from(bb);
+  if (aBuf.length !== bBuf.length) return false;
+  return crypto.timingSafeEqual(aBuf, bBuf);
+}
+
 function requireOwnerKey(req, res, next) {
-  const key = req.headers["x-owner-key"];
-  if (!key || !process.env.OWNER_KEY || key !== process.env.OWNER_KEY) {
+  const provided = String(req.headers["x-owner-key"] ?? "").trim();
+  const expected = String(process.env.OWNER_KEY ?? "").trim();
+
+  if (!provided || !expected) {
     return res.status(401).json({ success: false, error: "Owner Unauthorized" });
   }
+
+  if (!safeEqual(provided, expected)) {
+    return res.status(401).json({ success: false, error: "Owner Unauthorized" });
+  }
+
   next();
 }
 
@@ -386,6 +397,21 @@ app.get("/debug/owner-key", requireApiKey, (req, res) => {
   });
 });
 
+// Debug compare (tregon pse s'po kalon 401 pa ekspozuar sekretin)
+app.get("/debug/owner-auth", requireApiKey, (req, res) => {
+  const provided = String(req.headers["x-owner-key"] ?? "").trim();
+  const expected = String(process.env.OWNER_KEY ?? "").trim();
+  return res.json({
+    success: true,
+    version: APP_VERSION,
+    has_owner_key: !!process.env.OWNER_KEY,
+    provided_present: provided.length > 0,
+    provided_length: provided.length,
+    expected_length: expected.length,
+    match: provided.length > 0 && expected.length > 0 && safeEqual(provided, expected),
+  });
+});
+
 // Debug schema (vetëm me api-key)
 app.get("/debug/reservations-schema", requireApiKey, requireDbReady, async (req, res) => {
   const q = await pool.query(`
@@ -397,7 +423,7 @@ app.get("/debug/reservations-schema", requireApiKey, requireDbReady, async (req,
   res.json({ success: true, version: APP_VERSION, columns: q.rows });
 });
 
-// Debug constraints (p.sh. unique_reservation)
+// Debug constraints
 app.get("/debug/reservations-constraints", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const q = await pool.query(`
@@ -520,7 +546,6 @@ app.post("/events", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const b = req.body || {};
 
-    // required minimal
     const required = ["event_date", "event_time"];
     for (const f of required) {
       if (!b[f]) {
@@ -606,15 +631,14 @@ app.get("/events", requireApiKey, requireDbReady, async (req, res) => {
   }
 });
 
-// ✅ GET /events/upcoming?days=30  (CORE)
+// ✅ GET /events/upcoming?days=30
 app.get("/events/upcoming", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const days = Math.min(Math.max(Number(req.query.days || 30), 1), 365);
 
     const today = await getTodayAL();
-    const end = (
-      await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [today, days])
-    ).rows[0].d;
+    const end = (await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [today, days]))
+      .rows[0].d;
 
     const result = await pool.query(
       `
@@ -667,7 +691,7 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
       return res.status(400).json({ success: false, version: APP_VERSION, error: "people must be a positive number" });
     }
 
-    const dateStr = String(r.date).trim(); // "YYYY-MM-DD"
+    const dateStr = String(r.date).trim();
     const timeStr = normalizeTimeHHMI(r.time);
     const status = people > MAX_AUTO_CONFIRM_PEOPLE ? "Pending" : "Confirmed";
     const reservation_id = r.reservation_id || crypto.randomUUID();
@@ -708,7 +732,7 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
         r.first_time || null,
         r.allergies || "",
         r.special_requests || "",
-        r, // raw json
+        r,
         status,
       ]
     );
@@ -759,7 +783,7 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
         `,
         [
           RESTAURANT_ID,
-          null, // customer_id (do e lidhim më vonë në CRM advanced)
+          null,
           reservation_id,
           dateStr,
           timeStr,
@@ -857,9 +881,8 @@ app.get("/reservations/upcoming", requireApiKey, requireDbReady, async (req, res
     const days = Math.min(Math.max(Number(req.query.days || 30), 1), 365);
 
     const today = await getTodayAL();
-    const end = (
-      await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [today, days])
-    ).rows[0].d;
+    const end = (await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [today, days]))
+      .rows[0].d;
 
     const result = await pool.query(
       `
@@ -1085,7 +1108,6 @@ app.get("/reports/today", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const today = await getTodayAL();
 
-    // Reservations "today" = service date (date column)
     const reservations = await pool.query(
       `
       SELECT
@@ -1157,7 +1179,6 @@ app.get("/reports/today", requireApiKey, requireDbReady, async (req, res) => {
 
 /**
  * GET /reports/dashboard?days=30&restaurant_id=2&vip_limit=10
- * Returns: APS (today/7/days), Peak Hours (hour buckets), Frequency summary, VIP list
  */
 app.get("/reports/dashboard", requireApiKey, requireDbReady, async (req, res) => {
   try {
@@ -1171,7 +1192,6 @@ app.get("/reports/dashboard", requireApiKey, requireDbReady, async (req, res) =>
 
     const todayAL = await getTodayAL();
 
-    // -------------------- APS (today / 7 / days) --------------------
     const apsTodayQ = await pool.query(
       `
       SELECT
@@ -1225,7 +1245,6 @@ app.get("/reports/dashboard", requireApiKey, requireDbReady, async (req, res) =>
 
     const overallAps = Number(apsDaysQ.rows[0]?.avg || 0);
 
-    // -------------------- Peak Hours (hour buckets) --------------------
     const peakQ = await pool.query(
       `
       SELECT
@@ -1247,7 +1266,6 @@ app.get("/reports/dashboard", requireApiKey, requireDbReady, async (req, res) =>
 
     const peak_hours = peakQ.rows || [];
 
-    // -------------------- Frequency summary --------------------
     const freqSummaryQ = await pool.query(
       `
       WITH visits AS (
@@ -1306,7 +1324,6 @@ app.get("/reports/dashboard", requireApiKey, requireDbReady, async (req, res) =>
       customers_with_2plus_visits: 0,
     };
 
-    // -------------------- VIP list --------------------
     const vipQ = await pool.query(
       `
       WITH base AS (
