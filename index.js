@@ -518,6 +518,109 @@ function normalizeFeedbackRatings(body) {
     price_rating: toInt1to5(price),
   };
 }
+// ==================== CONSENTS (LEGAL) ====================
+
+// Helper: normalize boolean values safely
+function toBoolOrNull(v) {
+  if (v === undefined || v === null) return null;
+  if (typeof v === "boolean") return v;
+  const s = String(v).trim().toLowerCase();
+  if (["true", "1", "yes", "po", "ok"].includes(s)) return true;
+  if (["false", "0", "no", "jo"].includes(s)) return false;
+  return null;
+}
+
+/**
+ * POST /consents
+ * Body:
+ * {
+ *   "phone":"0691234567",
+ *   "full_name":"Test Owner",            (opsional)
+ *   "consent_marketing": true/false,     (opsional)
+ *   "consent_sms": true/false,           (opsional)
+ *   "consent_whatsapp": true/false,      (opsional)
+ *   "consent_email": true/false,         (opsional)
+ *   "consent_source":"instagram"         (opsional)
+ * }
+ *
+ * NOTE: Nëse një consent nuk vjen në body, nuk e ndryshojmë (mbetet siç është).
+ */
+app.post("/consents", requireApiKey, requireDbReady, async (req, res) => {
+  try {
+    const b = req.body || {};
+    const phone = String(b.phone || "").trim();
+    if (!phone) {
+      return res.status(400).json({ success: false, version: APP_VERSION, error: "Missing field: phone" });
+    }
+
+    const full_name = b.full_name !== undefined ? String(b.full_name || "").trim() : null;
+
+    const c_marketing = toBoolOrNull(b.consent_marketing);
+    const c_sms = toBoolOrNull(b.consent_sms);
+    const c_whatsapp = toBoolOrNull(b.consent_whatsapp);
+    const c_email = toBoolOrNull(b.consent_email);
+
+    // Nëse s’është dërguar asnjë consent, kthe 400 (që mos bëjmë update bosh)
+    const anyProvided = [c_marketing, c_sms, c_whatsapp, c_email].some((x) => x !== null);
+    if (!anyProvided && full_name === null) {
+      return res.status(400).json({
+        success: false,
+        version: APP_VERSION,
+        error: "No consent fields provided (send at least one of consent_marketing/consent_sms/consent_whatsapp/consent_email or full_name).",
+      });
+    }
+
+    const consent_source = b.consent_source ? String(b.consent_source).trim() : "manual";
+
+    const q = await pool.query(
+      `
+      INSERT INTO public.customers (
+        restaurant_id,
+        phone,
+        full_name,
+        consent_marketing,
+        consent_sms,
+        consent_whatsapp,
+        consent_email,
+        consent_source,
+        consent_updated_at
+      )
+      VALUES (
+        $1::bigint,
+        $2::text,
+        NULLIF($3::text,''),
+        COALESCE($4::boolean, FALSE),
+        COALESCE($5::boolean, FALSE),
+        COALESCE($6::boolean, FALSE),
+        COALESCE($7::boolean, FALSE),
+        $8::text,
+        NOW()
+      )
+      ON CONFLICT (restaurant_id, phone)
+      DO UPDATE SET
+        full_name = COALESCE(NULLIF(EXCLUDED.full_name,''), public.customers.full_name),
+        consent_marketing = COALESCE($4::boolean, public.customers.consent_marketing),
+        consent_sms = COALESCE($5::boolean, public.customers.consent_sms),
+        consent_whatsapp = COALESCE($6::boolean, public.customers.consent_whatsapp),
+        consent_email = COALESCE($7::boolean, public.customers.consent_email),
+        consent_source = $8::text,
+        consent_updated_at = NOW(),
+        updated_at = NOW()
+      RETURNING
+        id, restaurant_id, phone, full_name,
+        consent_marketing, consent_sms, consent_whatsapp, consent_email,
+        consent_source, consent_updated_at,
+        created_at, updated_at;
+      `,
+      [RESTAURANT_ID, phone, full_name, c_marketing, c_sms, c_whatsapp, c_email, consent_source]
+    );
+
+    return res.json({ success: true, version: APP_VERSION, data: q.rows[0] });
+  } catch (err) {
+    console.error("❌ POST /consents error:", err);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
+  }
+});
 
 // ==================== OWNER VIEW (READ ONLY) ====================
 
