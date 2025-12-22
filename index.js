@@ -20,7 +20,7 @@ const RESTAURANT_ID = Number(process.env.RESTAURANT_ID || 2);
 const MAX_AUTO_CONFIRM_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 8);
 
 // ✅ version marker (ndryshoje kur bën deploy)
-const APP_VERSION = "v-2025-12-22-crm-consents-owner-2";
+const APP_VERSION = "v-2025-12-22-crm-consents-owner-3";
 
 // ==================== DB READY FLAG ====================
 let DB_READY = false;
@@ -254,7 +254,7 @@ async function initDb() {
         id SERIAL PRIMARY KEY,
 
         restaurant_id INTEGER NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
-        customer_id INTEGER NULL,
+        customer_id BIGINT NULL,
 
         reservation_id TEXT NULL,
 
@@ -276,6 +276,13 @@ async function initDb() {
         created_at TIMESTAMP DEFAULT NOW()
       );
     `);
+
+    // Ensure customer_id is BIGINT (safe migration)
+    try {
+      await pool.query(`ALTER TABLE public.events ALTER COLUMN customer_id TYPE BIGINT USING customer_id::bigint;`);
+    } catch (_) {
+      // ignore if already correct or table doesn't exist yet in old deploy
+    }
 
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_events_restaurant_date
@@ -518,6 +525,7 @@ function normalizeFeedbackRatings(body) {
     price_rating: toInt1to5(price),
   };
 }
+
 // ==================== CONSENTS (LEGAL) ====================
 
 // Helper: normalize boolean values safely
@@ -532,18 +540,7 @@ function toBoolOrNull(v) {
 
 /**
  * POST /consents
- * Body:
- * {
- *   "phone":"0691234567",
- *   "full_name":"Test Owner",            (opsional)
- *   "consent_marketing": true/false,     (opsional)
- *   "consent_sms": true/false,           (opsional)
- *   "consent_whatsapp": true/false,      (opsional)
- *   "consent_email": true/false,         (opsional)
- *   "consent_source":"instagram"         (opsional)
- * }
- *
- * NOTE: Nëse një consent nuk vjen në body, nuk e ndryshojmë (mbetet siç është).
+ * NOTE: Nëse një consent nuk vjen në body, nuk e ndryshojmë.
  */
 app.post("/consents", requireApiKey, requireDbReady, async (req, res) => {
   try {
@@ -560,13 +557,13 @@ app.post("/consents", requireApiKey, requireDbReady, async (req, res) => {
     const c_whatsapp = toBoolOrNull(b.consent_whatsapp);
     const c_email = toBoolOrNull(b.consent_email);
 
-    // Nëse s’është dërguar asnjë consent, kthe 400 (që mos bëjmë update bosh)
     const anyProvided = [c_marketing, c_sms, c_whatsapp, c_email].some((x) => x !== null);
     if (!anyProvided && full_name === null) {
       return res.status(400).json({
         success: false,
         version: APP_VERSION,
-        error: "No consent fields provided (send at least one of consent_marketing/consent_sms/consent_whatsapp/consent_email or full_name).",
+        error:
+          "No consent fields provided (send at least one of consent_marketing/consent_sms/consent_whatsapp/consent_email or full_name).",
       });
     }
 
@@ -915,7 +912,7 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
         `,
         [
           RESTAURANT_ID,
-          null, // customer_id (do e lidhim më vonë në CRM advanced)
+          null, // customer_id (do e lidhim më vonë)
           reservation_id,
           dateStr,
           timeStr,
@@ -1240,7 +1237,6 @@ app.get("/reports/today", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const today = await getTodayAL();
 
-    // Reservations "today" = service date (date column)
     const reservations = await pool.query(
       `
       SELECT
@@ -1325,7 +1321,6 @@ app.get("/reports/dashboard", requireApiKey, requireDbReady, async (req, res) =>
 
     const todayAL = await getTodayAL();
 
-    // -------------------- APS (today / 7 / days) --------------------
     const apsTodayQ = await pool.query(
       `
       SELECT
@@ -1379,7 +1374,6 @@ app.get("/reports/dashboard", requireApiKey, requireDbReady, async (req, res) =>
 
     const overallAps = Number(apsDaysQ.rows[0]?.avg || 0);
 
-    // -------------------- Peak Hours (hour buckets) --------------------
     const peakQ = await pool.query(
       `
       SELECT
@@ -1401,7 +1395,6 @@ app.get("/reports/dashboard", requireApiKey, requireDbReady, async (req, res) =>
 
     const peak_hours = peakQ.rows || [];
 
-    // -------------------- Frequency summary --------------------
     const freqSummaryQ = await pool.query(
       `
       WITH visits AS (
@@ -1460,7 +1453,6 @@ app.get("/reports/dashboard", requireApiKey, requireDbReady, async (req, res) =>
       customers_with_2plus_visits: 0,
     };
 
-    // -------------------- VIP list --------------------
     const vipQ = await pool.query(
       `
       WITH base AS (
