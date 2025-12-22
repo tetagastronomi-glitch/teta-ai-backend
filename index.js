@@ -395,7 +395,32 @@ app.get("/debug/owner-key", requireApiKey, (req, res) => {
     has_owner_key: !!process.env.OWNER_KEY,
     owner_key_length: process.env.OWNER_KEY ? String(process.env.OWNER_KEY).length : 0,
   });
+app.get("/debug/customers", requireApiKey, requireDbReady, async (req, res) => {
+  const q = await pool.query(
+    `SELECT
+      id,
+      restaurant_id,
+      phone,
+      full_name,
+      visits_count,
+      first_seen_at,
+      last_seen_at,
+      created_at
+     FROM public.customers
+     WHERE restaurant_id = $1
+     ORDER BY id DESC
+     LIMIT 20;`,
+    [RESTAURANT_ID]
+  );
+
+  res.json({
+    success: true,
+    version: APP_VERSION,
+    count: q.rows.length,
+    data: q.rows,
+  });
 });
+
 
 // Debug compare (tregon pse s'po kalon 401 pa ekspozuar sekretin)
 app.get("/debug/owner-auth", requireApiKey, (req, res) => {
