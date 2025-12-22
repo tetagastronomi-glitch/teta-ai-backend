@@ -1,6 +1,6 @@
 /**
  * index.js (FINAL)
- * Te Ta AI Backend — Reservations + Feedback + Events(CORE) + Reports (Today + Dashboard)
+ * Te Ta AI Backend — Reservations + Feedback + Events(CORE) + Reports + CRM(Customers+Consents) + Owner View (Read-only)
  */
 
 require("dotenv").config({ override: true });
@@ -19,7 +19,7 @@ const RESTAURANT_ID = Number(process.env.RESTAURANT_ID || 2);
 const MAX_AUTO_CONFIRM_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 8);
 
 // ✅ version marker (ndryshoje kur bën deploy)
-const APP_VERSION = "v-2025-12-20-dashboard-core-1";
+const APP_VERSION = "v-2025-12-22-crm-consents-owner-1";
 
 // ==================== DB READY FLAG ====================
 let DB_READY = false;
@@ -61,6 +61,22 @@ function formatALDate(d) {
 async function getTodayAL() {
   const q = await pool.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`);
   return q.rows[0].d;
+}
+
+// Sanitizer for time "HH:MI"
+function normalizeTimeHHMI(t) {
+  const s = String(t || "").trim();
+  // Accept: "9:05" or "09:05" or "20:30"
+  const m = s.match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return "00:00";
+  let hh = Number(m[1]);
+  let mm = Number(m[2]);
+  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return "00:00";
+  if (hh < 0) hh = 0;
+  if (hh > 23) hh = 23;
+  if (mm < 0) mm = 0;
+  if (mm > 59) mm = 59;
+  return String(hh).padStart(2, "0") + ":" + String(mm).padStart(2, "0");
 }
 
 // ==================== INIT / MIGRATIONS ====================
@@ -138,9 +154,104 @@ async function initDb() {
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS allergies TEXT DEFAULT '';`);
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS special_requests TEXT DEFAULT '';`);
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS raw JSON;`);
-    await pool.query(
-      `ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'Confirmed';`
-    );
+    await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'Confirmed';`);
+
+    // ✅ Make restaurant_id mandatory & correct (safe migration)
+    await pool.query(`UPDATE public.reservations SET restaurant_id = $1 WHERE restaurant_id IS NULL;`, [RESTAURANT_ID]);
+    await pool.query(`ALTER TABLE public.reservations ALTER COLUMN restaurant_id SET NOT NULL;`);
+
+    // Ensure FK exists (safe DO block)
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'fk_reservations_restaurant'
+        ) THEN
+          ALTER TABLE public.reservations
+          ADD CONSTRAINT fk_reservations_restaurant
+          FOREIGN KEY (restaurant_id)
+          REFERENCES public.restaurants(id)
+          ON DELETE CASCADE;
+        END IF;
+      END $$;
+    `);
+
+    // ==================== CRM (CUSTOMERS + CONSENTS) ====================
+    // Trigger helper for updated_at
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION public.set_updated_at()
+      RETURNS TRIGGER AS $$
+      BEGIN
+        NEW.updated_at = NOW();
+        RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
+
+    // Customers table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS public.customers (
+        id BIGSERIAL PRIMARY KEY,
+        restaurant_id BIGINT NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
+
+        phone TEXT NOT NULL,
+        full_name TEXT,
+        email TEXT,
+
+        notes TEXT,
+        tags TEXT[] DEFAULT ARRAY[]::TEXT[],
+        first_seen_at TIMESTAMPTZ,
+        last_seen_at TIMESTAMPTZ,
+        visits_count INTEGER NOT NULL DEFAULT 0,
+
+        consent_marketing BOOLEAN NOT NULL DEFAULT FALSE,
+        consent_sms BOOLEAN NOT NULL DEFAULT FALSE,
+        consent_whatsapp BOOLEAN NOT NULL DEFAULT FALSE,
+        consent_email BOOLEAN NOT NULL DEFAULT FALSE,
+        consent_source TEXT,
+        consent_updated_at TIMESTAMPTZ,
+
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+        CONSTRAINT uq_customers_restaurant_phone UNIQUE (restaurant_id, phone)
+      );
+    `);
+
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_customers_restaurant_id ON public.customers(restaurant_id);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_customers_phone ON public.customers(phone);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_customers_last_seen ON public.customers(last_seen_at);`);
+
+    await pool.query(`DROP TRIGGER IF EXISTS trg_customers_updated_at ON public.customers;`);
+    await pool.query(`
+      CREATE TRIGGER trg_customers_updated_at
+      BEFORE UPDATE ON public.customers
+      FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+    `);
+
+    // ==================== OWNER VIEWS (READ ONLY) ====================
+    await pool.query(`
+      CREATE OR REPLACE VIEW public.owner_customers AS
+      SELECT
+        id, restaurant_id, phone, full_name,
+        visits_count, first_seen_at, last_seen_at,
+        consent_marketing, consent_sms, consent_whatsapp, consent_email,
+        created_at, updated_at
+      FROM public.customers;
+    `);
+
+    await pool.query(`
+      CREATE OR REPLACE VIEW public.owner_reservations AS
+      SELECT
+        id, restaurant_id, reservation_id,
+        restaurant_name, customer_name, phone,
+        date, time, people, channel, area,
+        first_time, allergies, special_requests,
+        status, created_at
+      FROM public.reservations;
+    `);
 
     // ==================== EVENTS (CORE) ====================
     await pool.query(`
@@ -221,6 +332,15 @@ function requireApiKey(req, res, next) {
   const key = req.headers["x-api-key"];
   if (!key || key !== process.env.API_KEY) {
     return res.status(401).json({ success: false, error: "Unauthorized" });
+  }
+  next();
+}
+
+// ==================== OWNER KEY (Read-only) ====================
+function requireOwnerKey(req, res, next) {
+  const key = req.headers["x-owner-key"];
+  if (!key || !process.env.OWNER_KEY || key !== process.env.OWNER_KEY) {
+    return res.status(401).json({ success: false, error: "Owner Unauthorized" });
   }
   next();
 }
@@ -335,6 +455,50 @@ function normalizeFeedbackRatings(body) {
   };
 }
 
+// ==================== OWNER VIEW (READ ONLY) ====================
+// Owner sees only these endpoints, only SELECT from views.
+
+app.get("/owner/reservations", requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const limit = Math.min(Number(req.query.limit || 20), 100);
+    const q = await pool.query(
+      `
+      SELECT *
+      FROM public.owner_reservations
+      WHERE restaurant_id = $1
+      ORDER BY created_at DESC
+      LIMIT $2;
+      `,
+      [RESTAURANT_ID, limit]
+    );
+    const rows = q.rows.map((x) => ({ ...x, created_at_local: formatALDate(x.created_at) }));
+    return res.json({ success: true, version: APP_VERSION, data: rows });
+  } catch (err) {
+    console.error("❌ GET /owner/reservations error:", err);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
+  }
+});
+
+app.get("/owner/customers", requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const limit = Math.min(Number(req.query.limit || 50), 200);
+    const q = await pool.query(
+      `
+      SELECT *
+      FROM public.owner_customers
+      WHERE restaurant_id = $1
+      ORDER BY last_seen_at DESC NULLS LAST, visits_count DESC
+      LIMIT $2;
+      `,
+      [RESTAURANT_ID, limit]
+    );
+    return res.json({ success: true, version: APP_VERSION, data: q.rows });
+  } catch (err) {
+    console.error("❌ GET /owner/customers error:", err);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
+  }
+});
+
 // ==================== EVENTS (CORE) ====================
 
 // POST /events
@@ -434,9 +598,8 @@ app.get("/events/upcoming", requireApiKey, requireDbReady, async (req, res) => {
     const days = Math.min(Math.max(Number(req.query.days || 30), 1), 365);
 
     const today = await getTodayAL();
-    const end = (
-      await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [today, days])
-    ).rows[0].d;
+    const end = (await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [today, days])).rows[0]
+      .d;
 
     const result = await pool.query(
       `
@@ -490,6 +653,7 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
     }
 
     const dateStr = String(r.date).trim(); // "YYYY-MM-DD"
+    const timeStr = normalizeTimeHHMI(r.time);
     const status = people > MAX_AUTO_CONFIRM_PEOPLE ? "Pending" : "Confirmed";
     const reservation_id = r.reservation_id || crypto.randomUUID();
 
@@ -522,7 +686,7 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
         r.customer_name,
         r.phone,
         dateStr,
-        r.time,
+        timeStr,
         people,
         r.channel || null,
         r.area || null,
@@ -533,6 +697,43 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
         status,
       ]
     );
+
+    // ✅ HAPI 3: SYNC INTO CUSTOMERS (CRM) – non-blocking
+    // Upsert customer by (restaurant_id, phone), increment visits_count, update last_seen_at.
+    try {
+      // event timestamp based on reservation date+time in Europe/Tirane
+      await pool.query(
+        `
+        WITH ev AS (
+          SELECT (($1::date + $2::time) AT TIME ZONE 'Europe/Tirane') AS ts
+        )
+        INSERT INTO public.customers (
+          restaurant_id, phone, full_name,
+          first_seen_at, last_seen_at, visits_count,
+          consent_marketing, consent_source, consent_updated_at
+        )
+        SELECT
+          $3::bigint,
+          $4::text,
+          NULLIF($5::text, ''),
+          (SELECT ts FROM ev),
+          (SELECT ts FROM ev),
+          1,
+          FALSE,
+          'reservation',
+          NOW()
+        ON CONFLICT (restaurant_id, phone)
+        DO UPDATE SET
+          full_name = COALESCE(NULLIF(EXCLUDED.full_name,''), public.customers.full_name),
+          last_seen_at = GREATEST(public.customers.last_seen_at, EXCLUDED.last_seen_at),
+          visits_count = public.customers.visits_count + 1,
+          updated_at = NOW();
+        `,
+        [dateStr, timeStr, RESTAURANT_ID, r.phone, r.customer_name]
+      );
+    } catch (e) {
+      console.error("⚠️ Sync to customers failed (non-blocking):", e.message);
+    }
 
     // ✅ SYNC INTO EVENTS (CORE) – non-blocking
     try {
@@ -545,10 +746,10 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
         `,
         [
           RESTAURANT_ID,
-          null, // customer_id (do e lidhim në hapin CRM)
+          null, // customer_id (më vonë e lidhim me customer.id)
           reservation_id,
           dateStr,
-          String(r.time).trim(),
+          timeStr,
           people,
           status,
           r.channel || null,
@@ -643,9 +844,8 @@ app.get("/reservations/upcoming", requireApiKey, requireDbReady, async (req, res
     const days = Math.min(Math.max(Number(req.query.days || 30), 1), 365);
 
     const today = await getTodayAL();
-    const end = (
-      await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [today, days])
-    ).rows[0].d;
+    const end = (await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [today, days])).rows[0]
+      .d;
 
     const result = await pool.query(
       `
@@ -691,7 +891,7 @@ app.get("/reservations/upcoming", requireApiKey, requireDbReady, async (req, res
   }
 });
 
-// Owner actions: approve/reject (manual)
+// Owner actions: approve/reject (manual) — (ti i mban me API KEY, jo me OWNER KEY)
 app.post("/reservations/:id/approve", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -941,10 +1141,7 @@ app.get("/reports/today", requireApiKey, requireDbReady, async (req, res) => {
   }
 });
 
-/**
- * GET /reports/dashboard?days=30&restaurant_id=2&vip_limit=10
- * Returns: APS (today/7/days), Peak Hours (hour buckets), Frequency summary, VIP list
- */
+// GET /reports/dashboard (i pandryshuar nga versioni yt — e le ashtu)
 app.get("/reports/dashboard", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const restaurantId = Number(req.query.restaurant_id || RESTAURANT_ID);
@@ -957,7 +1154,6 @@ app.get("/reports/dashboard", requireApiKey, requireDbReady, async (req, res) =>
 
     const todayAL = await getTodayAL();
 
-    // -------------------- APS (today / 7 / days) --------------------
     const apsTodayQ = await pool.query(
       `
       SELECT
@@ -1011,7 +1207,6 @@ app.get("/reports/dashboard", requireApiKey, requireDbReady, async (req, res) =>
 
     const overallAps = Number(apsDaysQ.rows[0]?.avg || 0);
 
-    // -------------------- Peak Hours (hour buckets) --------------------
     const peakQ = await pool.query(
       `
       SELECT
@@ -1033,7 +1228,6 @@ app.get("/reports/dashboard", requireApiKey, requireDbReady, async (req, res) =>
 
     const peak_hours = peakQ.rows || [];
 
-    // -------------------- Frequency summary --------------------
     const freqSummaryQ = await pool.query(
       `
       WITH visits AS (
@@ -1092,7 +1286,6 @@ app.get("/reports/dashboard", requireApiKey, requireDbReady, async (req, res) =>
       customers_with_2plus_visits: 0,
     };
 
-    // -------------------- VIP list --------------------
     const vipQ = await pool.query(
       `
       WITH base AS (
