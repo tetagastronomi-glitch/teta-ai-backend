@@ -1,8 +1,13 @@
 /**
- * index.js (FINAL)
+ * index.js (FINAL - MULTI-RESTAURANT)
  * Te Ta AI Backend — Reservations + Feedback + Events(CORE) + Reports (Today + Dashboard)
  * + CRM Customers + Consents (LEGAL) + Owner View (read-only via OWNER_KEY)
  * + Segments (premium format) + Audience Export (with days filter)
+ *
+ * ✅ SaaS Mode:
+ * - x-api-key validated from DB table public.api_keys (hashed)
+ * - x-owner-key validated from DB table public.owner_keys (hashed)
+ * - restaurant_id comes from key => req.restaurant_id
  */
 
 require("dotenv").config({ override: true });
@@ -17,11 +22,10 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 
-const RESTAURANT_ID = Number(process.env.RESTAURANT_ID || 2);
 const MAX_AUTO_CONFIRM_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 8);
 
 // ✅ version marker (ndryshoje kur bën deploy)
-const APP_VERSION = "v-2025-12-23-audience-export-final-1";
+const APP_VERSION = "v-2025-12-23-multirestaurant-auth-1";
 
 // ==================== DB READY FLAG ====================
 let DB_READY = false;
@@ -80,6 +84,84 @@ function normalizeTimeHHMI(t) {
   return String(hh).padStart(2, "0") + ":" + String(mm).padStart(2, "0");
 }
 
+// ==================== AUTH HELPERS (DB KEYS) ====================
+function hashKey(raw) {
+  return crypto.createHash("sha256").update(String(raw)).digest("hex");
+}
+
+/**
+ * ✅ requireApiKey
+ * Reads x-api-key (raw), hashes it, validates against public.api_keys
+ * Sets req.restaurant_id
+ */
+async function requireApiKey(req, res, next) {
+  try {
+    const rawKey = String(req.headers["x-api-key"] || "").trim();
+    if (!rawKey) {
+      return res.status(401).json({ success: false, version: APP_VERSION, error: "Missing x-api-key" });
+    }
+
+    const keyHash = hashKey(rawKey);
+
+    const q = `
+      SELECT restaurant_id
+      FROM public.api_keys
+      WHERE key_hash = $1 AND is_active = TRUE
+      LIMIT 1;
+    `;
+    const r = await pool.query(q, [keyHash]);
+
+    if (r.rows.length === 0) {
+      return res.status(401).json({ success: false, version: APP_VERSION, error: "Invalid api key" });
+    }
+
+    req.restaurant_id = Number(r.rows[0].restaurant_id);
+
+    // best effort usage tracking (mos e blloko request)
+    pool.query(`UPDATE public.api_keys SET last_used_at = NOW() WHERE key_hash = $1;`, [keyHash]).catch(() => {});
+
+    return next();
+  } catch (err) {
+    return res.status(500).json({ success: false, version: APP_VERSION, error: "Auth failed" });
+  }
+}
+
+/**
+ * ✅ requireOwnerKey
+ * Reads x-owner-key (raw), hashes it, validates against public.owner_keys
+ * Sets req.restaurant_id
+ */
+async function requireOwnerKey(req, res, next) {
+  try {
+    const rawKey = String(req.headers["x-owner-key"] || "").trim();
+    if (!rawKey) {
+      return res.status(401).json({ success: false, version: APP_VERSION, error: "Missing x-owner-key" });
+    }
+
+    const keyHash = hashKey(rawKey);
+
+    const q = `
+      SELECT restaurant_id
+      FROM public.owner_keys
+      WHERE key_hash = $1 AND is_active = TRUE
+      LIMIT 1;
+    `;
+    const r = await pool.query(q, [keyHash]);
+
+    if (r.rows.length === 0) {
+      return res.status(401).json({ success: false, version: APP_VERSION, error: "Invalid owner key" });
+    }
+
+    req.restaurant_id = Number(r.rows[0].restaurant_id);
+
+    pool.query(`UPDATE public.owner_keys SET last_used_at = NOW() WHERE key_hash = $1;`, [keyHash]).catch(() => {});
+
+    return next();
+  } catch (err) {
+    return res.status(500).json({ success: false, version: APP_VERSION, error: "Owner auth failed" });
+  }
+}
+
 // ==================== INIT / MIGRATIONS ====================
 async function initDb() {
   try {
@@ -92,15 +174,31 @@ async function initDb() {
       );
     `);
 
-    // Ensure restaurant exists (id = RESTAURANT_ID)
-    await pool.query(
-      `
-      INSERT INTO public.restaurants (id, name)
-      VALUES ($1, $2)
-      ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name;
-      `,
-      [RESTAURANT_ID, "Te Ta Gastronomi"]
-    );
+    // ✅ api_keys
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS public.api_keys (
+        id SERIAL PRIMARY KEY,
+        restaurant_id INT NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
+        key_hash TEXT NOT NULL,
+        label TEXT DEFAULT '',
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        last_used_at TIMESTAMPTZ
+      );
+    `);
+
+    // ✅ owner_keys
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS public.owner_keys (
+        id SERIAL PRIMARY KEY,
+        restaurant_id INT NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
+        key_hash TEXT NOT NULL,
+        label TEXT DEFAULT '',
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        last_used_at TIMESTAMPTZ
+      );
+    `);
 
     // feedback
     await pool.query(`
@@ -157,10 +255,7 @@ async function initDb() {
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS raw JSON;`);
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'Confirmed';`);
 
-    // --------- Ensure restaurant_id NOT NULL + FK (safe) ----------
-    await pool.query(`UPDATE public.reservations SET restaurant_id = $1 WHERE restaurant_id IS NULL;`, [RESTAURANT_ID]);
-    await pool.query(`ALTER TABLE public.reservations ALTER COLUMN restaurant_id SET NOT NULL;`);
-
+    // FK (safe)
     await pool.query(`
       DO $$
       BEGIN
@@ -314,40 +409,6 @@ async function initDb() {
   DB_READY = true;
 })();
 
-// ==================== API KEY ====================
-function requireApiKey(req, res, next) {
-  const key = req.headers["x-api-key"];
-  if (!key || key !== process.env.API_KEY) {
-    return res.status(401).json({ success: false, version: APP_VERSION, error: "Unauthorized" });
-  }
-  next();
-}
-
-// ==================== OWNER KEY (READ-ONLY) ====================
-function safeEqual(a, b) {
-  const aa = String(a ?? "");
-  const bb = String(b ?? "");
-  const aBuf = Buffer.from(aa);
-  const bBuf = Buffer.from(bb);
-  if (aBuf.length !== bBuf.length) return false;
-  return crypto.timingSafeEqual(aBuf, bBuf);
-}
-
-function requireOwnerKey(req, res, next) {
-  const provided = String(req.headers["x-owner-key"] ?? "").trim();
-  const expected = String(process.env.OWNER_KEY ?? "").trim();
-
-  if (!provided || !expected) {
-    return res.status(401).json({ success: false, version: APP_VERSION, error: "Owner Unauthorized" });
-  }
-
-  if (!safeEqual(provided, expected)) {
-    return res.status(401).json({ success: false, version: APP_VERSION, error: "Owner Unauthorized" });
-  }
-
-  next();
-}
-
 // ==================== HEALTH ====================
 app.get("/", (req, res) => {
   res.status(200).send(`Te Ta Backend is running ✅ (${APP_VERSION})`);
@@ -363,9 +424,8 @@ app.get("/health/db", requireApiKey, async (req, res) => {
       version: APP_VERSION,
       now: r.rows[0].now,
       now_local: formatALDate(r.rows[0].now),
-      restaurant_id: RESTAURANT_ID,
+      restaurant_id: req.restaurant_id,
       max_auto_confirm_people: MAX_AUTO_CONFIRM_PEOPLE,
-      has_owner_key: !!process.env.OWNER_KEY,
     });
   } catch (err) {
     DB_READY = false;
@@ -374,22 +434,12 @@ app.get("/health/db", requireApiKey, async (req, res) => {
       db: "down",
       version: APP_VERSION,
       error: err.message,
-      restaurant_id: RESTAURANT_ID,
+      restaurant_id: req.restaurant_id,
     });
   }
 });
 
 // ==================== DEBUG ====================
-
-// Debug owner key exists (nuk e tregon sekretin)
-app.get("/debug/owner-key", requireApiKey, (req, res) => {
-  return res.json({
-    success: true,
-    version: APP_VERSION,
-    has_owner_key: !!process.env.OWNER_KEY,
-    owner_key_length: process.env.OWNER_KEY ? String(process.env.OWNER_KEY).length : 0,
-  });
-});
 
 // Debug customers (vetëm me api-key)
 app.get("/debug/customers", requireApiKey, requireDbReady, async (req, res) => {
@@ -409,29 +459,15 @@ app.get("/debug/customers", requireApiKey, requireDbReady, async (req, res) => {
     ORDER BY id DESC
     LIMIT 20;
     `,
-    [RESTAURANT_ID]
+    [req.restaurant_id]
   );
 
   return res.json({
     success: true,
     version: APP_VERSION,
+    restaurant_id: req.restaurant_id,
     count: q.rows.length,
     data: q.rows,
-  });
-});
-
-// Debug compare (tregon pse s'po kalon 401 pa ekspozuar sekretin)
-app.get("/debug/owner-auth", requireApiKey, (req, res) => {
-  const provided = String(req.headers["x-owner-key"] ?? "").trim();
-  const expected = String(process.env.OWNER_KEY ?? "").trim();
-  return res.json({
-    success: true,
-    version: APP_VERSION,
-    has_owner_key: !!process.env.OWNER_KEY,
-    provided_present: provided.length > 0,
-    provided_length: provided.length,
-    expected_length: expected.length,
-    match: provided.length > 0 && expected.length > 0 && safeEqual(provided, expected),
   });
 });
 
@@ -444,28 +480,6 @@ app.get("/debug/reservations-schema", requireApiKey, requireDbReady, async (req,
     ORDER BY ordinal_position;
   `);
   res.json({ success: true, version: APP_VERSION, columns: q.rows });
-});
-
-// Debug constraints
-app.get("/debug/reservations-constraints", requireApiKey, requireDbReady, async (req, res) => {
-  try {
-    const q = await pool.query(`
-      SELECT
-        con.conname AS constraint_name,
-        con.contype AS constraint_type,
-        pg_get_constraintdef(con.oid) AS definition
-      FROM pg_constraint con
-      JOIN pg_class rel ON rel.oid = con.conrelid
-      JOIN pg_namespace nsp ON nsp.oid = con.connamespace
-      WHERE nsp.nspname = 'public'
-        AND rel.relname = 'reservations'
-      ORDER BY con.conname;
-    `);
-    res.json({ success: true, version: APP_VERSION, constraints: q.rows });
-  } catch (err) {
-    console.error("❌ /debug/reservations-constraints error:", err);
-    res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
-  }
 });
 
 // ==================== RATINGS HELPERS ====================
@@ -598,10 +612,10 @@ app.post("/consents", requireApiKey, requireDbReady, async (req, res) => {
         consent_source, consent_updated_at,
         created_at, updated_at;
       `,
-      [RESTAURANT_ID, phone, full_name, c_marketing, c_sms, c_whatsapp, c_email, consent_source]
+      [req.restaurant_id, phone, full_name, c_marketing, c_sms, c_whatsapp, c_email, consent_source]
     );
 
-    return res.json({ success: true, version: APP_VERSION, data: q.rows[0] });
+    return res.json({ success: true, version: APP_VERSION, restaurant_id: req.restaurant_id, data: q.rows[0] });
   } catch (err) {
     console.error("❌ POST /consents error:", err);
     return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
@@ -649,7 +663,7 @@ app.get("/segments", requireApiKey, requireDbReady, async (req, res) => {
         AND (last_seen_at AT TIME ZONE 'Europe/Tirane')::date >= ($1::date - ($3::int || ' days')::interval)::date
       ORDER BY last_seen_at DESC;
       `,
-      [today, RESTAURANT_ID, days]
+      [today, req.restaurant_id, days]
     );
 
     const rows = q.rows.map((r) => ({
@@ -667,7 +681,6 @@ app.get("/segments", requireApiKey, requireDbReady, async (req, res) => {
       segment: segmentFromDays(r.days_since_last),
     }));
 
-    // VIP simple rule: visits_count >= 3
     const vip = rows.filter((r) => r.visits_count >= 3);
     const active = rows.filter((r) => r.segment === "ACTIVE");
     const warm = rows.filter((r) => r.segment === "WARM");
@@ -690,7 +703,7 @@ app.get("/segments", requireApiKey, requireDbReady, async (req, res) => {
     return res.json({
       success: true,
       version: APP_VERSION,
-      restaurant_id: RESTAURANT_ID,
+      restaurant_id: req.restaurant_id,
       params: { days },
       counts,
       data: { vip, active, warm, cold, unknown },
@@ -745,7 +758,7 @@ app.get("/audience/export", requireApiKey, requireDbReady, async (req, res) => {
       ORDER BY last_seen_at DESC
       LIMIT $3;
       `,
-      [today, RESTAURANT_ID, limit, days]
+      [today, req.restaurant_id, limit, days]
     );
 
     let rows = q.rows.map((r) => ({
@@ -786,7 +799,7 @@ app.get("/audience/export", requireApiKey, requireDbReady, async (req, res) => {
     return res.json({
       success: true,
       version: APP_VERSION,
-      restaurant_id: RESTAURANT_ID,
+      restaurant_id: req.restaurant_id,
       filter: { channel, segment, days, limit, format: "json" },
       count: rows.length,
       data: rows,
@@ -799,7 +812,6 @@ app.get("/audience/export", requireApiKey, requireDbReady, async (req, res) => {
 
 // ==================== OWNER VIEW (READ ONLY) ====================
 
-// Owner customers (read-only) -> uses VIEW
 app.get("/owner/customers", requireOwnerKey, requireDbReady, async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 50), 200);
@@ -812,17 +824,16 @@ app.get("/owner/customers", requireOwnerKey, requireDbReady, async (req, res) =>
       ORDER BY last_seen_at DESC NULLS LAST, visits_count DESC
       LIMIT $2;
       `,
-      [RESTAURANT_ID, limit]
+      [req.restaurant_id, limit]
     );
 
-    return res.json({ success: true, version: APP_VERSION, data: result.rows });
+    return res.json({ success: true, version: APP_VERSION, restaurant_id: req.restaurant_id, data: result.rows });
   } catch (err) {
     console.error("❌ GET /owner/customers error:", err);
     return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
   }
 });
 
-// Owner reservations (read-only) -> uses VIEW
 app.get("/owner/reservations", requireOwnerKey, requireDbReady, async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 20), 100);
@@ -835,11 +846,11 @@ app.get("/owner/reservations", requireOwnerKey, requireDbReady, async (req, res)
       ORDER BY created_at DESC
       LIMIT $2;
       `,
-      [RESTAURANT_ID, limit]
+      [req.restaurant_id, limit]
     );
 
     const rows = result.rows.map((x) => ({ ...x, created_at_local: formatALDate(x.created_at) }));
-    return res.json({ success: true, version: APP_VERSION, data: rows });
+    return res.json({ success: true, version: APP_VERSION, restaurant_id: req.restaurant_id, data: rows });
   } catch (err) {
     console.error("❌ GET /owner/reservations error:", err);
     return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
@@ -848,21 +859,14 @@ app.get("/owner/reservations", requireOwnerKey, requireDbReady, async (req, res)
 
 // ==================== EVENTS (CORE) ====================
 
-// POST /events
 app.post("/events", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const b = req.body || {};
-
     const required = ["event_date", "event_time"];
     for (const f of required) {
       if (!b[f]) {
         return res.status(400).json({ success: false, version: APP_VERSION, error: `Missing field: ${f}` });
       }
-    }
-
-    const restaurant_id = Number(b.restaurant_id || RESTAURANT_ID);
-    if (!Number.isFinite(restaurant_id)) {
-      return res.status(400).json({ success: false, version: APP_VERSION, error: "restaurant_id invalid" });
     }
 
     const people = b.people === undefined || b.people === null || b.people === "" ? null : Number(b.people);
@@ -881,7 +885,7 @@ app.post("/events", requireApiKey, requireDbReady, async (req, res) => {
       RETURNING id, created_at;
       `,
       [
-        restaurant_id,
+        req.restaurant_id,
         b.customer_id || null,
         b.reservation_id || null,
         b.event_type || "restaurant_reservation",
@@ -902,6 +906,7 @@ app.post("/events", requireApiKey, requireDbReady, async (req, res) => {
     return res.status(201).json({
       success: true,
       version: APP_VERSION,
+      restaurant_id: req.restaurant_id,
       data: { id: row.id, created_at: row.created_at, created_at_local: formatALDate(row.created_at) },
     });
   } catch (err) {
@@ -910,7 +915,6 @@ app.post("/events", requireApiKey, requireDbReady, async (req, res) => {
   }
 });
 
-// GET /events?limit=10
 app.get("/events", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 10), 50);
@@ -927,18 +931,17 @@ app.get("/events", requireApiKey, requireDbReady, async (req, res) => {
       ORDER BY created_at DESC
       LIMIT $2;
       `,
-      [RESTAURANT_ID, limit]
+      [req.restaurant_id, limit]
     );
 
     const rows = result.rows.map((x) => ({ ...x, created_at_local: formatALDate(x.created_at) }));
-    return res.json({ success: true, version: APP_VERSION, data: rows });
+    return res.json({ success: true, version: APP_VERSION, restaurant_id: req.restaurant_id, data: rows });
   } catch (err) {
     console.error("❌ GET /events error:", err);
     return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
   }
 });
 
-// ✅ GET /events/upcoming?days=30
 app.get("/events/upcoming", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const days = Math.min(Math.max(Number(req.query.days || 30), 1), 365);
@@ -960,7 +963,7 @@ app.get("/events/upcoming", requireApiKey, requireDbReady, async (req, res) => {
         AND event_date::date <= $3::date
       ORDER BY event_date ASC, event_time ASC, created_at ASC;
       `,
-      [RESTAURANT_ID, today, end]
+      [req.restaurant_id, today, end]
     );
 
     const rows = result.rows.map((x) => ({ ...x, created_at_local: formatALDate(x.created_at) }));
@@ -969,7 +972,7 @@ app.get("/events/upcoming", requireApiKey, requireDbReady, async (req, res) => {
       success: true,
       version: APP_VERSION,
       range: { from: today, to: end, days },
-      restaurant_id: RESTAURANT_ID,
+      restaurant_id: req.restaurant_id,
       count: rows.length,
       data: rows,
     });
@@ -981,8 +984,6 @@ app.get("/events/upcoming", requireApiKey, requireDbReady, async (req, res) => {
 
 // ==================== RESERVATIONS ====================
 
-// POST /reservations
-// Rule: if people > MAX_AUTO_CONFIRM_PEOPLE => Pending
 app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const r = req.body || {};
@@ -1026,7 +1027,7 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
       RETURNING id, reservation_id, created_at, status;
       `,
       [
-        RESTAURANT_ID,
+        req.restaurant_id,
         reservation_id,
         r.restaurant_name || "Te Ta Gastronomi",
         r.customer_name,
@@ -1073,7 +1074,7 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
           visits_count = public.customers.visits_count + 1,
           updated_at = NOW();
         `,
-        [dateStr, timeStr, RESTAURANT_ID, r.phone, r.customer_name]
+        [dateStr, timeStr, req.restaurant_id, r.phone, r.customer_name]
       );
     } catch (e) {
       console.error("⚠️ Sync to customers failed (non-blocking):", e.message);
@@ -1089,8 +1090,8 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
         ($1,$2,$3,'restaurant_reservation',$4::date,$5::time,$6,$7,$8,$9,$10,$11,$12,$13);
         `,
         [
-          RESTAURANT_ID,
-          null, // customer_id (do e lidhim më vonë)
+          req.restaurant_id,
+          null,
           reservation_id,
           dateStr,
           timeStr,
@@ -1114,6 +1115,7 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
     return res.status(httpStatus).json({
       success: true,
       version: APP_VERSION,
+      restaurant_id: req.restaurant_id,
       message:
         status === "Pending"
           ? `Reservation is pending owner approval (people > ${MAX_AUTO_CONFIRM_PEOPLE}).`
@@ -1142,7 +1144,6 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
   }
 });
 
-// GET /reservations?limit=10
 app.get("/reservations", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 10), 50);
@@ -1171,18 +1172,17 @@ app.get("/reservations", requireApiKey, requireDbReady, async (req, res) => {
       ORDER BY created_at DESC
       LIMIT $2;
       `,
-      [RESTAURANT_ID, limit]
+      [req.restaurant_id, limit]
     );
 
     const rows = result.rows.map((x) => ({ ...x, created_at_local: formatALDate(x.created_at) }));
-    return res.json({ success: true, version: APP_VERSION, data: rows });
+    return res.json({ success: true, version: APP_VERSION, restaurant_id: req.restaurant_id, data: rows });
   } catch (err) {
     console.error("❌ GET /reservations error:", err);
     return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
   }
 });
 
-// GET /reservations/upcoming?days=30
 app.get("/reservations/upcoming", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const days = Math.min(Math.max(Number(req.query.days || 30), 1), 365);
@@ -1216,7 +1216,7 @@ app.get("/reservations/upcoming", requireApiKey, requireDbReady, async (req, res
         AND date::date <= $3::date
       ORDER BY date ASC, time ASC, created_at ASC;
       `,
-      [RESTAURANT_ID, today, end]
+      [req.restaurant_id, today, end]
     );
 
     const rows = result.rows.map((x) => ({ ...x, created_at_local: formatALDate(x.created_at) }));
@@ -1225,7 +1225,7 @@ app.get("/reservations/upcoming", requireApiKey, requireDbReady, async (req, res
       success: true,
       version: APP_VERSION,
       range: { from: today, to: end, days },
-      restaurant_id: RESTAURANT_ID,
+      restaurant_id: req.restaurant_id,
       count: rows.length,
       data: rows,
     });
@@ -1235,7 +1235,7 @@ app.get("/reservations/upcoming", requireApiKey, requireDbReady, async (req, res
   }
 });
 
-// Owner actions: approve/reject (manual)
+// Owner actions: approve/reject (manual) - KEEP api-key, but tied to restaurant_id
 app.post("/reservations/:id/approve", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -1250,7 +1250,7 @@ app.post("/reservations/:id/approve", requireApiKey, requireDbReady, async (req,
       WHERE restaurant_id = $1 AND id = $2
       RETURNING id, reservation_id, status, created_at;
       `,
-      [RESTAURANT_ID, id]
+      [req.restaurant_id, id]
     );
 
     if (result.rows.length === 0) {
@@ -1259,10 +1259,9 @@ app.post("/reservations/:id/approve", requireApiKey, requireDbReady, async (req,
 
     const row = result.rows[0];
 
-    // sync events status (best-effort)
     try {
       await pool.query(`UPDATE public.events SET status='Confirmed' WHERE restaurant_id=$1 AND reservation_id=$2;`, [
-        RESTAURANT_ID,
+        req.restaurant_id,
         row.reservation_id,
       ]);
     } catch (e) {
@@ -1272,6 +1271,7 @@ app.post("/reservations/:id/approve", requireApiKey, requireDbReady, async (req,
     return res.json({
       success: true,
       version: APP_VERSION,
+      restaurant_id: req.restaurant_id,
       message: "Reservation approved (Confirmed).",
       data: { ...row, created_at_local: formatALDate(row.created_at) },
     });
@@ -1295,7 +1295,7 @@ app.post("/reservations/:id/reject", requireApiKey, requireDbReady, async (req, 
       WHERE restaurant_id = $1 AND id = $2
       RETURNING id, reservation_id, status, created_at;
       `,
-      [RESTAURANT_ID, id]
+      [req.restaurant_id, id]
     );
 
     if (result.rows.length === 0) {
@@ -1304,10 +1304,9 @@ app.post("/reservations/:id/reject", requireApiKey, requireDbReady, async (req, 
 
     const row = result.rows[0];
 
-    // sync events status (best-effort)
     try {
       await pool.query(`UPDATE public.events SET status='Rejected' WHERE restaurant_id=$1 AND reservation_id=$2;`, [
-        RESTAURANT_ID,
+        req.restaurant_id,
         row.reservation_id,
       ]);
     } catch (e) {
@@ -1317,6 +1316,7 @@ app.post("/reservations/:id/reject", requireApiKey, requireDbReady, async (req, 
     return res.json({
       success: true,
       version: APP_VERSION,
+      restaurant_id: req.restaurant_id,
       message: "Reservation rejected.",
       data: { ...row, created_at_local: formatALDate(row.created_at) },
     });
@@ -1328,7 +1328,6 @@ app.post("/reservations/:id/reject", requireApiKey, requireDbReady, async (req, 
 
 // ==================== FEEDBACK ====================
 
-// POST /feedback
 app.post("/feedback", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const phone = req.body?.phone;
@@ -1350,7 +1349,7 @@ app.post("/feedback", requireApiKey, requireDbReady, async (req, res) => {
       RETURNING id, created_at;
       `,
       [
-        RESTAURANT_ID,
+        req.restaurant_id,
         "Te Ta Gastronomi",
         phone,
         ratings.location_rating,
@@ -1365,6 +1364,7 @@ app.post("/feedback", requireApiKey, requireDbReady, async (req, res) => {
     return res.status(201).json({
       success: true,
       version: APP_VERSION,
+      restaurant_id: req.restaurant_id,
       data: { ...row, created_at_local: formatALDate(row.created_at) },
     });
   } catch (err) {
@@ -1373,7 +1373,6 @@ app.post("/feedback", requireApiKey, requireDbReady, async (req, res) => {
   }
 });
 
-// GET /feedback?limit=20
 app.get("/feedback", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 20), 100);
@@ -1397,11 +1396,11 @@ app.get("/feedback", requireApiKey, requireDbReady, async (req, res) => {
       ORDER BY created_at DESC
       LIMIT $2;
       `,
-      [RESTAURANT_ID, limit]
+      [req.restaurant_id, limit]
     );
 
     const rows = result.rows.map((x) => ({ ...x, created_at_local: formatALDate(x.created_at) }));
-    return res.json({ success: true, version: APP_VERSION, data: rows });
+    return res.json({ success: true, version: APP_VERSION, restaurant_id: req.restaurant_id, data: rows });
   } catch (err) {
     console.error("❌ GET /feedback error:", err);
     return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
@@ -1410,7 +1409,6 @@ app.get("/feedback", requireApiKey, requireDbReady, async (req, res) => {
 
 // ==================== REPORTS ====================
 
-// GET /reports/today
 app.get("/reports/today", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const today = await getTodayAL();
@@ -1426,7 +1424,7 @@ app.get("/reports/today", requireApiKey, requireDbReady, async (req, res) => {
         AND date::date = $2::date
       ORDER BY time ASC;
       `,
-      [RESTAURANT_ID, today]
+      [req.restaurant_id, today]
     );
 
     const reservationsRows = reservations.rows.map((x) => ({
@@ -1446,7 +1444,7 @@ app.get("/reports/today", requireApiKey, requireDbReady, async (req, res) => {
         AND (created_at AT TIME ZONE 'Europe/Tirane')::date = $2::date
       ORDER BY created_at DESC;
       `,
-      [RESTAURANT_ID, today]
+      [req.restaurant_id, today]
     );
 
     const feedbackRows = feedback.rows.map((f) => ({
@@ -1467,7 +1465,7 @@ app.get("/reports/today", requireApiKey, requireDbReady, async (req, res) => {
       success: true,
       version: APP_VERSION,
       date_local: today,
-      restaurant_id: RESTAURANT_ID,
+      restaurant_id: req.restaurant_id,
       summary: {
         reservations_today: reservationsRows.length,
         feedback_today: feedbackCount,
