@@ -2,7 +2,7 @@
  * index.js (FINAL)
  * Te Ta AI Backend — Reservations + Feedback + Events(CORE) + Reports (Today + Dashboard)
  * + CRM Customers + Consents (LEGAL) + Owner View (read-only via OWNER_KEY)
- * + Segments + Audience Export (HAPI 4)
+ * + Segments (premium format) + Audience Export (with days filter)
  */
 
 require("dotenv").config({ override: true });
@@ -20,7 +20,7 @@ app.use(express.json({ limit: "1mb" }));
 const RESTAURANT_ID = Number(process.env.RESTAURANT_ID || 2);
 const MAX_AUTO_CONFIRM_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 8);
 
-// ✅ version marker
+// ✅ version marker (ndryshoje kur bën deploy)
 const APP_VERSION = "v-2025-12-23-audience-export-final-1";
 
 // ==================== DB READY FLAG ====================
@@ -283,15 +283,8 @@ async function initDb() {
       ON public.events (restaurant_id, event_date);
     `);
 
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_events_status
-      ON public.events (status);
-    `);
-
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_events_reservation_id
-      ON public.events (reservation_id);
-    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_events_status ON public.events (status);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_events_reservation_id ON public.events (reservation_id);`);
 
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_res_rest_status_date
@@ -325,7 +318,7 @@ async function initDb() {
 function requireApiKey(req, res, next) {
   const key = req.headers["x-api-key"];
   if (!key || key !== process.env.API_KEY) {
-    return res.status(401).json({ success: false, error: "Unauthorized" });
+    return res.status(401).json({ success: false, version: APP_VERSION, error: "Unauthorized" });
   }
   next();
 }
@@ -345,11 +338,11 @@ function requireOwnerKey(req, res, next) {
   const expected = String(process.env.OWNER_KEY ?? "").trim();
 
   if (!provided || !expected) {
-    return res.status(401).json({ success: false, error: "Owner Unauthorized" });
+    return res.status(401).json({ success: false, version: APP_VERSION, error: "Owner Unauthorized" });
   }
 
   if (!safeEqual(provided, expected)) {
-    return res.status(401).json({ success: false, error: "Owner Unauthorized" });
+    return res.status(401).json({ success: false, version: APP_VERSION, error: "Owner Unauthorized" });
   }
 
   next();
@@ -535,20 +528,11 @@ function toBoolOrNull(v) {
 /**
  * POST /consents
  * NOTE: Nëse një consent nuk vjen në body, nuk e ndryshojmë.
- * ✅ pranon edhe format AI-friendly: whatsapp/sms/email/marketing
+ * ✅ pranon edhe alias keys: whatsapp/sms/email/marketing
  */
 app.post("/consents", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const b = req.body || {};
-
-    // ✅ Accept both styles:
-    // 1) consent_whatsapp / consent_sms / consent_email / consent_marketing
-    // 2) whatsapp / sms / email / marketing
-    if (b.whatsapp !== undefined && b.consent_whatsapp === undefined) b.consent_whatsapp = b.whatsapp;
-    if (b.sms !== undefined && b.consent_sms === undefined) b.consent_sms = b.sms;
-    if (b.email !== undefined && b.consent_email === undefined) b.consent_email = b.email;
-    if (b.marketing !== undefined && b.consent_marketing === undefined) b.consent_marketing = b.marketing;
-
     const phone = String(b.phone || "").trim();
     if (!phone) {
       return res.status(400).json({ success: false, version: APP_VERSION, error: "Missing field: phone" });
@@ -556,10 +540,11 @@ app.post("/consents", requireApiKey, requireDbReady, async (req, res) => {
 
     const full_name = b.full_name !== undefined ? String(b.full_name || "").trim() : null;
 
-    const c_marketing = toBoolOrNull(b.consent_marketing);
-    const c_sms = toBoolOrNull(b.consent_sms);
-    const c_whatsapp = toBoolOrNull(b.consent_whatsapp);
-    const c_email = toBoolOrNull(b.consent_email);
+    // ✅ ALIAS SUPPORT (final)
+    const c_marketing = toBoolOrNull(b.consent_marketing ?? b.marketing);
+    const c_sms = toBoolOrNull(b.consent_sms ?? b.sms);
+    const c_whatsapp = toBoolOrNull(b.consent_whatsapp ?? b.whatsapp);
+    const c_email = toBoolOrNull(b.consent_email ?? b.email);
 
     const anyProvided = [c_marketing, c_sms, c_whatsapp, c_email].some((x) => x !== null);
     if (!anyProvided && full_name === null) {
@@ -567,7 +552,7 @@ app.post("/consents", requireApiKey, requireDbReady, async (req, res) => {
         success: false,
         version: APP_VERSION,
         error:
-          "No consent fields provided (send at least one of consent_marketing/consent_sms/consent_whatsapp/consent_email or full_name).",
+          "No consent fields provided (send at least one of whatsapp/sms/email/marketing OR consent_marketing/consent_sms/consent_whatsapp/consent_email OR full_name).",
       });
     }
 
@@ -636,7 +621,8 @@ function segmentFromDays(daysSince) {
 
 /**
  * GET /segments?days=60
- * Kthen segmentim bazuar në last_seen_at (CRM).
+ * ✅ PREMIUM FORMAT:
+ * counts + data{vip, active, warm, cold, unknown}
  */
 app.get("/segments", requireApiKey, requireDbReady, async (req, res) => {
   try {
@@ -651,13 +637,12 @@ app.get("/segments", requireApiKey, requireDbReady, async (req, res) => {
         phone,
         full_name,
         visits_count,
-        first_seen_at,
         last_seen_at,
         consent_marketing,
         consent_sms,
         consent_whatsapp,
         consent_email,
-        ( ($1::date) - ((last_seen_at AT TIME ZONE 'Europe/Tirane')::date) )::int AS days_since_last_visit
+        ( ($1::date) - ((last_seen_at AT TIME ZONE 'Europe/Tirane')::date) )::int AS days_since_last
       FROM public.customers
       WHERE restaurant_id = $2
         AND last_seen_at IS NOT NULL
@@ -668,31 +653,47 @@ app.get("/segments", requireApiKey, requireDbReady, async (req, res) => {
     );
 
     const rows = q.rows.map((r) => ({
-      ...r,
-      segment: segmentFromDays(r.days_since_last_visit),
-      first_seen_at_local: formatALDate(r.first_seen_at),
+      id: String(r.id),
+      phone: r.phone,
+      full_name: r.full_name || "",
+      visits_count: Number(r.visits_count || 0),
+      last_seen_at: r.last_seen_at,
       last_seen_at_local: formatALDate(r.last_seen_at),
+      consent_marketing: !!r.consent_marketing,
+      consent_sms: !!r.consent_sms,
+      consent_whatsapp: !!r.consent_whatsapp,
+      consent_email: !!r.consent_email,
+      days_since_last: Number.isFinite(Number(r.days_since_last)) ? Number(r.days_since_last) : null,
+      segment: segmentFromDays(r.days_since_last),
     }));
 
-    const counts = rows.reduce(
-      (acc, r) => {
-        acc.total += 1;
-        if (r.segment === "ACTIVE") acc.active += 1;
-        else if (r.segment === "WARM") acc.warm += 1;
-        else if (r.segment === "COLD") acc.cold += 1;
-        else acc.unknown += 1;
-        return acc;
-      },
-      { total: 0, active: 0, warm: 0, cold: 0, unknown: 0 }
-    );
+    // VIP simple rule: visits_count >= 3
+    const vip = rows.filter((r) => r.visits_count >= 3);
+    const active = rows.filter((r) => r.segment === "ACTIVE");
+    const warm = rows.filter((r) => r.segment === "WARM");
+    const cold = rows.filter((r) => r.segment === "COLD");
+    const unknown = rows.filter((r) => r.segment === "UNKNOWN");
+
+    const counts = {
+      total: rows.length,
+      vip: vip.length,
+      active: active.length,
+      warm: warm.length,
+      cold: cold.length,
+      unknown: unknown.length,
+      whatsapp_true: rows.filter((r) => r.consent_whatsapp).length,
+      marketing_true: rows.filter((r) => r.consent_marketing).length,
+      sms_true: rows.filter((r) => r.consent_sms).length,
+      email_true: rows.filter((r) => r.consent_email).length,
+    };
 
     return res.json({
       success: true,
       version: APP_VERSION,
       restaurant_id: RESTAURANT_ID,
-      range: { days, from: String(today) },
+      params: { days },
       counts,
-      data: rows,
+      data: { vip, active, warm, cold, unknown },
     });
   } catch (err) {
     console.error("❌ GET /segments error:", err);
@@ -701,26 +702,17 @@ app.get("/segments", requireApiKey, requireDbReady, async (req, res) => {
 });
 
 /**
- * ✅ HAPI 4 – Audience Export (FINAL)
- * GET /audience/export?channel=whatsapp|sms|email|marketing&segment=vip|active|warm|cold|unknown|all&days=60&limit=200&format=json|csv
+ * GET /audience/export?channel=whatsapp&segment=all&days=60&limit=200&format=json|csv
+ * channel: whatsapp | sms | email | marketing
+ * segment: active | warm | cold | all
  */
 app.get("/audience/export", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const channel = String(req.query.channel || "whatsapp").trim().toLowerCase();
     const segment = String(req.query.segment || "all").trim().toLowerCase();
     const format = String(req.query.format || "json").trim().toLowerCase();
-    const limit = Math.min(Math.max(Number(req.query.limit || 200), 1), 5000);
     const days = Math.min(Math.max(Number(req.query.days || 60), 1), 3650);
-
-    const allowedChannels = ["whatsapp", "sms", "email", "marketing"];
-    const allowedSegments = ["vip", "active", "warm", "cold", "unknown", "all"];
-
-    if (!allowedChannels.includes(channel)) {
-      return res.status(400).json({ success: false, version: APP_VERSION, error: "Invalid channel", allowedChannels });
-    }
-    if (!allowedSegments.includes(segment)) {
-      return res.status(400).json({ success: false, version: APP_VERSION, error: "Invalid segment", allowedSegments });
-    }
+    const limit = Math.min(Math.max(Number(req.query.limit || 200), 1), 2000);
 
     const consentColumn =
       channel === "sms"
@@ -732,7 +724,6 @@ app.get("/audience/export", requireApiKey, requireDbReady, async (req, res) => {
         : "consent_whatsapp";
 
     const today = await getTodayAL();
-    const VIP_MIN_VISITS = Number(process.env.VIP_MIN_VISITS || 5);
 
     const q = await pool.query(
       `
@@ -744,53 +735,32 @@ app.get("/audience/export", requireApiKey, requireDbReady, async (req, res) => {
         visits_count,
         last_seen_at,
         ${consentColumn} AS consent_ok,
-        CASE
-          WHEN last_seen_at IS NULL THEN NULL
-          ELSE ( ($1::date) - ((last_seen_at AT TIME ZONE 'Europe/Tirane')::date) )::int
-        END AS days_since_last_visit
+        ( ($1::date) - ((last_seen_at AT TIME ZONE 'Europe/Tirane')::date) )::int AS days_since_last_visit
       FROM public.customers
       WHERE restaurant_id = $2
         AND phone IS NOT NULL AND phone <> ''
+        AND last_seen_at IS NOT NULL
+        AND (last_seen_at AT TIME ZONE 'Europe/Tirane')::date >= ($1::date - ($4::int || ' days')::interval)::date
         AND ${consentColumn} = TRUE
-        AND (
-          ($3::text = 'unknown' AND last_seen_at IS NULL)
-          OR
-          ($3::text = 'all' AND (
-            last_seen_at IS NULL
-            OR (last_seen_at AT TIME ZONE 'Europe/Tirane')::date >= ($1::date - ($4::int || ' days')::interval)::date
-          ))
-          OR
-          ($3::text NOT IN ('unknown','all') AND last_seen_at IS NOT NULL
-            AND (last_seen_at AT TIME ZONE 'Europe/Tirane')::date >= ($1::date - ($4::int || ' days')::interval)::date
-          )
-        )
-      ORDER BY last_seen_at DESC NULLS LAST, visits_count DESC
-      LIMIT $5;
+      ORDER BY last_seen_at DESC
+      LIMIT $3;
       `,
-      [today, RESTAURANT_ID, segment, days, limit]
+      [today, RESTAURANT_ID, limit, days]
     );
 
-    let rows = q.rows.map((r) => {
-      const seg = segmentFromDays(r.days_since_last_visit);
-      return {
-        phone: r.phone,
-        full_name: r.full_name || "",
-        visits_count: Number(r.visits_count || 0),
-        segment: r.days_since_last_visit === null ? "UNKNOWN" : seg,
-        days_since_last_visit: r.days_since_last_visit,
-        last_seen_at: r.last_seen_at,
-        last_seen_at_local: formatALDate(r.last_seen_at),
-      };
-    });
+    let rows = q.rows.map((r) => ({
+      phone: r.phone,
+      full_name: r.full_name || "",
+      visits_count: Number(r.visits_count || 0),
+      segment: segmentFromDays(r.days_since_last_visit),
+      days_since_last_visit: Number.isFinite(Number(r.days_since_last_visit)) ? Number(r.days_since_last_visit) : null,
+      last_seen_at: r.last_seen_at,
+      last_seen_at_local: formatALDate(r.last_seen_at),
+    }));
 
-    // Segment filters (active/warm/cold/vip/unknown)
-    if (segment === "active" || segment === "warm" || segment === "cold") {
+    if (segment !== "all") {
       const want = segment.toUpperCase();
       rows = rows.filter((r) => r.segment === want);
-    } else if (segment === "vip") {
-      rows = rows.filter((r) => r.visits_count >= VIP_MIN_VISITS);
-    } else if (segment === "unknown") {
-      rows = rows.filter((r) => r.segment === "UNKNOWN");
     }
 
     if (format === "csv") {
@@ -805,7 +775,7 @@ app.get("/audience/export", requireApiKey, requireDbReady, async (req, res) => {
             `"${String(r.full_name || "").replaceAll('"', '""')}"`,
             r.segment,
             r.visits_count,
-            r.days_since_last_visit === null ? "" : r.days_since_last_visit,
+            r.days_since_last_visit ?? "",
             `"${String(r.last_seen_at_local || "").replaceAll('"', '""')}"`,
           ].join(",")
         )
@@ -1069,7 +1039,7 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
         r.first_time || null,
         r.allergies || "",
         r.special_requests || "",
-        r, // raw json
+        r,
         status,
       ]
     );
@@ -1120,7 +1090,7 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
         `,
         [
           RESTAURANT_ID,
-          null,
+          null, // customer_id (do e lidhim më vonë)
           reservation_id,
           dateStr,
           timeStr,
@@ -1510,244 +1480,6 @@ app.get("/reports/today", requireApiKey, requireDbReady, async (req, res) => {
     });
   } catch (err) {
     console.error("❌ GET /reports/today error:", err);
-    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
-  }
-});
-
-/**
- * GET /reports/dashboard?days=30&restaurant_id=2&vip_limit=10
- */
-app.get("/reports/dashboard", requireApiKey, requireDbReady, async (req, res) => {
-  try {
-    const restaurantId = Number(req.query.restaurant_id || RESTAURANT_ID);
-    if (!Number.isFinite(restaurantId)) {
-      return res.status(400).json({ success: false, version: APP_VERSION, error: "restaurant_id invalid" });
-    }
-
-    const days = Math.min(Math.max(Number(req.query.days || 30), 1), 365);
-    const vipLimit = Math.min(Math.max(Number(req.query.vip_limit || 10), 1), 50);
-
-    const todayAL = await getTodayAL();
-
-    const apsTodayQ = await pool.query(
-      `
-      SELECT
-        ROUND(AVG(people)::numeric, 2) AS avg,
-        COUNT(*) AS reservations,
-        COALESCE(SUM(people), 0) AS people
-      FROM public.reservations
-      WHERE restaurant_id = $1
-        AND status = 'Confirmed'
-        AND date::date = $2::date
-        AND people > 0;
-      `,
-      [restaurantId, todayAL]
-    );
-
-    const aps7Q = await pool.query(
-      `
-      SELECT
-        ROUND(AVG(people)::numeric, 2) AS avg,
-        COUNT(*) AS reservations,
-        COALESCE(SUM(people), 0) AS people
-      FROM public.reservations
-      WHERE restaurant_id = $1
-        AND status = 'Confirmed'
-        AND date::date >= $2::date - INTERVAL '7 days'
-        AND people > 0;
-      `,
-      [restaurantId, todayAL]
-    );
-
-    const apsDaysQ = await pool.query(
-      `
-      SELECT
-        ROUND(AVG(people)::numeric, 2) AS avg,
-        COUNT(*) AS reservations,
-        COALESCE(SUM(people), 0) AS people
-      FROM public.reservations
-      WHERE restaurant_id = $1
-        AND status = 'Confirmed'
-        AND date::date >= $2::date - ($3::int || ' days')::interval
-        AND people > 0;
-      `,
-      [restaurantId, todayAL, days]
-    );
-
-    const aps = {
-      today: apsTodayQ.rows[0] || { avg: null, reservations: 0, people: 0 },
-      last_7_days: aps7Q.rows[0] || { avg: null, reservations: 0, people: 0 },
-      last_days: { days, ...(apsDaysQ.rows[0] || { avg: null, reservations: 0, people: 0 }) },
-    };
-
-    const overallAps = Number(apsDaysQ.rows[0]?.avg || 0);
-
-    const peakQ = await pool.query(
-      `
-      SELECT
-        to_char(to_timestamp(time, 'HH24:MI'), 'HH24:00') AS hour,
-        COUNT(*) AS reservations,
-        COALESCE(SUM(people), 0) AS people,
-        ROUND(AVG(people)::numeric, 2) AS avg_people
-      FROM public.reservations
-      WHERE restaurant_id = $1
-        AND status = 'Confirmed'
-        AND date::date >= $2::date - ($3::int || ' days')::interval
-        AND people > 0
-      GROUP BY hour
-      ORDER BY reservations DESC, people DESC
-      LIMIT 10;
-      `,
-      [restaurantId, todayAL, days]
-    );
-
-    const peak_hours = peakQ.rows || [];
-
-    const freqSummaryQ = await pool.query(
-      `
-      WITH visits AS (
-        SELECT restaurant_id, phone, date::date AS visit_date
-        FROM public.reservations
-        WHERE restaurant_id = $1
-          AND status = 'Confirmed'
-          AND people > 0
-          AND phone IS NOT NULL AND phone <> ''
-          AND date::date >= $2::date - ($3::int || ' days')::interval
-      ),
-      gaps AS (
-        SELECT
-          restaurant_id, phone, visit_date,
-          LAG(visit_date) OVER (PARTITION BY restaurant_id, phone ORDER BY visit_date) AS prev_visit_date
-        FROM visits
-      ),
-      diffs AS (
-        SELECT
-          restaurant_id, phone,
-          ROUND(AVG((visit_date - prev_visit_date))::numeric, 2) AS avg_days_between_visits
-        FROM gaps
-        WHERE prev_visit_date IS NOT NULL
-        GROUP BY restaurant_id, phone
-      ),
-      seg AS (
-        SELECT
-          restaurant_id,
-          CASE
-            WHEN avg_days_between_visits <= 14 THEN 'ACTIVE'
-            WHEN avg_days_between_visits <= 30 THEN 'WARM'
-            ELSE 'COLD'
-          END AS segment,
-          avg_days_between_visits
-        FROM diffs
-      )
-      SELECT
-        restaurant_id,
-        COUNT(*) FILTER (WHERE segment='ACTIVE') AS active,
-        COUNT(*) FILTER (WHERE segment='WARM') AS warm,
-        COUNT(*) FILTER (WHERE segment='COLD') AS cold,
-        ROUND(AVG(avg_days_between_visits)::numeric, 2) AS avg_days_between_visits_overall,
-        COUNT(*) AS customers_with_2plus_visits
-      FROM seg
-      GROUP BY restaurant_id;
-      `,
-      [restaurantId, todayAL, days]
-    );
-
-    const frequency = freqSummaryQ.rows[0] || {
-      restaurant_id: restaurantId,
-      active: 0,
-      warm: 0,
-      cold: 0,
-      avg_days_between_visits_overall: null,
-      customers_with_2plus_visits: 0,
-    };
-
-    const vipQ = await pool.query(
-      `
-      WITH base AS (
-        SELECT
-          restaurant_id,
-          phone,
-          MAX(customer_name) AS customer_name,
-          COUNT(*) FILTER (WHERE date::date >= $2::date - INTERVAL '30 days') AS visits_last_30,
-          COUNT(*) AS total_visits,
-          ROUND(AVG(people)::numeric, 2) AS avg_people,
-          MIN(date::date) AS first_visit,
-          MAX(date::date) AS last_visit
-        FROM public.reservations
-        WHERE restaurant_id = $1
-          AND status = 'Confirmed'
-          AND people > 0
-          AND phone IS NOT NULL
-          AND phone <> ''
-        GROUP BY restaurant_id, phone
-      ),
-      gaps AS (
-        SELECT
-          restaurant_id,
-          phone,
-          date::date AS visit_date,
-          LAG(date::date) OVER (PARTITION BY restaurant_id, phone ORDER BY date::date) AS prev_visit_date
-        FROM public.reservations
-        WHERE restaurant_id = $1
-          AND status = 'Confirmed'
-          AND people > 0
-          AND phone IS NOT NULL
-          AND phone <> ''
-      ),
-      freq AS (
-        SELECT
-          restaurant_id,
-          phone,
-          ROUND(AVG((visit_date - prev_visit_date))::numeric, 2) AS avg_days_between_visits
-        FROM gaps
-        WHERE prev_visit_date IS NOT NULL
-        GROUP BY restaurant_id, phone
-      )
-      SELECT
-        b.restaurant_id,
-        b.phone,
-        b.customer_name,
-        b.visits_last_30,
-        b.total_visits,
-        b.avg_people,
-        COALESCE(f.avg_days_between_visits, NULL) AS avg_days_between_visits,
-        b.first_visit,
-        b.last_visit,
-        (CURRENT_DATE - b.last_visit) AS days_since_last_visit,
-        (
-          (CASE WHEN b.visits_last_30 >= 3 THEN 1 ELSE 0 END) +
-          (CASE WHEN COALESCE(f.avg_days_between_visits, 999) <= 14 THEN 1 ELSE 0 END) +
-          (CASE WHEN b.avg_people >= $3::numeric THEN 1 ELSE 0 END)
-        ) AS vip_score
-      FROM base b
-      LEFT JOIN freq f ON f.restaurant_id = b.restaurant_id AND f.phone = b.phone
-      WHERE
-        (
-          (CASE WHEN b.visits_last_30 >= 3 THEN 1 ELSE 0 END) +
-          (CASE WHEN COALESCE(f.avg_days_between_visits, 999) <= 14 THEN 1 ELSE 0 END) +
-          (CASE WHEN b.avg_people >= $3::numeric THEN 1 ELSE 0 END)
-        ) >= 2
-      ORDER BY vip_score DESC, visits_last_30 DESC, avg_days_between_visits ASC
-      LIMIT $4;
-      `,
-      [restaurantId, todayAL, overallAps || 0, vipLimit]
-    );
-
-    const vip_customers = vipQ.rows || [];
-
-    return res.json({
-      success: true,
-      version: APP_VERSION,
-      restaurant_id: restaurantId,
-      today_local: todayAL,
-      period_days: days,
-      aps,
-      peak_hours,
-      frequency,
-      vip_customers,
-    });
-  } catch (err) {
-    console.error("❌ GET /reports/dashboard error:", err);
     return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
   }
 });
