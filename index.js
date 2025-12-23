@@ -1,13 +1,17 @@
 /**
- * index.js (FINAL - MULTI-RESTAURANT)
- * Te Ta AI Backend — Reservations + Feedback + Events(CORE) + Reports (Today + Dashboard)
+ * index.js (FINAL - MULTI-RESTAURANT + ADMIN)
+ * Te Ta AI Backend — Reservations + Feedback + Events(CORE) + Reports
  * + CRM Customers + Consents (LEGAL) + Owner View (read-only via OWNER_KEY)
- * + Segments (premium format) + Audience Export (with days filter)
+ * + Segments + Audience Export
  *
  * ✅ SaaS Mode:
  * - x-api-key validated from DB table public.api_keys (hashed)
  * - x-owner-key validated from DB table public.owner_keys (hashed)
  * - restaurant_id comes from key => req.restaurant_id
+ *
+ * ✅ Admin Mode:
+ * - x-admin-key validated from env ADMIN_KEY (master)
+ * - admin can create restaurants + keys
  */
 
 require("dotenv").config({ override: true });
@@ -25,7 +29,7 @@ app.use(express.json({ limit: "1mb" }));
 const MAX_AUTO_CONFIRM_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 8);
 
 // ✅ version marker (ndryshoje kur bën deploy)
-const APP_VERSION = "v-2025-12-23-multirestaurant-auth-1";
+const APP_VERSION = "v-2025-12-23-multirestaurant-admin-1";
 
 // ==================== DB READY FLAG ====================
 let DB_READY = false;
@@ -65,11 +69,13 @@ function formatALDate(d) {
 
 // Helper: get "today" in Albania date (server-agnostic)
 async function getTodayAL() {
-  const q = await pool.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`);
+  const q = await pool.query(
+    `SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`
+  );
   return q.rows[0].d;
 }
 
-// Helper normalize HH:MI (for casting to time safely)
+// Helper normalize HH:MI
 function normalizeTimeHHMI(t) {
   const s = String(t || "").trim();
   const m = s.match(/^(\d{1,2}):(\d{2})$/);
@@ -84,9 +90,23 @@ function normalizeTimeHHMI(t) {
   return String(hh).padStart(2, "0") + ":" + String(mm).padStart(2, "0");
 }
 
-// ==================== AUTH HELPERS (DB KEYS) ====================
+// ==================== AUTH HELPERS ====================
 function hashKey(raw) {
   return crypto.createHash("sha256").update(String(raw)).digest("hex");
+}
+
+function safeEqual(a, b) {
+  const aa = String(a ?? "");
+  const bb = String(b ?? "");
+  const aBuf = Buffer.from(aa);
+  const bBuf = Buffer.from(bb);
+  if (aBuf.length !== bBuf.length) return false;
+  return crypto.timingSafeEqual(aBuf, bBuf);
+}
+
+function makeRawKey(prefix) {
+  // key raw që i jepet klientit (ruaj vetëm hash)
+  return `${prefix}_${crypto.randomUUID().replaceAll("-", "")}`;
 }
 
 /**
@@ -103,13 +123,15 @@ async function requireApiKey(req, res, next) {
 
     const keyHash = hashKey(rawKey);
 
-    const q = `
+    const r = await pool.query(
+      `
       SELECT restaurant_id
       FROM public.api_keys
       WHERE key_hash = $1 AND is_active = TRUE
       LIMIT 1;
-    `;
-    const r = await pool.query(q, [keyHash]);
+      `,
+      [keyHash]
+    );
 
     if (r.rows.length === 0) {
       return res.status(401).json({ success: false, version: APP_VERSION, error: "Invalid api key" });
@@ -117,11 +139,11 @@ async function requireApiKey(req, res, next) {
 
     req.restaurant_id = Number(r.rows[0].restaurant_id);
 
-    // best effort usage tracking (mos e blloko request)
+    // best-effort usage tracking
     pool.query(`UPDATE public.api_keys SET last_used_at = NOW() WHERE key_hash = $1;`, [keyHash]).catch(() => {});
-
     return next();
   } catch (err) {
+    console.error("❌ requireApiKey error:", err);
     return res.status(500).json({ success: false, version: APP_VERSION, error: "Auth failed" });
   }
 }
@@ -132,48 +154,7 @@ async function requireApiKey(req, res, next) {
  * Sets req.restaurant_id
  */
 async function requireOwnerKey(req, res, next) {
-  try {/**
- * 🔒 requireAdminKey
- * Master access (platform owner only)
- */
-async function requireAdminKey(req, res, next) {
   try {
-    const rawKey = String(req.headers["x-admin-key"] || "").trim();
-    if (!rawKey) {
-      return res.status(401).json({
-        success: false,
-        version: APP_VERSION,
-        error: "Missing x-admin-key",
-      });
-    }
-
-    const expected = String(process.env.ADMIN_KEY || "").trim();
-    if (!expected) {
-      return res.status(500).json({
-        success: false,
-        version: APP_VERSION,
-        error: "ADMIN_KEY not configured",
-      });
-    }
-
-    if (!safeEqual(rawKey, expected)) {
-      return res.status(401).json({
-        success: false,
-        version: APP_VERSION,
-        error: "Invalid admin key",
-      });
-    }
-
-    next();
-  } catch (err) {
-    return res.status(500).json({
-      success: false,
-      version: APP_VERSION,
-      error: "Admin auth failed",
-    });
-  }
-}
-
     const rawKey = String(req.headers["x-owner-key"] || "").trim();
     if (!rawKey) {
       return res.status(401).json({ success: false, version: APP_VERSION, error: "Missing x-owner-key" });
@@ -181,13 +162,15 @@ async function requireAdminKey(req, res, next) {
 
     const keyHash = hashKey(rawKey);
 
-    const q = `
+    const r = await pool.query(
+      `
       SELECT restaurant_id
       FROM public.owner_keys
       WHERE key_hash = $1 AND is_active = TRUE
       LIMIT 1;
-    `;
-    const r = await pool.query(q, [keyHash]);
+      `,
+      [keyHash]
+    );
 
     if (r.rows.length === 0) {
       return res.status(401).json({ success: false, version: APP_VERSION, error: "Invalid owner key" });
@@ -196,10 +179,37 @@ async function requireAdminKey(req, res, next) {
     req.restaurant_id = Number(r.rows[0].restaurant_id);
 
     pool.query(`UPDATE public.owner_keys SET last_used_at = NOW() WHERE key_hash = $1;`, [keyHash]).catch(() => {});
+    return next();
+  } catch (err) {
+    console.error("❌ requireOwnerKey error:", err);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: "Owner auth failed" });
+  }
+}
+
+/**
+ * 🔒 requireAdminKey (MASTER)
+ * Validon x-admin-key me ADMIN_KEY në Railway env.
+ */
+function requireAdminKey(req, res, next) {
+  try {
+    const rawKey = String(req.headers["x-admin-key"] || "").trim();
+    if (!rawKey) {
+      return res.status(401).json({ success: false, version: APP_VERSION, error: "Missing x-admin-key" });
+    }
+
+    const expected = String(process.env.ADMIN_KEY || "").trim();
+    if (!expected) {
+      return res.status(500).json({ success: false, version: APP_VERSION, error: "ADMIN_KEY not configured" });
+    }
+
+    if (!safeEqual(rawKey, expected)) {
+      return res.status(401).json({ success: false, version: APP_VERSION, error: "Invalid admin key" });
+    }
 
     return next();
   } catch (err) {
-    return res.status(500).json({ success: false, version: APP_VERSION, error: "Owner auth failed" });
+    console.error("❌ requireAdminKey error:", err);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: "Admin auth failed" });
   }
 }
 
@@ -211,11 +221,11 @@ async function initDb() {
       CREATE TABLE IF NOT EXISTS public.restaurants (
         id SERIAL PRIMARY KEY,
         name TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT NOW()
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
     `);
 
-    // ✅ api_keys
+    // api_keys
     await pool.query(`
       CREATE TABLE IF NOT EXISTS public.api_keys (
         id SERIAL PRIMARY KEY,
@@ -228,7 +238,7 @@ async function initDb() {
       );
     `);
 
-    // ✅ owner_keys
+    // owner_keys
     await pool.query(`
       CREATE TABLE IF NOT EXISTS public.owner_keys (
         id SERIAL PRIMARY KEY,
@@ -241,6 +251,20 @@ async function initDb() {
       );
     `);
 
+    // uniqueness (mos lejo dyfishime të njëjta)
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_api_keys_rest_hash') THEN
+          ALTER TABLE public.api_keys ADD CONSTRAINT uq_api_keys_rest_hash UNIQUE (restaurant_id, key_hash);
+        END IF;
+
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_owner_keys_rest_hash') THEN
+          ALTER TABLE public.owner_keys ADD CONSTRAINT uq_owner_keys_rest_hash UNIQUE (restaurant_id, key_hash);
+        END IF;
+      END $$;
+    `);
+
     // feedback
     await pool.query(`
       CREATE TABLE IF NOT EXISTS public.feedback (
@@ -248,14 +272,12 @@ async function initDb() {
         restaurant_id INT NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
         restaurant_name TEXT NOT NULL DEFAULT 'Te Ta Gastronomi',
         phone TEXT NOT NULL,
-
         location_rating INT NOT NULL CHECK (location_rating BETWEEN 1 AND 5),
         hospitality_rating INT NOT NULL CHECK (hospitality_rating BETWEEN 1 AND 5),
         food_rating INT NOT NULL CHECK (food_rating BETWEEN 1 AND 5),
         price_rating INT NOT NULL CHECK (price_rating BETWEEN 1 AND 5),
-
         comment TEXT DEFAULT '',
-        created_at TIMESTAMP DEFAULT NOW()
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
     `);
 
@@ -278,11 +300,11 @@ async function initDb() {
         special_requests TEXT DEFAULT '',
         raw JSON,
         status TEXT NOT NULL DEFAULT 'Confirmed',
-        created_at TIMESTAMP DEFAULT NOW()
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
     `);
 
-    // Ensure columns exist (non-breaking). ⚠️ MOS prek date type (është DATE).
+    // Ensure columns exist (non-breaking)
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS reservation_id TEXT;`);
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS restaurant_id INT;`);
     await pool.query(
@@ -296,7 +318,7 @@ async function initDb() {
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS raw JSON;`);
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'Confirmed';`);
 
-    // FK (safe)
+    // FK reservations -> restaurants (safe)
     await pool.query(`
       DO $$
       BEGIN
@@ -310,7 +332,7 @@ async function initDb() {
       END $$;
     `);
 
-    // ==================== CRM: CUSTOMERS + CONSENTS (LEGAL) ====================
+    // ==================== CRM: CUSTOMERS + CONSENTS ====================
     await pool.query(`
       CREATE OR REPLACE FUNCTION public.set_updated_at()
       RETURNS TRIGGER AS $$
@@ -325,29 +347,22 @@ async function initDb() {
       CREATE TABLE IF NOT EXISTS public.customers (
         id BIGSERIAL PRIMARY KEY,
         restaurant_id BIGINT NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
-
         phone TEXT NOT NULL,
         full_name TEXT,
         email TEXT,
-
         notes TEXT,
         tags TEXT[] DEFAULT ARRAY[]::TEXT[],
-
         first_seen_at TIMESTAMPTZ,
         last_seen_at TIMESTAMPTZ,
         visits_count INTEGER NOT NULL DEFAULT 0,
-
-        -- CONSENTS
         consent_marketing BOOLEAN NOT NULL DEFAULT FALSE,
         consent_sms BOOLEAN NOT NULL DEFAULT FALSE,
         consent_whatsapp BOOLEAN NOT NULL DEFAULT FALSE,
         consent_email BOOLEAN NOT NULL DEFAULT FALSE,
         consent_source TEXT,
         consent_updated_at TIMESTAMPTZ,
-
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-
         CONSTRAINT uq_customers_restaurant_phone UNIQUE (restaurant_id, phone)
       );
     `);
@@ -363,7 +378,7 @@ async function initDb() {
       FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
     `);
 
-    // Owner views (read-only surface)
+    // Owner views
     await pool.query(`
       CREATE OR REPLACE VIEW public.owner_customers AS
       SELECT
@@ -389,28 +404,21 @@ async function initDb() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS public.events (
         id SERIAL PRIMARY KEY,
-
         restaurant_id INTEGER NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
         customer_id INTEGER NULL,
-
         reservation_id TEXT NULL,
-
         event_type VARCHAR(50) NOT NULL DEFAULT 'restaurant_reservation',
         event_date DATE NOT NULL,
         event_time TIME NOT NULL,
-
         people INTEGER,
         status VARCHAR(20) NOT NULL DEFAULT 'Pending',
-
         source VARCHAR(50),
         area VARCHAR(50),
-
         allergies TEXT,
         special_requests TEXT,
         notes TEXT,
-
         created_by VARCHAR(20) DEFAULT 'AI',
-        created_at TIMESTAMP DEFAULT NOW()
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
     `);
 
@@ -418,7 +426,6 @@ async function initDb() {
       CREATE INDEX IF NOT EXISTS idx_events_restaurant_date
       ON public.events (restaurant_id, event_date);
     `);
-
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_events_status ON public.events (status);`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_events_reservation_id ON public.events (reservation_id);`);
 
@@ -438,7 +445,7 @@ async function initDb() {
   }
 }
 
-// Boot DB (safe: server can still run even if DB down)
+// Boot DB
 (async () => {
   const ok = await testDbConnection();
   if (!ok) {
@@ -480,8 +487,6 @@ app.get("/health/db", requireApiKey, async (req, res) => {
   }
 });
 
-// ==================== DEBUG ====================
-
 // ==================== DEBUG (DEV ONLY) ====================
 // ✅ Në production (Railway), debug endpoints nuk ekzistojnë (404).
 function requireNotProduction(req, res, next) {
@@ -492,35 +497,17 @@ function requireNotProduction(req, res, next) {
   next();
 }
 
-// Debug owner key exists (nuk e tregon sekretin)
-app.get("/debug/owner-key", requireNotProduction, requireApiKey, (req, res) => {
-  return res.json({
-    success: true,
-    version: APP_VERSION,
-    has_owner_key: !!process.env.OWNER_KEY,
-    owner_key_length: process.env.OWNER_KEY ? String(process.env.OWNER_KEY).length : 0,
-  });
-});
-
-// Debug customers (vetëm me api-key)
 app.get("/debug/customers", requireNotProduction, requireApiKey, requireDbReady, async (req, res) => {
   const q = await pool.query(
     `
-    SELECT
-      id,
-      restaurant_id,
-      phone,
-      full_name,
-      visits_count,
-      first_seen_at,
-      last_seen_at,
-      created_at
+    SELECT id, restaurant_id, phone, full_name, visits_count,
+           first_seen_at, last_seen_at, created_at
     FROM public.customers
     WHERE restaurant_id = $1
     ORDER BY id DESC
     LIMIT 20;
     `,
-    [req.restaurant_id] // ✅ nga auth middleware (multi-restaurant)
+    [req.restaurant_id]
   );
 
   return res.json({
@@ -532,22 +519,6 @@ app.get("/debug/customers", requireNotProduction, requireApiKey, requireDbReady,
   });
 });
 
-// Debug compare owner auth (tregon pse s'po kalon 401 pa ekspozuar sekretin)
-app.get("/debug/owner-auth", requireNotProduction, requireApiKey, (req, res) => {
-  const provided = String(req.headers["x-owner-key"] ?? "").trim();
-  const expected = String(process.env.OWNER_KEY ?? "").trim();
-  return res.json({
-    success: true,
-    version: APP_VERSION,
-    has_owner_key: !!process.env.OWNER_KEY,
-    provided_present: provided.length > 0,
-    provided_length: provided.length,
-    expected_length: expected.length,
-    match: provided.length > 0 && expected.length > 0 && safeEqual(provided, expected),
-  });
-});
-
-// Debug reservations schema (vetëm me api-key)
 app.get("/debug/reservations-schema", requireNotProduction, requireApiKey, requireDbReady, async (req, res) => {
   const q = await pool.query(`
     SELECT column_name, data_type, is_nullable
@@ -558,24 +529,89 @@ app.get("/debug/reservations-schema", requireNotProduction, requireApiKey, requi
   return res.json({ success: true, version: APP_VERSION, columns: q.rows });
 });
 
-// Debug reservations constraints (vetëm me api-key)
-app.get("/debug/reservations-constraints", requireNotProduction, requireApiKey, requireDbReady, async (req, res) => {
+// ==================== ADMIN (PLATFORM) ====================
+
+// GET /admin/restaurants (list)
+app.get("/admin/restaurants", requireAdminKey, requireDbReady, async (req, res) => {
   try {
     const q = await pool.query(`
-      SELECT
-        con.conname AS constraint_name,
-        con.contype AS constraint_type,
-        pg_get_constraintdef(con.oid) AS definition
-      FROM pg_constraint con
-      JOIN pg_class rel ON rel.oid = con.conrelid
-      JOIN pg_namespace nsp ON nsp.oid = con.connamespace
-      WHERE nsp.nspname = 'public'
-        AND rel.relname = 'reservations'
-      ORDER BY con.conname;
+      SELECT id, name, created_at
+      FROM public.restaurants
+      ORDER BY id ASC;
     `);
-    return res.json({ success: true, version: APP_VERSION, constraints: q.rows });
+
+    return res.json({
+      success: true,
+      version: APP_VERSION,
+      count: q.rows.length,
+      data: q.rows,
+    });
   } catch (err) {
-    console.error("❌ /debug/reservations-constraints error:", err);
+    console.error("❌ GET /admin/restaurants error:", err);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
+  }
+});
+
+// POST /admin/restaurants (create + generate keys)
+// body: { name: "Restaurant Name", label_api?: "...", label_owner?: "..." }
+app.post("/admin/restaurants", requireAdminKey, requireDbReady, async (req, res) => {
+  try {
+    const name = String(req.body?.name || "").trim();
+    if (!name) {
+      return res.status(400).json({ success: false, version: APP_VERSION, error: "Missing field: name" });
+    }
+
+    const labelApi = String(req.body?.label_api || "API Key").trim();
+    const labelOwner = String(req.body?.label_owner || "Owner Key").trim();
+
+    // 1) create restaurant
+    const r1 = await pool.query(
+      `
+      INSERT INTO public.restaurants (name)
+      VALUES ($1)
+      RETURNING id, name, created_at;
+      `,
+      [name]
+    );
+
+    const restaurant = r1.rows[0];
+
+    // 2) generate raw keys (return once)
+    const rawApiKey = makeRawKey("tta_api_key");
+    const rawOwnerKey = makeRawKey("tta_owner_key");
+
+    const apiHash = hashKey(rawApiKey);
+    const ownerHash = hashKey(rawOwnerKey);
+
+    // 3) store hashes
+    await pool.query(
+      `
+      INSERT INTO public.api_keys (restaurant_id, key_hash, label, is_active)
+      VALUES ($1,$2,$3,TRUE);
+      `,
+      [restaurant.id, apiHash, labelApi]
+    );
+
+    await pool.query(
+      `
+      INSERT INTO public.owner_keys (restaurant_id, key_hash, label, is_active)
+      VALUES ($1,$2,$3,TRUE);
+      `,
+      [restaurant.id, ownerHash, labelOwner]
+    );
+
+    return res.status(201).json({
+      success: true,
+      version: APP_VERSION,
+      data: {
+        restaurant: restaurant,
+        api_key: rawApiKey,
+        owner_key: rawOwnerKey,
+        note: "Ruaji këto keys tani. Në DB ruhet vetëm hash; s’mund t’i shohësh raw më vonë.",
+      },
+    });
+  } catch (err) {
+    console.error("❌ POST /admin/restaurants error:", err);
     return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
   }
 });
@@ -626,8 +662,6 @@ function normalizeFeedbackRatings(body) {
 }
 
 // ==================== CONSENTS (LEGAL) ====================
-
-// Helper: normalize boolean values safely
 function toBoolOrNull(v) {
   if (v === undefined || v === null) return null;
   if (typeof v === "boolean") return v;
@@ -637,22 +671,14 @@ function toBoolOrNull(v) {
   return null;
 }
 
-/**
- * POST /consents
- * NOTE: Nëse një consent nuk vjen në body, nuk e ndryshojmë.
- * ✅ pranon edhe alias keys: whatsapp/sms/email/marketing
- */
 app.post("/consents", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const b = req.body || {};
     const phone = String(b.phone || "").trim();
-    if (!phone) {
-      return res.status(400).json({ success: false, version: APP_VERSION, error: "Missing field: phone" });
-    }
+    if (!phone) return res.status(400).json({ success: false, version: APP_VERSION, error: "Missing field: phone" });
 
     const full_name = b.full_name !== undefined ? String(b.full_name || "").trim() : null;
 
-    // ✅ ALIAS SUPPORT (final)
     const c_marketing = toBoolOrNull(b.consent_marketing ?? b.marketing);
     const c_sms = toBoolOrNull(b.consent_sms ?? b.sms);
     const c_whatsapp = toBoolOrNull(b.consent_whatsapp ?? b.whatsapp);
@@ -664,7 +690,7 @@ app.post("/consents", requireApiKey, requireDbReady, async (req, res) => {
         success: false,
         version: APP_VERSION,
         error:
-          "No consent fields provided (send at least one of whatsapp/sms/email/marketing OR consent_marketing/consent_sms/consent_whatsapp/consent_email OR full_name).",
+          "No consent fields provided (send at least one of whatsapp/sms/email/marketing OR consent_* OR full_name).",
       });
     }
 
@@ -673,27 +699,12 @@ app.post("/consents", requireApiKey, requireDbReady, async (req, res) => {
     const q = await pool.query(
       `
       INSERT INTO public.customers (
-        restaurant_id,
-        phone,
-        full_name,
-        consent_marketing,
-        consent_sms,
-        consent_whatsapp,
-        consent_email,
-        consent_source,
-        consent_updated_at
+        restaurant_id, phone, full_name,
+        consent_marketing, consent_sms, consent_whatsapp, consent_email,
+        consent_source, consent_updated_at
       )
-      VALUES (
-        $1::bigint,
-        $2::text,
-        NULLIF($3::text,''),
-        COALESCE($4::boolean, FALSE),
-        COALESCE($5::boolean, FALSE),
-        COALESCE($6::boolean, FALSE),
-        COALESCE($7::boolean, FALSE),
-        $8::text,
-        NOW()
-      )
+      VALUES ($1::bigint,$2::text,NULLIF($3::text,''), COALESCE($4::boolean,FALSE),COALESCE($5::boolean,FALSE),
+              COALESCE($6::boolean,FALSE),COALESCE($7::boolean,FALSE), $8::text, NOW())
       ON CONFLICT (restaurant_id, phone)
       DO UPDATE SET
         full_name = COALESCE(NULLIF(EXCLUDED.full_name,''), public.customers.full_name),
@@ -707,8 +718,7 @@ app.post("/consents", requireApiKey, requireDbReady, async (req, res) => {
       RETURNING
         id, restaurant_id, phone, full_name,
         consent_marketing, consent_sms, consent_whatsapp, consent_email,
-        consent_source, consent_updated_at,
-        created_at, updated_at;
+        consent_source, consent_updated_at, created_at, updated_at;
       `,
       [req.restaurant_id, phone, full_name, c_marketing, c_sms, c_whatsapp, c_email, consent_source]
     );
@@ -721,7 +731,6 @@ app.post("/consents", requireApiKey, requireDbReady, async (req, res) => {
 });
 
 // ==================== SEGMENTS + AUDIENCE ====================
-
 function segmentFromDays(daysSince) {
   if (daysSince === null || daysSince === undefined) return "UNKNOWN";
   const n = Number(daysSince);
@@ -731,11 +740,6 @@ function segmentFromDays(daysSince) {
   return "COLD";
 }
 
-/**
- * GET /segments?days=60
- * ✅ PREMIUM FORMAT:
- * counts + data{vip, active, warm, cold, unknown}
- */
 app.get("/segments", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const days = Math.min(Math.max(Number(req.query.days || 60), 1), 3650);
@@ -744,16 +748,8 @@ app.get("/segments", requireApiKey, requireDbReady, async (req, res) => {
     const q = await pool.query(
       `
       SELECT
-        id,
-        restaurant_id,
-        phone,
-        full_name,
-        visits_count,
-        last_seen_at,
-        consent_marketing,
-        consent_sms,
-        consent_whatsapp,
-        consent_email,
+        id, restaurant_id, phone, full_name, visits_count, last_seen_at,
+        consent_marketing, consent_sms, consent_whatsapp, consent_email,
         ( ($1::date) - ((last_seen_at AT TIME ZONE 'Europe/Tirane')::date) )::int AS days_since_last
       FROM public.customers
       WHERE restaurant_id = $2
@@ -812,11 +808,6 @@ app.get("/segments", requireApiKey, requireDbReady, async (req, res) => {
   }
 });
 
-/**
- * GET /audience/export?channel=whatsapp&segment=all&days=60&limit=200&format=json|csv
- * channel: whatsapp | sms | email | marketing
- * segment: active | warm | cold | all
- */
 app.get("/audience/export", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const channel = String(req.query.channel || "whatsapp").trim().toLowerCase();
@@ -839,13 +830,7 @@ app.get("/audience/export", requireApiKey, requireDbReady, async (req, res) => {
     const q = await pool.query(
       `
       SELECT
-        id,
-        restaurant_id,
-        phone,
-        full_name,
-        visits_count,
-        last_seen_at,
-        ${consentColumn} AS consent_ok,
+        phone, full_name, visits_count, last_seen_at,
         ( ($1::date) - ((last_seen_at AT TIME ZONE 'Europe/Tirane')::date) )::int AS days_since_last_visit
       FROM public.customers
       WHERE restaurant_id = $2
@@ -870,8 +855,7 @@ app.get("/audience/export", requireApiKey, requireDbReady, async (req, res) => {
     }));
 
     if (segment !== "all") {
-      const want = segment.toUpperCase();
-      rows = rows.filter((r) => r.segment === want);
+      rows = rows.filter((r) => r.segment === String(segment).toUpperCase());
     }
 
     if (format === "csv") {
@@ -909,11 +893,9 @@ app.get("/audience/export", requireApiKey, requireDbReady, async (req, res) => {
 });
 
 // ==================== OWNER VIEW (READ ONLY) ====================
-
 app.get("/owner/customers", requireOwnerKey, requireDbReady, async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 50), 200);
-
     const result = await pool.query(
       `
       SELECT *
@@ -924,7 +906,6 @@ app.get("/owner/customers", requireOwnerKey, requireDbReady, async (req, res) =>
       `,
       [req.restaurant_id, limit]
     );
-
     return res.json({ success: true, version: APP_VERSION, restaurant_id: req.restaurant_id, data: result.rows });
   } catch (err) {
     console.error("❌ GET /owner/customers error:", err);
@@ -935,7 +916,6 @@ app.get("/owner/customers", requireOwnerKey, requireDbReady, async (req, res) =>
 app.get("/owner/reservations", requireOwnerKey, requireDbReady, async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 20), 100);
-
     const result = await pool.query(
       `
       SELECT *
@@ -946,7 +926,6 @@ app.get("/owner/reservations", requireOwnerKey, requireDbReady, async (req, res)
       `,
       [req.restaurant_id, limit]
     );
-
     const rows = result.rows.map((x) => ({ ...x, created_at_local: formatALDate(x.created_at) }));
     return res.json({ success: true, version: APP_VERSION, restaurant_id: req.restaurant_id, data: rows });
   } catch (err) {
@@ -956,15 +935,12 @@ app.get("/owner/reservations", requireOwnerKey, requireDbReady, async (req, res)
 });
 
 // ==================== EVENTS (CORE) ====================
-
 app.post("/events", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const b = req.body || {};
     const required = ["event_date", "event_time"];
     for (const f of required) {
-      if (!b[f]) {
-        return res.status(400).json({ success: false, version: APP_VERSION, error: `Missing field: ${f}` });
-      }
+      if (!b[f]) return res.status(400).json({ success: false, version: APP_VERSION, error: `Missing field: ${f}` });
     }
 
     const people = b.people === undefined || b.people === null || b.people === "" ? null : Number(b.people);
@@ -1016,14 +992,12 @@ app.post("/events", requireApiKey, requireDbReady, async (req, res) => {
 app.get("/events", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 10), 50);
-
     const result = await pool.query(
       `
-      SELECT
-        id, restaurant_id, customer_id, reservation_id,
-        event_type, event_date, event_time, people,
-        status, source, area, allergies, special_requests, notes,
-        created_by, created_at
+      SELECT id, restaurant_id, customer_id, reservation_id,
+             event_type, event_date, event_time, people,
+             status, source, area, allergies, special_requests, notes,
+             created_by, created_at
       FROM public.events
       WHERE restaurant_id = $1
       ORDER BY created_at DESC
@@ -1031,7 +1005,6 @@ app.get("/events", requireApiKey, requireDbReady, async (req, res) => {
       `,
       [req.restaurant_id, limit]
     );
-
     const rows = result.rows.map((x) => ({ ...x, created_at_local: formatALDate(x.created_at) }));
     return res.json({ success: true, version: APP_VERSION, restaurant_id: req.restaurant_id, data: rows });
   } catch (err) {
@@ -1043,18 +1016,15 @@ app.get("/events", requireApiKey, requireDbReady, async (req, res) => {
 app.get("/events/upcoming", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const days = Math.min(Math.max(Number(req.query.days || 30), 1), 365);
-
     const today = await getTodayAL();
-    const end = (await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [today, days]))
-      .rows[0].d;
+    const end = (await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [today, days])).rows[0].d;
 
     const result = await pool.query(
       `
-      SELECT
-        id, restaurant_id, reservation_id,
-        event_type, event_date, event_time, people,
-        status, source, area, allergies, special_requests, notes,
-        created_by, created_at
+      SELECT id, restaurant_id, reservation_id,
+             event_type, event_date, event_time, people,
+             status, source, area, allergies, special_requests, notes,
+             created_by, created_at
       FROM public.events
       WHERE restaurant_id = $1
         AND event_date::date >= $2::date
@@ -1065,15 +1035,7 @@ app.get("/events/upcoming", requireApiKey, requireDbReady, async (req, res) => {
     );
 
     const rows = result.rows.map((x) => ({ ...x, created_at_local: formatALDate(x.created_at) }));
-
-    return res.json({
-      success: true,
-      version: APP_VERSION,
-      range: { from: today, to: end, days },
-      restaurant_id: req.restaurant_id,
-      count: rows.length,
-      data: rows,
-    });
+    return res.json({ success: true, version: APP_VERSION, range: { from: today, to: end, days }, restaurant_id: req.restaurant_id, count: rows.length, data: rows });
   } catch (err) {
     console.error("❌ GET /events/upcoming error:", err);
     return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
@@ -1081,7 +1043,6 @@ app.get("/events/upcoming", requireApiKey, requireDbReady, async (req, res) => {
 });
 
 // ==================== RESERVATIONS ====================
-
 app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const r = req.body || {};
@@ -1097,7 +1058,7 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
       return res.status(400).json({ success: false, version: APP_VERSION, error: "people must be a positive number" });
     }
 
-    const dateStr = String(r.date).trim(); // "YYYY-MM-DD"
+    const dateStr = String(r.date).trim();
     const timeStr = normalizeTimeHHMI(r.time);
     const status = people > MAX_AUTO_CONFIRM_PEOPLE ? "Pending" : "Confirmed";
     const reservation_id = r.reservation_id || crypto.randomUUID();
@@ -1105,21 +1066,8 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
     const result = await pool.query(
       `
       INSERT INTO public.reservations (
-        restaurant_id,
-        reservation_id,
-        restaurant_name,
-        customer_name,
-        phone,
-        date,
-        time,
-        people,
-        channel,
-        area,
-        first_time,
-        allergies,
-        special_requests,
-        raw,
-        status
+        restaurant_id, reservation_id, restaurant_name, customer_name, phone, date, time, people,
+        channel, area, first_time, allergies, special_requests, raw, status
       )
       VALUES ($1,$2,$3,$4,$5,$6::date,$7,$8,$9,$10,$11,$12,$13,$14,$15)
       RETURNING id, reservation_id, created_at, status;
@@ -1143,28 +1091,18 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
       ]
     );
 
-    // ✅ AUTO-SYNC INTO CUSTOMERS (CRM) – non-blocking
-    try {
-      await pool.query(
+    // sync customers (best-effort)
+    pool
+      .query(
         `
-        WITH ev AS (
-          SELECT (($1::date + $2::time) AT TIME ZONE 'Europe/Tirane') AS ts
-        )
+        WITH ev AS (SELECT (($1::date + $2::time) AT TIME ZONE 'Europe/Tirane') AS ts)
         INSERT INTO public.customers (
-          restaurant_id, phone, full_name,
-          first_seen_at, last_seen_at, visits_count,
+          restaurant_id, phone, full_name, first_seen_at, last_seen_at, visits_count,
           consent_marketing, consent_source, consent_updated_at
         )
-        SELECT
-          $3::bigint,
-          $4::text,
-          NULLIF($5::text, ''),
-          (SELECT ts FROM ev),
-          (SELECT ts FROM ev),
-          1,
-          FALSE,
-          'reservation',
-          NOW()
+        SELECT $3::bigint, $4::text, NULLIF($5::text, ''),
+               (SELECT ts FROM ev), (SELECT ts FROM ev), 1,
+               FALSE, 'reservation', NOW()
         ON CONFLICT (restaurant_id, phone)
         DO UPDATE SET
           full_name = COALESCE(NULLIF(EXCLUDED.full_name,''), public.customers.full_name),
@@ -1173,19 +1111,16 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
           updated_at = NOW();
         `,
         [dateStr, timeStr, req.restaurant_id, r.phone, r.customer_name]
-      );
-    } catch (e) {
-      console.error("⚠️ Sync to customers failed (non-blocking):", e.message);
-    }
+      )
+      .catch(() => {});
 
-    // ✅ SYNC INTO EVENTS (CORE) – non-blocking
-    try {
-      await pool.query(
+    // sync events (best-effort)
+    pool
+      .query(
         `
         INSERT INTO public.events
         (restaurant_id, customer_id, reservation_id, event_type, event_date, event_time, people, status, source, area, allergies, special_requests, notes, created_by)
-        VALUES
-        ($1,$2,$3,'restaurant_reservation',$4::date,$5::time,$6,$7,$8,$9,$10,$11,$12,$13);
+        VALUES ($1,$2,$3,'restaurant_reservation',$4::date,$5::time,$6,$7,$8,$9,$10,$11,$12,$13);
         `,
         [
           req.restaurant_id,
@@ -1202,10 +1137,8 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
           "Synced from /reservations",
           "AI",
         ]
-      );
-    } catch (e) {
-      console.error("⚠️ Sync to events failed (non-blocking):", e.message);
-    }
+      )
+      .catch(() => {});
 
     const row = result.rows[0];
     const httpStatus = status === "Pending" ? 202 : 201;
@@ -1222,49 +1155,18 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
     });
   } catch (err) {
     console.error("❌ POST /reservations error:", err);
-
-    if (err && err.code === "23505") {
-      return res.status(409).json({
-        success: false,
-        version: APP_VERSION,
-        error: "Duplicate reservation",
-        detail: err.detail || null,
-        code: err.code,
-      });
-    }
-
-    return res.status(500).json({
-      success: false,
-      version: APP_VERSION,
-      error: err.message,
-      code: err.code || null,
-    });
+    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message, code: err.code || null });
   }
 });
 
 app.get("/reservations", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 10), 50);
-
     const result = await pool.query(
       `
-      SELECT
-        id,
-        restaurant_id,
-        reservation_id,
-        restaurant_name,
-        customer_name,
-        phone,
-        date,
-        time,
-        people,
-        channel,
-        area,
-        first_time,
-        allergies,
-        special_requests,
-        status,
-        created_at
+      SELECT id, restaurant_id, reservation_id, restaurant_name, customer_name, phone,
+             date, time, people, channel, area, first_time, allergies, special_requests,
+             status, created_at
       FROM public.reservations
       WHERE restaurant_id = $1
       ORDER BY created_at DESC
@@ -1272,7 +1174,6 @@ app.get("/reservations", requireApiKey, requireDbReady, async (req, res) => {
       `,
       [req.restaurant_id, limit]
     );
-
     const rows = result.rows.map((x) => ({ ...x, created_at_local: formatALDate(x.created_at) }));
     return res.json({ success: true, version: APP_VERSION, restaurant_id: req.restaurant_id, data: rows });
   } catch (err) {
@@ -1284,30 +1185,14 @@ app.get("/reservations", requireApiKey, requireDbReady, async (req, res) => {
 app.get("/reservations/upcoming", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const days = Math.min(Math.max(Number(req.query.days || 30), 1), 365);
-
     const today = await getTodayAL();
-    const end = (await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [today, days]))
-      .rows[0].d;
+    const end = (await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [today, days])).rows[0].d;
 
     const result = await pool.query(
       `
-      SELECT
-        id,
-        restaurant_id,
-        reservation_id,
-        restaurant_name,
-        customer_name,
-        phone,
-        date,
-        time,
-        people,
-        channel,
-        area,
-        first_time,
-        allergies,
-        special_requests,
-        status,
-        created_at
+      SELECT id, restaurant_id, reservation_id, restaurant_name, customer_name, phone,
+             date, time, people, channel, area, first_time, allergies, special_requests,
+             status, created_at
       FROM public.reservations
       WHERE restaurant_id = $1
         AND date::date >= $2::date
@@ -1318,114 +1203,14 @@ app.get("/reservations/upcoming", requireApiKey, requireDbReady, async (req, res
     );
 
     const rows = result.rows.map((x) => ({ ...x, created_at_local: formatALDate(x.created_at) }));
-
-    return res.json({
-      success: true,
-      version: APP_VERSION,
-      range: { from: today, to: end, days },
-      restaurant_id: req.restaurant_id,
-      count: rows.length,
-      data: rows,
-    });
+    return res.json({ success: true, version: APP_VERSION, range: { from: today, to: end, days }, restaurant_id: req.restaurant_id, count: rows.length, data: rows });
   } catch (err) {
     console.error("❌ GET /reservations/upcoming error:", err);
     return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
   }
 });
 
-// Owner actions: approve/reject (manual) - KEEP api-key, but tied to restaurant_id
-app.post("/reservations/:id/approve", requireApiKey, requireDbReady, async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isFinite(id)) {
-      return res.status(400).json({ success: false, version: APP_VERSION, error: "Invalid id" });
-    }
-
-    const result = await pool.query(
-      `
-      UPDATE public.reservations
-      SET status = 'Confirmed'
-      WHERE restaurant_id = $1 AND id = $2
-      RETURNING id, reservation_id, status, created_at;
-      `,
-      [req.restaurant_id, id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, version: APP_VERSION, error: "Reservation not found" });
-    }
-
-    const row = result.rows[0];
-
-    try {
-      await pool.query(`UPDATE public.events SET status='Confirmed' WHERE restaurant_id=$1 AND reservation_id=$2;`, [
-        req.restaurant_id,
-        row.reservation_id,
-      ]);
-    } catch (e) {
-      console.error("⚠️ Sync approve to events failed (non-blocking):", e.message);
-    }
-
-    return res.json({
-      success: true,
-      version: APP_VERSION,
-      restaurant_id: req.restaurant_id,
-      message: "Reservation approved (Confirmed).",
-      data: { ...row, created_at_local: formatALDate(row.created_at) },
-    });
-  } catch (err) {
-    console.error("❌ POST /reservations/:id/approve error:", err);
-    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
-  }
-});
-
-app.post("/reservations/:id/reject", requireApiKey, requireDbReady, async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isFinite(id)) {
-      return res.status(400).json({ success: false, version: APP_VERSION, error: "Invalid id" });
-    }
-
-    const result = await pool.query(
-      `
-      UPDATE public.reservations
-      SET status = 'Rejected'
-      WHERE restaurant_id = $1 AND id = $2
-      RETURNING id, reservation_id, status, created_at;
-      `,
-      [req.restaurant_id, id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, version: APP_VERSION, error: "Reservation not found" });
-    }
-
-    const row = result.rows[0];
-
-    try {
-      await pool.query(`UPDATE public.events SET status='Rejected' WHERE restaurant_id=$1 AND reservation_id=$2;`, [
-        req.restaurant_id,
-        row.reservation_id,
-      ]);
-    } catch (e) {
-      console.error("⚠️ Sync reject to events failed (non-blocking):", e.message);
-    }
-
-    return res.json({
-      success: true,
-      version: APP_VERSION,
-      restaurant_id: req.restaurant_id,
-      message: "Reservation rejected.",
-      data: { ...row, created_at_local: formatALDate(row.created_at) },
-    });
-  } catch (err) {
-    console.error("❌ POST /reservations/:id/reject error:", err);
-    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
-  }
-});
-
 // ==================== FEEDBACK ====================
-
 app.post("/feedback", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const phone = req.body?.phone;
@@ -1433,16 +1218,13 @@ app.post("/feedback", requireApiKey, requireDbReady, async (req, res) => {
 
     const ratings = normalizeFeedbackRatings(req.body);
     if (Object.values(ratings).some((v) => v === null)) {
-      return res
-        .status(400)
-        .json({ success: false, version: APP_VERSION, error: "Ratings must be numbers between 1 and 5" });
+      return res.status(400).json({ success: false, version: APP_VERSION, error: "Ratings must be numbers between 1 and 5" });
     }
 
     const result = await pool.query(
       `
       INSERT INTO public.feedback
-        (restaurant_id, restaurant_name, phone,
-         location_rating, hospitality_rating, food_rating, price_rating, comment)
+        (restaurant_id, restaurant_name, phone, location_rating, hospitality_rating, food_rating, price_rating, comment)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
       RETURNING id, created_at;
       `,
@@ -1474,21 +1256,12 @@ app.post("/feedback", requireApiKey, requireDbReady, async (req, res) => {
 app.get("/feedback", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 20), 100);
-
     const result = await pool.query(
       `
-      SELECT
-        id,
-        restaurant_id,
-        restaurant_name,
-        phone,
-        location_rating,
-        hospitality_rating,
-        food_rating,
-        price_rating,
-        ROUND((location_rating + hospitality_rating + food_rating + price_rating) / 4.0, 1) AS avg_rating,
-        comment,
-        created_at
+      SELECT id, restaurant_id, restaurant_name, phone,
+             location_rating, hospitality_rating, food_rating, price_rating,
+             ROUND((location_rating + hospitality_rating + food_rating + price_rating) / 4.0, 1) AS avg_rating,
+             comment, created_at
       FROM public.feedback
       WHERE restaurant_id = $1
       ORDER BY created_at DESC
@@ -1496,7 +1269,6 @@ app.get("/feedback", requireApiKey, requireDbReady, async (req, res) => {
       `,
       [req.restaurant_id, limit]
     );
-
     const rows = result.rows.map((x) => ({ ...x, created_at_local: formatALDate(x.created_at) }));
     return res.json({ success: true, version: APP_VERSION, restaurant_id: req.restaurant_id, data: rows });
   } catch (err) {
@@ -1506,49 +1278,38 @@ app.get("/feedback", requireApiKey, requireDbReady, async (req, res) => {
 });
 
 // ==================== REPORTS ====================
-
 app.get("/reports/today", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const today = await getTodayAL();
 
     const reservations = await pool.query(
       `
-      SELECT
-        id, restaurant_id, reservation_id, restaurant_name,
-        customer_name, phone, date, time, people, channel, area,
-        first_time, allergies, special_requests, status, created_at
+      SELECT id, restaurant_id, reservation_id, restaurant_name,
+             customer_name, phone, date, time, people, channel, area,
+             first_time, allergies, special_requests, status, created_at
       FROM public.reservations
-      WHERE restaurant_id = $1
-        AND date::date = $2::date
+      WHERE restaurant_id = $1 AND date::date = $2::date
       ORDER BY time ASC;
       `,
       [req.restaurant_id, today]
     );
 
-    const reservationsRows = reservations.rows.map((x) => ({
-      ...x,
-      created_at_local: formatALDate(x.created_at),
-    }));
+    const reservationsRows = reservations.rows.map((x) => ({ ...x, created_at_local: formatALDate(x.created_at) }));
 
     const feedback = await pool.query(
       `
-      SELECT
-        id, restaurant_id, restaurant_name, phone,
-        location_rating, hospitality_rating, food_rating, price_rating,
-        ROUND((location_rating + hospitality_rating + food_rating + price_rating) / 4.0, 1) AS avg_rating,
-        comment, created_at
+      SELECT id, restaurant_id, restaurant_name, phone,
+             location_rating, hospitality_rating, food_rating, price_rating,
+             ROUND((location_rating + hospitality_rating + food_rating + price_rating) / 4.0, 1) AS avg_rating,
+             comment, created_at
       FROM public.feedback
-      WHERE restaurant_id = $1
-        AND (created_at AT TIME ZONE 'Europe/Tirane')::date = $2::date
+      WHERE restaurant_id = $1 AND (created_at AT TIME ZONE 'Europe/Tirane')::date = $2::date
       ORDER BY created_at DESC;
       `,
       [req.restaurant_id, today]
     );
 
-    const feedbackRows = feedback.rows.map((f) => ({
-      ...f,
-      created_at_local: formatALDate(f.created_at),
-    }));
+    const feedbackRows = feedback.rows.map((f) => ({ ...f, created_at_local: formatALDate(f.created_at) }));
 
     const feedbackCount = feedbackRows.length;
     const avgOfAvg =
