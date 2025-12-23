@@ -132,7 +132,48 @@ async function requireApiKey(req, res, next) {
  * Sets req.restaurant_id
  */
 async function requireOwnerKey(req, res, next) {
+  try {/**
+ * 🔒 requireAdminKey
+ * Master access (platform owner only)
+ */
+async function requireAdminKey(req, res, next) {
   try {
+    const rawKey = String(req.headers["x-admin-key"] || "").trim();
+    if (!rawKey) {
+      return res.status(401).json({
+        success: false,
+        version: APP_VERSION,
+        error: "Missing x-admin-key",
+      });
+    }
+
+    const expected = String(process.env.ADMIN_KEY || "").trim();
+    if (!expected) {
+      return res.status(500).json({
+        success: false,
+        version: APP_VERSION,
+        error: "ADMIN_KEY not configured",
+      });
+    }
+
+    if (!safeEqual(rawKey, expected)) {
+      return res.status(401).json({
+        success: false,
+        version: APP_VERSION,
+        error: "Invalid admin key",
+      });
+    }
+
+    next();
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      version: APP_VERSION,
+      error: "Admin auth failed",
+    });
+  }
+}
+
     const rawKey = String(req.headers["x-owner-key"] || "").trim();
     if (!rawKey) {
       return res.status(401).json({ success: false, version: APP_VERSION, error: "Missing x-owner-key" });
