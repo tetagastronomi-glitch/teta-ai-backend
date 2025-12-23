@@ -1005,6 +1005,7 @@ LIMIT $3;
 });
 
 /**
+ /**
  * GET /audience/export (PRO)
  * /audience/export?channel=whatsapp&segment=all&days=60&limit=200&format=json|csv
  */
@@ -1039,6 +1040,7 @@ app.get("/audience/export", requireApiKey, requireDbReady, requirePlan("PRO"), a
       WHERE restaurant_id = $2
         AND phone IS NOT NULL AND phone <> ''
         AND last_seen_at IS NOT NULL
+        AND last_seen_at <= NOW()  -- ✅ mos nxirr future
         AND (last_seen_at AT TIME ZONE 'Europe/Tirane')::date >= ($1::date - ($4::int || ' days')::interval)::date
         AND ${consentColumn} = TRUE
       ORDER BY last_seen_at DESC
@@ -1095,6 +1097,7 @@ app.get("/audience/export", requireApiKey, requireDbReady, requirePlan("PRO"), a
     return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
   }
 });
+
 
 // ==================== OWNER VIEW (READ ONLY) ====================
 
