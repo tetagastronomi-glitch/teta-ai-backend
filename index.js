@@ -1106,14 +1106,17 @@ app.get("/owner/customers", requireOwnerKey, requireDbReady, async (req, res) =>
     const limit = Math.min(Number(req.query.limit || 50), 200);
 
     const result = await pool.query(
-      `
-      SELECT *
-      FROM public.owner_customers
-      WHERE restaurant_id = $1
-      ORDER BY last_seen_at DESC NULLS LAST, visits_count DESC
-      LIMIT $2;
-      `,
-      [req.restaurant_id, limit]
+  `
+  SELECT *
+  FROM public.owner_customers
+  WHERE restaurant_id = $1
+    AND (last_seen_at IS NULL OR last_seen_at <= NOW())   -- ✅ extra safety
+  ORDER BY last_seen_at DESC NULLS LAST, visits_count DESC
+  LIMIT $2;
+  `,
+  [req.restaurant_id, limit]
+);
+
     );
 
     return res.json({ success: true, version: APP_VERSION, restaurant_id: req.restaurant_id, data: result.rows });
