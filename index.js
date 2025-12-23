@@ -29,7 +29,7 @@ app.use(express.json({ limit: "1mb" }));
 const MAX_AUTO_CONFIRM_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 8);
 
 // ✅ version marker (ndryshoje kur bën deploy)
-const APP_VERSION = "v-2025-12-23-fix-lastseen-1";
+const APP_VERSION = "v-2025-12-23-fix-lastseen-2";
 
 // ==================== DB READY FLAG ====================
 let DB_READY = false;
@@ -302,7 +302,7 @@ async function initDb() {
       );
     `);
 
-    // ✅ unique constraints on key_hash (recommended)
+    // ✅ unique constraints on key_hash
     await pool.query(`
       DO $$
       BEGIN
@@ -364,7 +364,7 @@ async function initDb() {
       );
     `);
 
-    // Ensure columns exist (non-breaking). ⚠️ MOS prek date type (është DATE).
+    // Ensure columns exist (non-breaking)
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS reservation_id TEXT;`);
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS restaurant_id INT;`);
     await pool.query(
@@ -681,7 +681,6 @@ function normalizeFeedbackRatings(body) {
 }
 
 // ==================== ADMIN (PLATFORM OWNER) ====================
-
 app.get("/admin/restaurants", requireAdminKey, requireDbReady, async (req, res) => {
   const q = await pool.query(`SELECT id, name, plan, created_at FROM public.restaurants ORDER BY id ASC;`);
   res.json({ success: true, version: APP_VERSION, count: q.rows.length, data: q.rows });
@@ -916,7 +915,6 @@ app.post("/consents", requireApiKey, requireDbReady, async (req, res) => {
 });
 
 // ==================== SEGMENTS + AUDIENCE (PRO) ====================
-
 function segmentFromDays(daysSince) {
   if (daysSince === null || daysSince === undefined) return "UNKNOWN";
   const n = Number(daysSince);
@@ -1006,7 +1004,6 @@ app.get("/segments", requireApiKey, requireDbReady, requirePlan("PRO"), async (r
 });
 
 /**
- /**
  * GET /audience/export (PRO)
  * /audience/export?channel=whatsapp&segment=all&days=60&limit=200&format=json|csv
  */
@@ -1099,6 +1096,48 @@ app.get("/audience/export", requireApiKey, requireDbReady, requirePlan("PRO"), a
   }
 });
 
+// ==================== OWNER VIEW (READ ONLY) ====================
+
+app.get("/owner/customers", requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const limit = Math.min(Number(req.query.limit || 50), 200);
+
+    const result = await pool.query(
+      `
+      SELECT
+        id,
+        restaurant_id,
+        phone,
+        full_name,
+        visits_count,
+        first_seen_at,
+        last_seen_at,
+        consent_marketing,
+        consent_sms,
+        consent_whatsapp,
+        consent_email,
+        created_at,
+        updated_at
+      FROM public.customers
+      WHERE restaurant_id = $1
+        AND (last_seen_at IS NULL OR last_seen_at <= NOW()) -- ✅ safety
+      ORDER BY last_seen_at DESC NULLS LAST, visits_count DESC
+      LIMIT $2;
+      `,
+      [req.restaurant_id, limit]
+    );
+
+    return res.json({
+      success: true,
+      version: APP_VERSION,
+      restaurant_id: req.restaurant_id,
+      data: result.rows,
+    });
+  } catch (err) {
+    console.error("❌ GET /owner/customers error:", err);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
+  }
+});
 
 // ==================== OWNER RESERVATIONS (READ ONLY) ====================
 app.get("/owner/reservations", requireOwnerKey, requireDbReady, async (req, res) => {
@@ -1139,11 +1178,7 @@ app.get("/owner/reservations", requireOwnerKey, requireDbReady, async (req, res)
   }
 });
 
-
-
-
 // ==================== EVENTS (CORE) ====================
-
 app.post("/events", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const b = req.body || {};
@@ -1228,7 +1263,6 @@ app.get("/events", requireApiKey, requireDbReady, async (req, res) => {
 });
 
 // ==================== RESERVATIONS ====================
-
 app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const r = req.body || {};
@@ -1291,64 +1325,62 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
     );
 
     // ✅ AUTO-SYNC INTO CUSTOMERS (CRM) – non-blocking
-// FIX: mos vendos last_seen_at në të ardhmen + mos rrit visits_count për rezervime të ardhshme
-try {
-  await pool.query(
-    `
-   WITH flags AS (
-  SELECT
-    NOW() AS now_ts,
-    (($1::date + $2::time) AT TIME ZONE 'Europe/Tirane') AS ts,
-    CASE
-      WHEN (($1::date + $2::time) AT TIME ZONE 'Europe/Tirane') <= NOW()
-      THEN 1 ELSE 0
-    END AS is_past
-)
-INSERT INTO public.customers (
-  restaurant_id,
-  phone,
-  full_name,
-  first_seen_at,
-  last_seen_at,
-  visits_count,
-  created_at,
-  updated_at
-)
-VALUES (
-  $3,
-  $4,
-  NULLIF($5,''),
-  (SELECT now_ts FROM flags),                                -- ✅ first_seen_at = NOW()
-  (SELECT CASE WHEN is_past=1 THEN ts ELSE NULL END FROM flags),
-  (SELECT CASE WHEN is_past=1 THEN 1 ELSE 0 END FROM flags),
-  NOW(),
-  NOW()
-)
-ON CONFLICT (restaurant_id, phone)
-DO UPDATE SET
-  full_name = COALESCE(NULLIF(EXCLUDED.full_name,''), public.customers.full_name),
+    // FIX: mos vendos last_seen_at në të ardhmen + mos rrit visits_count për rezervime të ardhshme
+    try {
+      await pool.query(
+        `
+        WITH flags AS (
+          SELECT
+            NOW() AS now_ts,
+            (($1::date + $2::time) AT TIME ZONE 'Europe/Tirane') AS ts,
+            CASE
+              WHEN (($1::date + $2::time) AT TIME ZONE 'Europe/Tirane') <= NOW()
+              THEN 1 ELSE 0
+            END AS is_past
+        )
+        INSERT INTO public.customers (
+          restaurant_id,
+          phone,
+          full_name,
+          first_seen_at,
+          last_seen_at,
+          visits_count,
+          created_at,
+          updated_at
+        )
+        VALUES (
+          $3,
+          $4,
+          NULLIF($5,''),
+          (SELECT now_ts FROM flags),
+          (SELECT CASE WHEN is_past=1 THEN ts ELSE NULL END FROM flags),
+          (SELECT CASE WHEN is_past=1 THEN 1 ELSE 0 END FROM flags),
+          NOW(),
+          NOW()
+        )
+        ON CONFLICT (restaurant_id, phone)
+        DO UPDATE SET
+          full_name = COALESCE(NULLIF(EXCLUDED.full_name,''), public.customers.full_name),
 
-  -- ✅ first_seen_at NUK preket kurrë nga rezervime future
-  first_seen_at = COALESCE(public.customers.first_seen_at, EXCLUDED.first_seen_at),
+          -- ✅ first_seen_at NUK preket kurrë nga rezervime future
+          first_seen_at = COALESCE(public.customers.first_seen_at, EXCLUDED.first_seen_at),
 
-  last_seen_at = CASE
-    WHEN (SELECT is_past FROM flags)=1
-    THEN GREATEST(public.customers.last_seen_at, (SELECT ts FROM flags))
-    ELSE public.customers.last_seen_at
-  END,
+          last_seen_at = CASE
+            WHEN (SELECT is_past FROM flags)=1
+            THEN GREATEST(COALESCE(public.customers.last_seen_at, (SELECT ts FROM flags)), (SELECT ts FROM flags))
+            ELSE public.customers.last_seen_at
+          END,
 
-  visits_count = public.customers.visits_count +
-    (SELECT CASE WHEN is_past=1 THEN 1 ELSE 0 END FROM flags),
+          visits_count = public.customers.visits_count +
+            (SELECT CASE WHEN is_past=1 THEN 1 ELSE 0 END FROM flags),
 
-  updated_at = NOW();
-
-    `,
-    [dateStr, timeStr, req.restaurant_id, r.phone, r.customer_name]
-  );
-} catch (e) {
-  console.error("⚠️ Sync to customers failed (non-blocking):", e.message);
-}
-
+          updated_at = NOW();
+        `,
+        [dateStr, timeStr, req.restaurant_id, r.phone, r.customer_name]
+      );
+    } catch (e) {
+      console.error("⚠️ Sync to customers failed (non-blocking):", e.message);
+    }
 
     // ✅ SYNC INTO EVENTS (CORE) – non-blocking
     try {
@@ -1418,7 +1450,6 @@ app.get("/reservations", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 10), 50);
 
-    // ✅ date::text fix
     const result = await pool.query(
       `
       SELECT
@@ -1462,7 +1493,6 @@ app.get("/reservations/upcoming", requireApiKey, requireDbReady, async (req, res
     const end = (await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [today, days]))
       .rows[0].d;
 
-    // ✅ date::text fix
     const result = await pool.query(
       `
       SELECT
@@ -1599,7 +1629,6 @@ app.post("/reservations/:id/reject", requireApiKey, requireDbReady, async (req, 
 });
 
 // ==================== FEEDBACK ====================
-
 app.post("/feedback", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const phone = req.body?.phone;
@@ -1680,7 +1709,6 @@ app.get("/feedback", requireApiKey, requireDbReady, async (req, res) => {
 });
 
 // ==================== REPORTS ====================
-
 app.get("/reports/today", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const today = await getTodayAL();
