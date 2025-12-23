@@ -29,7 +29,7 @@ app.use(express.json({ limit: "1mb" }));
 const MAX_AUTO_CONFIRM_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 8);
 
 // ✅ version marker (ndryshoje kur bën deploy)
-const APP_VERSION = "v-2025-12-23-multirestaurant-admin-plans-1";
+const APP_VERSION = "v-2025-12-23-fix-lastseen-1";
 
 // ==================== DB READY FLAG ====================
 let DB_READY = false;
