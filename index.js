@@ -29,7 +29,7 @@ app.use(express.json({ limit: "1mb" }));
 const MAX_AUTO_CONFIRM_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 8);
 
 // ✅ version marker (ndryshoje kur bën deploy)
-const APP_VERSION = "v-2025-12-23-fix-lastseen-2";
+const APP_VERSION = "v-2025-12-23-admin-debug-1";
 
 // ==================== DB READY FLAG ====================
 let DB_READY = false;
@@ -226,6 +226,22 @@ async function requireAdminKey(req, res, next) {
     });
   }
 }
+
+// ==================== ADMIN ENV DEBUG (SAFE) ====================
+// ✅ Nuk ekspozon ADMIN_KEY. Vetëm tregon nëse ekziston + gjatësia.
+app.get("/admin/debug-env", (req, res) => {
+  const provided = String(req.headers["x-admin-key"] || "");
+  const envKey = String(process.env.ADMIN_KEY || "");
+
+  return res.json({
+    ok: true,
+    version: APP_VERSION,
+    has_env_admin_key: envKey.trim().length > 0,
+    env_admin_key_length: envKey.trim().length,
+    provided_length: provided.trim().length,
+    node_env: String(process.env.NODE_ENV || ""),
+  });
+});
 
 // ==================== PLANS (FREE/PRO) ====================
 function requirePlan(requiredPlan) {
@@ -1280,7 +1296,10 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
 
     const dateStr = String(r.date).trim(); // "YYYY-MM-DD"
     const timeStr = normalizeTimeHHMI(r.time);
-    const status = people > MAX_AUTO_CONFIRM_PEOPLE ? "Pending" : "Confirmed";
+
+    // ✅ FIX: 8 persona -> Pending (>=)
+    const status = people >= MAX_AUTO_CONFIRM_PEOPLE ? "Pending" : "Confirmed";
+
     const reservation_id = r.reservation_id || crypto.randomUUID();
 
     const result = await pool.query(
@@ -1420,7 +1439,7 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
       restaurant_id: req.restaurant_id,
       message:
         status === "Pending"
-          ? `Reservation is pending owner approval (people > ${MAX_AUTO_CONFIRM_PEOPLE}).`
+          ? `Reservation is pending owner approval (people >= ${MAX_AUTO_CONFIRM_PEOPLE}).`
           : "Reservation confirmed.",
       data: { ...row, created_at_local: formatALDate(row.created_at) },
     });
