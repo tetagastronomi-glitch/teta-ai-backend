@@ -1099,7 +1099,7 @@ app.get("/audience/export", requireApiKey, requireDbReady, requirePlan("PRO"), a
 });
 
 
-/// ==================== OWNER VIEW (READ ONLY) ====================
+// ==================== OWNER VIEW (READ ONLY) ====================
 
 app.get("/owner/customers", requireOwnerKey, requireDbReady, async (req, res) => {
   try {
@@ -1107,10 +1107,14 @@ app.get("/owner/customers", requireOwnerKey, requireDbReady, async (req, res) =>
 
     const result = await pool.query(
       `
-      SELECT *
-      FROM public.owner_customers
+      SELECT
+        id, restaurant_id, phone, full_name,
+        visits_count, first_seen_at, last_seen_at,
+        consent_marketing, consent_sms, consent_whatsapp, consent_email,
+        created_at, updated_at
+      FROM public.customers
       WHERE restaurant_id = $1
-        AND (last_seen_at IS NULL OR last_seen_at <= NOW())
+        AND (last_seen_at IS NULL OR last_seen_at <= NOW())  -- extra safety
       ORDER BY last_seen_at DESC NULLS LAST, visits_count DESC
       LIMIT $2;
       `,
@@ -1125,13 +1129,10 @@ app.get("/owner/customers", requireOwnerKey, requireDbReady, async (req, res) =>
     });
   } catch (err) {
     console.error("❌ GET /owner/customers error:", err);
-    return res.status(500).json({
-      success: false,
-      version: APP_VERSION,
-      error: err.message,
-    });
+    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
   }
 });
+
 
 
 // ==================== EVENTS (CORE) ====================
