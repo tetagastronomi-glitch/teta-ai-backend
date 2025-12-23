@@ -926,9 +926,8 @@ function segmentFromDays(daysSince) {
   return "COLD";
 }
 
-/**
- * GET /segments?days=60  (PRO)
- */
+// ==================== SEGMENTS (PRO) ====================
+// GET /segments?days=60
 app.get("/segments", requireApiKey, requireDbReady, requirePlan("PRO"), async (req, res) => {
   try {
     const days = Math.min(Math.max(Number(req.query.days || 60), 1), 3650);
@@ -937,21 +936,23 @@ app.get("/segments", requireApiKey, requireDbReady, requirePlan("PRO"), async (r
     const q = await pool.query(
       `
       SELECT
-  phone,
-  full_name,
-  visits_count,
-  last_seen_at,
-  ( ($1::date) - ((last_seen_at AT TIME ZONE 'Europe/Tirane')::date) )::int AS days_since_last_visit
-FROM public.customers
-WHERE restaurant_id = $2
-  AND last_seen_at IS NOT NULL
-  AND last_seen_at <= NOW()      -- ✅ mos nxirr future
-  AND ${consentColumn} = TRUE
-  AND (last_seen_at AT TIME ZONE 'Europe/Tirane')::date
-      >= ($1::date - ($4::int || ' days')::interval)::date
-ORDER BY last_seen_at DESC
-LIMIT $3;
-
+        id,
+        phone,
+        full_name,
+        visits_count,
+        last_seen_at,
+        consent_marketing,
+        consent_sms,
+        consent_whatsapp,
+        consent_email,
+        ( ($1::date) - ((last_seen_at AT TIME ZONE 'Europe/Tirane')::date) )::int AS days_since_last
+      FROM public.customers
+      WHERE restaurant_id = $2
+        AND phone IS NOT NULL AND phone <> ''
+        AND last_seen_at IS NOT NULL
+        AND last_seen_at <= NOW()  -- ✅ mos kthe future
+        AND (last_seen_at AT TIME ZONE 'Europe/Tirane')::date >= ($1::date - ($3::int || ' days')::interval)::date
+      ORDER BY last_seen_at DESC;
       `,
       [today, req.restaurant_id, days]
     );
@@ -1099,39 +1100,45 @@ app.get("/audience/export", requireApiKey, requireDbReady, requirePlan("PRO"), a
 });
 
 
-// ==================== OWNER VIEW (READ ONLY) ====================
-
-app.get("/owner/customers", requireOwnerKey, requireDbReady, async (req, res) => {
+// ==================== OWNER RESERVATIONS (READ ONLY) ====================
+app.get("/owner/reservations", requireOwnerKey, requireDbReady, async (req, res) => {
   try {
-    const limit = Math.min(Number(req.query.limit || 50), 200);
+    const limit = Math.min(Number(req.query.limit || 20), 100);
 
     const result = await pool.query(
       `
       SELECT
-        id, restaurant_id, phone, full_name,
-        visits_count, first_seen_at, last_seen_at,
-        consent_marketing, consent_sms, consent_whatsapp, consent_email,
-        created_at, updated_at
-      FROM public.customers
+        id,
+        restaurant_id,
+        reservation_id,
+        customer_name,
+        phone,
+        date,
+        time,
+        people,
+        channel,
+        area,
+        allergies,
+        special_requests,
+        status,
+        created_at
+      FROM public.reservations
       WHERE restaurant_id = $1
-        AND (last_seen_at IS NULL OR last_seen_at <= NOW())  -- extra safety
-      ORDER BY last_seen_at DESC NULLS LAST, visits_count DESC
+      ORDER BY created_at DESC
       LIMIT $2;
       `,
       [req.restaurant_id, limit]
     );
 
-    return res.json({
-      success: true,
-      version: APP_VERSION,
-      restaurant_id: req.restaurant_id,
-      data: result.rows,
-    });
+    const rows = result.rows.map((x) => ({ ...x, created_at_local: formatALDate(x.created_at) }));
+
+    return res.json({ success: true, version: APP_VERSION, restaurant_id: req.restaurant_id, data: rows });
   } catch (err) {
-    console.error("❌ GET /owner/customers error:", err);
+    console.error("❌ GET /owner/reservations error:", err);
     return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
   }
 });
+
 
 
 
