@@ -441,8 +441,28 @@ app.get("/health/db", requireApiKey, async (req, res) => {
 
 // ==================== DEBUG ====================
 
+// ==================== DEBUG (DEV ONLY) ====================
+// ✅ Në production (Railway), debug endpoints nuk ekzistojnë (404).
+function requireNotProduction(req, res, next) {
+  const env = String(process.env.NODE_ENV || "").toLowerCase();
+  if (env === "production") {
+    return res.status(404).json({ success: false, version: APP_VERSION, error: "Not found" });
+  }
+  next();
+}
+
+// Debug owner key exists (nuk e tregon sekretin)
+app.get("/debug/owner-key", requireNotProduction, requireApiKey, (req, res) => {
+  return res.json({
+    success: true,
+    version: APP_VERSION,
+    has_owner_key: !!process.env.OWNER_KEY,
+    owner_key_length: process.env.OWNER_KEY ? String(process.env.OWNER_KEY).length : 0,
+  });
+});
+
 // Debug customers (vetëm me api-key)
-app.get("/debug/customers", requireApiKey, requireDbReady, async (req, res) => {
+app.get("/debug/customers", requireNotProduction, requireApiKey, requireDbReady, async (req, res) => {
   const q = await pool.query(
     `
     SELECT
@@ -459,7 +479,7 @@ app.get("/debug/customers", requireApiKey, requireDbReady, async (req, res) => {
     ORDER BY id DESC
     LIMIT 20;
     `,
-    [req.restaurant_id]
+    [req.restaurant_id] // ✅ nga auth middleware (multi-restaurant)
   );
 
   return res.json({
@@ -471,15 +491,52 @@ app.get("/debug/customers", requireApiKey, requireDbReady, async (req, res) => {
   });
 });
 
-// Debug schema (vetëm me api-key)
-app.get("/debug/reservations-schema", requireApiKey, requireDbReady, async (req, res) => {
+// Debug compare owner auth (tregon pse s'po kalon 401 pa ekspozuar sekretin)
+app.get("/debug/owner-auth", requireNotProduction, requireApiKey, (req, res) => {
+  const provided = String(req.headers["x-owner-key"] ?? "").trim();
+  const expected = String(process.env.OWNER_KEY ?? "").trim();
+  return res.json({
+    success: true,
+    version: APP_VERSION,
+    has_owner_key: !!process.env.OWNER_KEY,
+    provided_present: provided.length > 0,
+    provided_length: provided.length,
+    expected_length: expected.length,
+    match: provided.length > 0 && expected.length > 0 && safeEqual(provided, expected),
+  });
+});
+
+// Debug reservations schema (vetëm me api-key)
+app.get("/debug/reservations-schema", requireNotProduction, requireApiKey, requireDbReady, async (req, res) => {
   const q = await pool.query(`
     SELECT column_name, data_type, is_nullable
     FROM information_schema.columns
     WHERE table_schema='public' AND table_name='reservations'
     ORDER BY ordinal_position;
   `);
-  res.json({ success: true, version: APP_VERSION, columns: q.rows });
+  return res.json({ success: true, version: APP_VERSION, columns: q.rows });
+});
+
+// Debug reservations constraints (vetëm me api-key)
+app.get("/debug/reservations-constraints", requireNotProduction, requireApiKey, requireDbReady, async (req, res) => {
+  try {
+    const q = await pool.query(`
+      SELECT
+        con.conname AS constraint_name,
+        con.contype AS constraint_type,
+        pg_get_constraintdef(con.oid) AS definition
+      FROM pg_constraint con
+      JOIN pg_class rel ON rel.oid = con.conrelid
+      JOIN pg_namespace nsp ON nsp.oid = con.connamespace
+      WHERE nsp.nspname = 'public'
+        AND rel.relname = 'reservations'
+      ORDER BY con.conname;
+    `);
+    return res.json({ success: true, version: APP_VERSION, constraints: q.rows });
+  } catch (err) {
+    console.error("❌ /debug/reservations-constraints error:", err);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
+  }
 });
 
 // ==================== RATINGS HELPERS ====================
