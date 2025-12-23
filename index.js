@@ -937,22 +937,21 @@ app.get("/segments", requireApiKey, requireDbReady, requirePlan("PRO"), async (r
     const q = await pool.query(
       `
       SELECT
-        id,
-        restaurant_id,
-        phone,
-        full_name,
-        visits_count,
-        last_seen_at,
-        consent_marketing,
-        consent_sms,
-        consent_whatsapp,
-        consent_email,
-        ( ($1::date) - ((last_seen_at AT TIME ZONE 'Europe/Tirane')::date) )::int AS days_since_last
-      FROM public.customers
-      WHERE restaurant_id = $2
-        AND last_seen_at IS NOT NULL
-        AND (last_seen_at AT TIME ZONE 'Europe/Tirane')::date >= ($1::date - ($3::int || ' days')::interval)::date
-      ORDER BY last_seen_at DESC;
+  phone,
+  full_name,
+  visits_count,
+  last_seen_at,
+  ( ($1::date) - ((last_seen_at AT TIME ZONE 'Europe/Tirane')::date) )::int AS days_since_last_visit
+FROM public.customers
+WHERE restaurant_id = $2
+  AND last_seen_at IS NOT NULL
+  AND last_seen_at <= NOW()      -- ✅ mos nxirr future
+  AND ${consentColumn} = TRUE
+  AND (last_seen_at AT TIME ZONE 'Europe/Tirane')::date
+      >= ($1::date - ($4::int || ' days')::interval)::date
+ORDER BY last_seen_at DESC
+LIMIT $3;
+
       `,
       [today, req.restaurant_id, days]
     );
