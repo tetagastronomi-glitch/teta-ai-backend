@@ -2,7 +2,7 @@
  * index.js (FINAL)
  * Te Ta AI Backend — Reservations + Feedback + Events(CORE) + Reports (Today + Dashboard)
  * + CRM Customers + Consents (LEGAL) + Owner View (read-only via OWNER_KEY)
- * + Segmentation (HAPI 3) + Audience Export (WhatsApp/SMS/Email Marketing)
+ * + Segments + Audience Export
  */
 
 require("dotenv").config({ override: true });
@@ -21,7 +21,7 @@ const RESTAURANT_ID = Number(process.env.RESTAURANT_ID || 2);
 const MAX_AUTO_CONFIRM_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 8);
 
 // ✅ version marker (ndryshoje kur bën deploy)
-const APP_VERSION = "v-2025-12-22-crm-consents-owner-segments-1";
+const APP_VERSION = "v-2025-12-23-crm-consents-owner-4";
 
 // ==================== DB READY FLAG ====================
 let DB_READY = false;
@@ -78,15 +78,6 @@ function normalizeTimeHHMI(t) {
   if (mm < 0) mm = 0;
   if (mm > 59) mm = 59;
   return String(hh).padStart(2, "0") + ":" + String(mm).padStart(2, "0");
-}
-
-// Helpers (segmentation)
-function toIntSafe(v, def) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : def;
-}
-function clamp(n, min, max) {
-  return Math.min(Math.max(n, min), max);
 }
 
 // ==================== INIT / MIGRATIONS ====================
@@ -543,18 +534,7 @@ function toBoolOrNull(v) {
 
 /**
  * POST /consents
- * Body:
- * {
- *   "phone":"0691234567",
- *   "full_name":"Test Owner",            (opsional)
- *   "consent_marketing": true/false,     (opsional)
- *   "consent_sms": true/false,           (opsional)
- *   "consent_whatsapp": true/false,      (opsional)
- *   "consent_email": true/false,         (opsional)
- *   "consent_source":"instagram"         (opsional)
- * }
- *
- * NOTE: Nëse një consent nuk vjen në body, nuk e ndryshojmë (mbetet siç është).
+ * NOTE: Nëse një consent nuk vjen në body, nuk e ndryshojmë.
  */
 app.post("/consents", requireApiKey, requireDbReady, async (req, res) => {
   try {
@@ -629,6 +609,173 @@ app.post("/consents", requireApiKey, requireDbReady, async (req, res) => {
     return res.json({ success: true, version: APP_VERSION, data: q.rows[0] });
   } catch (err) {
     console.error("❌ POST /consents error:", err);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
+  }
+});
+
+// ==================== SEGMENTS + AUDIENCE ====================
+
+function segmentFromDays(daysSince) {
+  if (daysSince === null || daysSince === undefined) return "UNKNOWN";
+  const n = Number(daysSince);
+  if (!Number.isFinite(n)) return "UNKNOWN";
+  if (n <= 14) return "ACTIVE";
+  if (n <= 30) return "WARM";
+  return "COLD";
+}
+
+/**
+ * GET /segments?days=60
+ * Kthen segmentim bazuar në last_seen_at (CRM).
+ */
+app.get("/segments", requireApiKey, requireDbReady, async (req, res) => {
+  try {
+    const days = Math.min(Math.max(Number(req.query.days || 60), 1), 3650);
+    const today = await getTodayAL();
+
+    const q = await pool.query(
+      `
+      SELECT
+        id,
+        restaurant_id,
+        phone,
+        full_name,
+        visits_count,
+        first_seen_at,
+        last_seen_at,
+        consent_marketing,
+        consent_sms,
+        consent_whatsapp,
+        consent_email,
+        ( ($1::date) - ((last_seen_at AT TIME ZONE 'Europe/Tirane')::date) )::int AS days_since_last_visit
+      FROM public.customers
+      WHERE restaurant_id = $2
+        AND last_seen_at IS NOT NULL
+        AND (last_seen_at AT TIME ZONE 'Europe/Tirane')::date >= ($1::date - ($3::int || ' days')::interval)::date
+      ORDER BY last_seen_at DESC;
+      `,
+      [today, RESTAURANT_ID, days]
+    );
+
+    const rows = q.rows.map((r) => ({
+      ...r,
+      segment: segmentFromDays(r.days_since_last_visit),
+      first_seen_at_local: formatALDate(r.first_seen_at),
+      last_seen_at_local: formatALDate(r.last_seen_at),
+    }));
+
+    const counts = rows.reduce(
+      (acc, r) => {
+        acc.total += 1;
+        if (r.segment === "ACTIVE") acc.active += 1;
+        else if (r.segment === "WARM") acc.warm += 1;
+        else if (r.segment === "COLD") acc.cold += 1;
+        else acc.unknown += 1;
+        return acc;
+      },
+      { total: 0, active: 0, warm: 0, cold: 0, unknown: 0 }
+    );
+
+    return res.json({
+      success: true,
+      version: APP_VERSION,
+      restaurant_id: RESTAURANT_ID,
+      range: { days, from: String(today) },
+      counts,
+      data: rows,
+    });
+  } catch (err) {
+    console.error("❌ GET /segments error:", err);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
+  }
+});
+
+/**
+ * GET /audience/export?channel=whatsapp&segment=all&limit=200&format=json|csv
+ * channel: whatsapp | sms | email | marketing
+ * segment: active | warm | cold | all
+ */
+app.get("/audience/export", requireApiKey, requireDbReady, async (req, res) => {
+  try {
+    const channel = String(req.query.channel || "whatsapp").trim().toLowerCase();
+    const segment = String(req.query.segment || "all").trim().toLowerCase();
+    const format = String(req.query.format || "json").trim().toLowerCase();
+    const limit = Math.min(Math.max(Number(req.query.limit || 200), 1), 2000);
+
+    const consentColumn =
+      channel === "sms"
+        ? "consent_sms"
+        : channel === "email"
+        ? "consent_email"
+        : channel === "marketing"
+        ? "consent_marketing"
+        : "consent_whatsapp";
+
+    const today = await getTodayAL();
+
+    const q = await pool.query(
+      `
+      SELECT
+        id,
+        restaurant_id,
+        phone,
+        full_name,
+        visits_count,
+        last_seen_at,
+        ${consentColumn} AS consent_ok,
+        ( ($1::date) - ((last_seen_at AT TIME ZONE 'Europe/Tirane')::date) )::int AS days_since_last_visit
+      FROM public.customers
+      WHERE restaurant_id = $2
+        AND phone IS NOT NULL AND phone <> ''
+        AND last_seen_at IS NOT NULL
+        AND ${consentColumn} = TRUE
+      ORDER BY last_seen_at DESC
+      LIMIT $3;
+      `,
+      [today, RESTAURANT_ID, limit]
+    );
+
+    let rows = q.rows.map((r) => ({
+      phone: r.phone,
+      full_name: r.full_name || "",
+      visits_count: Number(r.visits_count || 0),
+      segment: segmentFromDays(r.days_since_last_visit),
+      last_seen_at: r.last_seen_at,
+      last_seen_at_local: formatALDate(r.last_seen_at),
+    }));
+
+    if (segment !== "all") {
+      const want = segment.toUpperCase(); // ACTIVE/WARM/COLD
+      rows = rows.filter((r) => r.segment === want);
+    }
+
+    if (format === "csv") {
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      const header = ["phone", "full_name", "segment", "visits_count", "last_seen_at_local"].join(",");
+      const body = rows
+        .map((r) =>
+          [
+            r.phone,
+            `"${String(r.full_name || "").replaceAll('"', '""')}"`,
+            r.segment,
+            r.visits_count,
+            `"${String(r.last_seen_at_local || "").replaceAll('"', '""')}"`,
+          ].join(",")
+        )
+        .join("\n");
+      return res.status(200).send(header + "\n" + body);
+    }
+
+    return res.json({
+      success: true,
+      version: APP_VERSION,
+      restaurant_id: RESTAURANT_ID,
+      filter: { channel, segment, limit, format: "json" },
+      count: rows.length,
+      data: rows,
+    });
+  } catch (err) {
+    console.error("❌ GET /audience/export error:", err);
     return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
   }
 });
@@ -1554,150 +1701,6 @@ app.get("/reports/dashboard", requireApiKey, requireDbReady, async (req, res) =>
     });
   } catch (err) {
     console.error("❌ GET /reports/dashboard error:", err);
-    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
-  }
-});
-
-// ==================== HAPI 3: SEGMENTS + AUDIENCE EXPORT ====================
-
-/**
- * GET /segments?days=60
- * Segmente bazuar në sa ditë kanë kaluar nga vizita e fundit (last_seen_at)
- * - VIP: visits_count >= 3
- * - ACTIVE: <=14 ditë
- * - WARM: 15-30 ditë
- * - COLD: >30 ditë
- */
-app.get("/segments", requireApiKey, requireDbReady, async (req, res) => {
-  try {
-    const days = clamp(toIntSafe(req.query.days, 60), 7, 365);
-
-    const q = await pool.query(
-      `
-      SELECT
-        id, phone, full_name, visits_count,
-        last_seen_at,
-        consent_marketing, consent_sms, consent_whatsapp, consent_email,
-        (DATE_PART('day', (NOW() - last_seen_at)))::int AS days_since_last
-      FROM public.customers
-      WHERE restaurant_id = $1
-      ORDER BY last_seen_at DESC NULLS LAST, visits_count DESC
-      LIMIT 2000;
-      `,
-      [RESTAURANT_ID]
-    );
-
-    const rows = q.rows || [];
-
-    const vip = [];
-    const active = [];
-    const warm = [];
-    const cold = [];
-    const unknown = [];
-
-    for (const c of rows) {
-      const d = c.days_since_last;
-
-      if ((c.visits_count || 0) >= 3) vip.push(c);
-
-      if (d === null || d === undefined) {
-        unknown.push(c);
-        continue;
-      }
-
-      if (d <= 14) active.push(c);
-      else if (d <= 30) warm.push(c);
-      else cold.push(c);
-    }
-
-    const consentCounts = {
-      whatsapp_true: rows.filter((x) => x.consent_whatsapp === true).length,
-      marketing_true: rows.filter((x) => x.consent_marketing === true).length,
-      sms_true: rows.filter((x) => x.consent_sms === true).length,
-      email_true: rows.filter((x) => x.consent_email === true).length,
-    };
-
-    return res.json({
-      success: true,
-      version: APP_VERSION,
-      restaurant_id: RESTAURANT_ID,
-      params: { days },
-      counts: {
-        total: rows.length,
-        vip: vip.length,
-        active: active.length,
-        warm: warm.length,
-        cold: cold.length,
-        unknown: unknown.length,
-        ...consentCounts,
-      },
-      data: {
-        vip: vip.slice(0, 50),
-        active: active.slice(0, 50),
-        warm: warm.slice(0, 50),
-        cold: cold.slice(0, 50),
-      },
-    });
-  } catch (err) {
-    console.error("❌ GET /segments error:", err);
-    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
-  }
-});
-
-/**
- * GET /audience/export?channel=whatsapp&segment=cold&limit=200
- * channel: whatsapp | sms | email | marketing
- * segment: vip | active | warm | cold | all
- */
-app.get("/audience/export", requireApiKey, requireDbReady, async (req, res) => {
-  try {
-    const channel = String(req.query.channel || "whatsapp").toLowerCase();
-    const segment = String(req.query.segment || "all").toLowerCase();
-    const limit = clamp(toIntSafe(req.query.limit, 200), 1, 2000);
-
-    let consentSql = "TRUE";
-    if (channel === "whatsapp") consentSql = "consent_whatsapp = TRUE";
-    else if (channel === "sms") consentSql = "consent_sms = TRUE";
-    else if (channel === "email") consentSql = "consent_email = TRUE";
-    else if (channel === "marketing") consentSql = "consent_marketing = TRUE";
-
-    let segmentSql = "TRUE";
-    if (segment === "vip") segmentSql = "visits_count >= 3";
-    else if (segment === "active") segmentSql = "last_seen_at IS NOT NULL AND NOW() - last_seen_at <= INTERVAL '14 days'";
-    else if (segment === "warm")
-      segmentSql =
-        "last_seen_at IS NOT NULL AND NOW() - last_seen_at > INTERVAL '14 days' AND NOW() - last_seen_at <= INTERVAL '30 days'";
-    else if (segment === "cold") segmentSql = "last_seen_at IS NOT NULL AND NOW() - last_seen_at > INTERVAL '30 days'";
-
-    const q = await pool.query(
-      `
-      SELECT
-        id,
-        phone,
-        full_name,
-        visits_count,
-        last_seen_at,
-        (DATE_PART('day', (NOW() - last_seen_at)))::int AS days_since_last
-      FROM public.customers
-      WHERE restaurant_id = $1
-        AND ${consentSql}
-        AND ${segmentSql}
-      ORDER BY last_seen_at DESC NULLS LAST, visits_count DESC
-      LIMIT $2;
-      `,
-      [RESTAURANT_ID, limit]
-    );
-
-    return res.json({
-      success: true,
-      version: APP_VERSION,
-      restaurant_id: RESTAURANT_ID,
-      filters: { channel, segment, limit },
-      count: q.rows.length,
-      data: q.rows,
-    });
-  } catch (err) {
-    console.error("❌ GET /audience/export error:", err);
     return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
   }
 });
