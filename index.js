@@ -1099,62 +1099,40 @@ app.get("/audience/export", requireApiKey, requireDbReady, requirePlan("PRO"), a
 });
 
 
-// ==================== OWNER VIEW (READ ONLY) ====================
+/// ==================== OWNER VIEW (READ ONLY) ====================
 
 app.get("/owner/customers", requireOwnerKey, requireDbReady, async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 50), 200);
 
     const result = await pool.query(
-  `
-  SELECT *
-  FROM public.owner_customers
-  WHERE restaurant_id = $1
-    AND (last_seen_at IS NULL OR last_seen_at <= NOW())   -- ✅ extra safety
-  ORDER BY last_seen_at DESC NULLS LAST, visits_count DESC
-  LIMIT $2;
-  `,
-  [req.restaurant_id, limit]
-);
-
-    );
-
-    return res.json({ success: true, version: APP_VERSION, restaurant_id: req.restaurant_id, data: result.rows });
-  } catch (err) {
-    console.error("❌ GET /owner/customers error:", err);
-    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
-  }
-});
-
-app.get("/owner/reservations", requireOwnerKey, requireDbReady, async (req, res) => {
-  try {
-    const limit = Math.min(Number(req.query.limit || 20), 100);
-
-    // ✅ date::text fix
-    const result = await pool.query(
       `
-      SELECT
-        id, restaurant_id, reservation_id,
-        restaurant_name, customer_name, phone,
-        date::text AS date,
-        time, people, channel, area,
-        first_time, allergies, special_requests,
-        status, created_at
-      FROM public.owner_reservations
+      SELECT *
+      FROM public.owner_customers
       WHERE restaurant_id = $1
-      ORDER BY created_at DESC
+        AND (last_seen_at IS NULL OR last_seen_at <= NOW())
+      ORDER BY last_seen_at DESC NULLS LAST, visits_count DESC
       LIMIT $2;
       `,
       [req.restaurant_id, limit]
     );
 
-    const rows = result.rows.map((x) => ({ ...x, created_at_local: formatALDate(x.created_at) }));
-    return res.json({ success: true, version: APP_VERSION, restaurant_id: req.restaurant_id, data: rows });
+    return res.json({
+      success: true,
+      version: APP_VERSION,
+      restaurant_id: req.restaurant_id,
+      data: result.rows,
+    });
   } catch (err) {
-    console.error("❌ GET /owner/reservations error:", err);
-    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
+    console.error("❌ GET /owner/customers error:", err);
+    return res.status(500).json({
+      success: false,
+      version: APP_VERSION,
+      error: err.message,
+    });
   }
 });
+
 
 // ==================== EVENTS (CORE) ====================
 
