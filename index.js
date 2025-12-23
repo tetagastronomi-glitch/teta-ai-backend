@@ -1304,48 +1304,53 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
 try {
   await pool.query(
     `
-    WITH ev AS (
-      SELECT
-        (($1::date + $2::time) AT TIME ZONE 'Europe/Tirane') AS ts,
-        (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')       AS now_ts
-    ),
-    flags AS (
-      SELECT
-        ts,
-        now_ts,
-        (CASE WHEN ts <= now_ts THEN 1 ELSE 0 END) AS is_past
-      FROM ev
-    )
-    INSERT INTO public.customers (
-      restaurant_id, phone, full_name,
-      first_seen_at, last_seen_at, visits_count,
-      consent_marketing, consent_source, consent_updated_at
-    )
-    SELECT
-      $3::bigint,
-      $4::text,
-      NULLIF($5::text, ''),
-      (SELECT now_ts FROM flags),                                   -- first_seen_at = “now” (safe)
-      (SELECT CASE WHEN is_past=1 THEN ts ELSE NULL END FROM flags), -- last_seen_at vetëm nëse është e kaluar
-      (SELECT CASE WHEN is_past=1 THEN 1 ELSE 0 END FROM flags),     -- visits_count vetëm nëse është e kaluar
-      FALSE,
-      'reservation',
-      NOW()
-    ON CONFLICT (restaurant_id, phone)
-    DO UPDATE SET
-      full_name = COALESCE(NULLIF(EXCLUDED.full_name,''), public.customers.full_name),
+   WITH flags AS (
+  SELECT
+    NOW() AS now_ts,
+    (($1::date + $2::time) AT TIME ZONE 'Europe/Tirane') AS ts,
+    CASE
+      WHEN (($1::date + $2::time) AT TIME ZONE 'Europe/Tirane') <= NOW()
+      THEN 1 ELSE 0
+    END AS is_past
+)
+INSERT INTO public.customers (
+  restaurant_id,
+  phone,
+  full_name,
+  first_seen_at,
+  last_seen_at,
+  visits_count,
+  created_at,
+  updated_at
+)
+VALUES (
+  $3,
+  $4,
+  NULLIF($5,''),
+  (SELECT now_ts FROM flags),                                -- ✅ first_seen_at = NOW()
+  (SELECT CASE WHEN is_past=1 THEN ts ELSE NULL END FROM flags),
+  (SELECT CASE WHEN is_past=1 THEN 1 ELSE 0 END FROM flags),
+  NOW(),
+  NOW()
+)
+ON CONFLICT (restaurant_id, phone)
+DO UPDATE SET
+  full_name = COALESCE(NULLIF(EXCLUDED.full_name,''), public.customers.full_name),
 
-      -- last_seen_at vetëm nëse rezervimi është për sot/ të kaluarën
-      last_seen_at = CASE
-        WHEN (SELECT is_past FROM flags)=1
-          THEN GREATEST(public.customers.last_seen_at, (SELECT ts FROM flags))
-        ELSE public.customers.last_seen_at
-      END,
+  -- ✅ first_seen_at NUK preket kurrë nga rezervime future
+  first_seen_at = COALESCE(public.customers.first_seen_at, EXCLUDED.first_seen_at),
 
-      -- visits_count rritet vetëm nëse rezervimi është për sot/ të kaluarën
-      visits_count = public.customers.visits_count + (SELECT CASE WHEN is_past=1 THEN 1 ELSE 0 END FROM flags),
+  last_seen_at = CASE
+    WHEN (SELECT is_past FROM flags)=1
+    THEN GREATEST(public.customers.last_seen_at, (SELECT ts FROM flags))
+    ELSE public.customers.last_seen_at
+  END,
 
-      updated_at = NOW();
+  visits_count = public.customers.visits_count +
+    (SELECT CASE WHEN is_past=1 THEN 1 ELSE 0 END FROM flags),
+
+  updated_at = NOW();
+
     `,
     [dateStr, timeStr, req.restaurant_id, r.phone, r.customer_name]
   );
