@@ -1777,7 +1777,9 @@ app.get("/reports/today", requireApiKey, requireDbReady, async (req, res) => {
     const avgOfAvg =
       feedbackCount === 0
         ? null
-        : Math.round((feedbackRows.reduce((s, x) => s + Number(x.avg_rating), 0) / feedbackCount) * 10) / 10;
+        : Math.round(
+            (feedbackRows.reduce((s, x) => s + Number(x.avg_rating), 0) / feedbackCount) * 10
+          ) / 10;
 
     const fiveStars = feedbackCount === 0 ? 0 : feedbackRows.filter((x) => Number(x.avg_rating) >= 5).length;
     const fiveStarsPct = feedbackCount === 0 ? 0 : Math.round((fiveStars / feedbackCount) * 100);
@@ -1800,6 +1802,69 @@ app.get("/reports/today", requireApiKey, requireDbReady, async (req, res) => {
   } catch (err) {
     console.error("❌ GET /reports/today error:", err);
     return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
+  }
+});
+
+// ==================== OWNER KEY MIDDLEWARE ====================
+function requireOwnerKey(req, res, next) {
+  const k = req.headers["x-owner-key"];
+  if (!k || k !== process.env.OWNER_KEY) {
+    return res.status(401).json({
+      success: false,
+      version: APP_VERSION,
+      error: "Invalid owner key",
+    });
+  }
+  next();
+}
+
+// ==================== ALERTS ====================
+app.post("/alerts/reservation-created", requireOwnerKey, async (req, res) => {
+  try {
+    const payload = req.body;
+
+    if (!payload || payload.type !== "reservation_created" || !payload.data) {
+      return res.status(400).json({
+        success: false,
+        version: APP_VERSION,
+        error: "Invalid payload",
+      });
+    }
+
+    const makeWebhook = process.env.MAKE_ALERTS_WEBHOOK_URL;
+
+    // nëse webhook s’është vendosur ende
+    if (!makeWebhook) {
+      return res.json({
+        success: true,
+        version: APP_VERSION,
+        forwarded: false,
+        payload,
+      });
+    }
+
+    const r = await fetch(makeWebhook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const text = await r.text();
+
+    return res.json({
+      success: true,
+      version: APP_VERSION,
+      forwarded: true,
+      make_status: r.status,
+      make_response: text,
+    });
+  } catch (err) {
+    console.error("❌ POST /alerts/reservation-created error:", err);
+    return res.status(500).json({
+      success: false,
+      version: APP_VERSION,
+      error: err.message,
+    });
   }
 });
 

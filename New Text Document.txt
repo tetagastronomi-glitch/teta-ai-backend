@@ -1,0 +1,7 @@
+restaurant_id: 5
+
+plan: FREE
+
+API_KEY: tta_api_key_bf01f0c449e86f6b1fd55fdf611566b1
+
+OWNER_KEY: tta_owner_key_63799a5000ef71e97451519d6a045c1b

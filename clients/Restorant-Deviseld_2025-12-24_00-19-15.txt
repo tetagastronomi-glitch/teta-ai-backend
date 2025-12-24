@@ -1,0 +1,15 @@
+﻿=== CLIENT ONBOARDING RESULT ===
+NAME: Restorant Deviseld
+RESTAURANT_ID: 6
+PLAN: PRO
+
+API_KEY: tta_api_key_a461a82d6f796eed57e3acea8e0f571c
+OWNER_KEY: tta_owner_key_5b9b5f96072621e5b598239f9e6fc2f5
+
+OWNER ENDPOINTS:
+- https://teta-ai-backend-production.up.railway.app/owner/reservations
+- https://teta-ai-backend-production.up.railway.app/owner/customers
+
+NOTES:
+- RAW keys shown once. Store securely.
+- Give CLIENT only OWNER_KEY. Keep API_KEY + ADMIN_KEY private.
