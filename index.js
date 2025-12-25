@@ -69,8 +69,23 @@ function formatALDate(d) {
 
 // Helper: get "today" in Albania date (server-agnostic)
 async function getTodayAL() {
-  const q = await pool.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`);
+  const q = await pool.query(
+    `SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`
+  );
   return q.rows[0].d;
+}
+
+// Helper: normalize any date input to YYYY-MM-DD (safe)
+function toYMD(x) {
+  if (!x) return "";
+  if (x instanceof Date) return x.toISOString().slice(0, 10);
+  return String(x).trim().slice(0, 10); // handles "2025-12-25..." safely
+}
+
+// Helper: is reservation date = today (Europe/Tirane), using DB time
+async function isReservationTodayAL(reservationDate) {
+  const todayAL = await getTodayAL(); // date from DB in Europe/Tirane
+  return toYMD(reservationDate) === toYMD(todayAL);
 }
 
 // Helper normalize HH:MI (for casting to time safely)
@@ -87,6 +102,7 @@ function normalizeTimeHHMI(t) {
   if (mm > 59) mm = 59;
   return String(hh).padStart(2, "0") + ":" + String(mm).padStart(2, "0");
 }
+
 
 // ==================== AUTH HELPERS (HASH + SAFE EQUAL) ====================
 function hashKey(raw) {
@@ -1285,20 +1301,29 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
     const required = ["customer_name", "phone", "date", "time", "people"];
     for (const f of required) {
       if (r[f] === undefined || r[f] === null || r[f] === "") {
-        return res.status(400).json({ success: false, version: APP_VERSION, error: `Missing field: ${f}` });
+        return res
+          .status(400)
+          .json({ success: false, version: APP_VERSION, error: `Missing field: ${f}` });
       }
     }
 
     const people = Number(r.people);
     if (!Number.isFinite(people) || people <= 0) {
-      return res.status(400).json({ success: false, version: APP_VERSION, error: "people must be a positive number" });
+      return res
+        .status(400)
+        .json({ success: false, version: APP_VERSION, error: "people must be a positive number" });
     }
 
     const dateStr = String(r.date).trim(); // "YYYY-MM-DD"
     const timeStr = normalizeTimeHHMI(r.time);
 
-    // ✅ FIX: 8 persona -> Pending (>=)
-    const status = people >= MAX_AUTO_CONFIRM_PEOPLE ? "Pending" : "Confirmed";
+    // ✅ LOGJIKA FINALE:
+    // - SOT (AL) => gjithmonë Pending (manual confirm)
+    // - ditë të tjera => auto-confirm, përveç kur people >= threshold
+    const isTodayAL = await isReservationTodayAL(dateStr);
+    const status = isTodayAL
+      ? "Pending"
+      : (people >= MAX_AUTO_CONFIRM_PEOPLE ? "Pending" : "Confirmed");
 
     const reservation_id = r.reservation_id || crypto.randomUUID();
 
@@ -1342,6 +1367,69 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
         status,
       ]
     );
+
+    const inserted = result.rows[0];
+
+    // Payload standard për Make (owner/client)
+    const payload = {
+      restaurant_id: req.restaurant_id,
+      restaurant_name: r.restaurant_name || "Te Ta Gastronomi",
+      ts: new Date().toISOString(),
+      data: {
+        id: inserted.id,
+        reservation_id: inserted.reservation_id,
+        date: dateStr,
+        time: timeStr,
+        people,
+        customer_name: r.customer_name,
+        phone: r.phone,
+        channel: r.channel || null,
+        area: r.area || null,
+        status: inserted.status,
+      },
+    };
+
+    // ==================== ROUTING EVENTS ====================
+// RREGULLI FINAL:
+// - Rezervim për SOT (AL)  -> gjithmonë te OWNER (Pending)
+// - Ditë të tjera:
+//    - Confirmed -> te KLIENTI
+//    - Pending   -> te OWNER
+
+if (isTodayAL) {
+  // SOT: gjithmonë manual confirmation
+  await sendMakeEvent("reservation_created", payload);
+} else {
+  if (inserted.status === "Confirmed") {
+    // Auto-confirm për ditë të tjera
+    await sendMakeEvent("reservation_confirmed", payload);
+  } else {
+    // Large group / threshold -> owner
+    await sendMakeEvent("reservation_created", payload);
+  }
+}
+
+    }
+
+    return res.status(200).json({
+      success: true,
+      version: APP_VERSION,
+      restaurant_id: req.restaurant_id,
+      id: inserted.id,
+      reservation_id: inserted.reservation_id,
+      status: inserted.status,
+      created_at: inserted.created_at,
+    });
+  } catch (err) {
+    console.error("❌ /reservations error:", err);
+    return res.status(500).json({
+      success: false,
+      version: APP_VERSION,
+      error: "DB insert failed",
+    });
+  }
+});
+
 
     // ✅ AUTO-SYNC INTO CUSTOMERS (CRM) – non-blocking
     // FIX: mos vendos last_seen_at në të ardhmen + mos rrit visits_count për rezervime të ardhshme
