@@ -29,7 +29,7 @@ app.use(express.json({ limit: "1mb" }));
 const MAX_AUTO_CONFIRM_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 8);
 
 // ✅ version marker (ndryshoje kur bën deploy)
-const APP_VERSION = "v-2025-12-23-admin-debug-1";
+const APP_VERSION = "v-2025-12-25-owner-alerts-1";
 
 // ==================== DB READY FLAG ====================
 let DB_READY = false;
@@ -79,12 +79,12 @@ async function getTodayAL() {
 function toYMD(x) {
   if (!x) return "";
   if (x instanceof Date) return x.toISOString().slice(0, 10);
-  return String(x).trim().slice(0, 10); // handles "2025-12-25..." safely
+  return String(x).trim().slice(0, 10);
 }
 
 // Helper: is reservation date = today (Europe/Tirane), using DB time
 async function isReservationTodayAL(reservationDate) {
-  const todayAL = await getTodayAL(); // date from DB in Europe/Tirane
+  const todayAL = await getTodayAL();
   return toYMD(reservationDate) === toYMD(todayAL);
 }
 
@@ -103,6 +103,26 @@ function normalizeTimeHHMI(t) {
   return String(hh).padStart(2, "0") + ":" + String(mm).padStart(2, "0");
 }
 
+// ==================== MAKE EVENT SENDER ====================
+// Uses one webhook for all events; Make routes by `type`
+async function sendMakeEvent(type, payload) {
+  try {
+    const makeWebhook = String(process.env.MAKE_ALERTS_WEBHOOK_URL || "").trim();
+    if (!makeWebhook) return;
+
+    const body = { type, ...payload };
+
+    const r = await fetch(makeWebhook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    await r.text().catch(() => {});
+  } catch (e) {
+    console.error("⚠️ sendMakeEvent failed (non-blocking):", e.message);
+  }
+}
 
 // ==================== AUTH HELPERS (HASH + SAFE EQUAL) ====================
 function hashKey(raw) {
@@ -127,12 +147,6 @@ function genOwnerKey() {
 }
 
 // ==================== AUTH MIDDLEWARES ====================
-
-/**
- * ✅ requireApiKey
- * Reads x-api-key (raw), hashes it, validates against public.api_keys
- * Sets req.restaurant_id
- */
 async function requireApiKey(req, res, next) {
   try {
     const rawKey = String(req.headers["x-api-key"] || "").trim();
@@ -156,20 +170,13 @@ async function requireApiKey(req, res, next) {
 
     req.restaurant_id = Number(r.rows[0].restaurant_id);
 
-    // best effort usage tracking (mos e blloko request)
     pool.query(`UPDATE public.api_keys SET last_used_at = NOW() WHERE key_hash = $1;`, [keyHash]).catch(() => {});
-
     return next();
   } catch (err) {
     return res.status(500).json({ success: false, version: APP_VERSION, error: "Auth failed" });
   }
 }
 
-/**
- * ✅ requireOwnerKey
- * Reads x-owner-key (raw), hashes it, validates against public.owner_keys
- * Sets req.restaurant_id
- */
 async function requireOwnerKey(req, res, next) {
   try {
     const rawKey = String(req.headers["x-owner-key"] || "").trim();
@@ -194,17 +201,12 @@ async function requireOwnerKey(req, res, next) {
     req.restaurant_id = Number(r.rows[0].restaurant_id);
 
     pool.query(`UPDATE public.owner_keys SET last_used_at = NOW() WHERE key_hash = $1;`, [keyHash]).catch(() => {});
-
     return next();
   } catch (err) {
     return res.status(500).json({ success: false, version: APP_VERSION, error: "Owner auth failed" });
   }
 }
 
-/**
- * 🔒 requireAdminKey
- * Master access (platform owner only)
- */
 async function requireAdminKey(req, res, next) {
   try {
     const rawKey = String(req.headers["x-admin-key"] || "").trim();
@@ -244,7 +246,6 @@ async function requireAdminKey(req, res, next) {
 }
 
 // ==================== ADMIN ENV DEBUG (SAFE) ====================
-// ✅ Nuk ekspozon ADMIN_KEY. Vetëm tregon nëse ekziston + gjatësia.
 app.get("/admin/debug-env", (req, res) => {
   const provided = String(req.headers["x-admin-key"] || "");
   const envKey = String(process.env.ADMIN_KEY || "");
@@ -302,13 +303,13 @@ async function initDb() {
       );
     `);
 
-    // ✅ plan column (FREE/PRO)
+    // plan
     await pool.query(`
       ALTER TABLE public.restaurants
       ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'FREE';
     `);
 
-    // ✅ api_keys
+    // api_keys
     await pool.query(`
       CREATE TABLE IF NOT EXISTS public.api_keys (
         id SERIAL PRIMARY KEY,
@@ -321,7 +322,7 @@ async function initDb() {
       );
     `);
 
-    // ✅ owner_keys
+    // owner_keys
     await pool.query(`
       CREATE TABLE IF NOT EXISTS public.owner_keys (
         id SERIAL PRIMARY KEY,
@@ -334,7 +335,7 @@ async function initDb() {
       );
     `);
 
-    // ✅ unique constraints on key_hash
+    // unique constraints on key_hash
     await pool.query(`
       DO $$
       BEGIN
@@ -477,7 +478,7 @@ async function initDb() {
       FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
     `);
 
-    // Owner views (read-only surface)
+    // Owner views
     await pool.query(`
       CREATE OR REPLACE VIEW public.owner_customers AS
       SELECT
@@ -595,7 +596,6 @@ app.get("/health/db", requireApiKey, async (req, res) => {
 });
 
 // ==================== DEBUG (DEV ONLY) ====================
-// ✅ Në production (Railway), debug endpoints nuk ekzistojnë (404).
 function requireNotProduction(req, res, next) {
   const env = String(process.env.NODE_ENV || "").toLowerCase();
   if (env === "production") {
@@ -604,7 +604,6 @@ function requireNotProduction(req, res, next) {
   next();
 }
 
-// Debug customers (vetëm me api-key)
 app.get("/debug/customers", requireNotProduction, requireApiKey, requireDbReady, async (req, res) => {
   const q = await pool.query(
     `
@@ -634,7 +633,6 @@ app.get("/debug/customers", requireNotProduction, requireApiKey, requireDbReady,
   });
 });
 
-// Debug reservations schema (vetëm me api-key)
 app.get("/debug/reservations-schema", requireNotProduction, requireApiKey, requireDbReady, async (req, res) => {
   const q = await pool.query(`
     SELECT column_name, data_type, is_nullable
@@ -645,7 +643,6 @@ app.get("/debug/reservations-schema", requireNotProduction, requireApiKey, requi
   return res.json({ success: true, version: APP_VERSION, columns: q.rows });
 });
 
-// Debug reservations constraints (vetëm me api-key)
 app.get("/debug/reservations-constraints", requireNotProduction, requireApiKey, requireDbReady, async (req, res) => {
   try {
     const q = await pool.query(`
@@ -718,7 +715,6 @@ app.get("/admin/restaurants", requireAdminKey, requireDbReady, async (req, res) 
   res.json({ success: true, version: APP_VERSION, count: q.rows.length, data: q.rows });
 });
 
-// Create restaurant + generate keys (returns raw keys once)
 app.post("/admin/restaurants", requireAdminKey, requireDbReady, async (req, res) => {
   try {
     const name = String(req.body?.name || "").trim();
@@ -763,7 +759,6 @@ app.post("/admin/restaurants", requireAdminKey, requireDbReady, async (req, res)
   }
 });
 
-// Set plan FREE/PRO
 app.post("/admin/restaurants/:id/plan", requireAdminKey, requireDbReady, async (req, res) => {
   const id = Number(req.params.id);
   const plan = String(req.body?.plan || "").trim().toUpperCase();
@@ -779,11 +774,10 @@ app.post("/admin/restaurants/:id/plan", requireAdminKey, requireDbReady, async (
   res.json({ success: true, version: APP_VERSION, data: q.rows[0] });
 });
 
-// Disable a raw key (api/owner)
 app.post("/admin/keys/disable", requireAdminKey, requireDbReady, async (req, res) => {
   try {
     const type = String(req.body?.type || "").trim().toLowerCase(); // api | owner
-    const rawKey = String(req.body?.key || "").trim(); // raw key
+    const rawKey = String(req.body?.key || "").trim();
     if (!["api", "owner"].includes(type)) {
       return res.status(400).json({ success: false, version: APP_VERSION, error: "type must be api or owner" });
     }
@@ -810,13 +804,11 @@ app.post("/admin/keys/disable", requireAdminKey, requireDbReady, async (req, res
   }
 });
 
-// Rotate keys for a restaurant: disable old, create new
 app.post("/admin/restaurants/:id/rotate-keys", requireAdminKey, requireDbReady, async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id)) return res.status(400).json({ success: false, version: APP_VERSION, error: "Invalid id" });
 
-    // disable all existing keys
     await pool.query(`UPDATE public.api_keys SET is_active=FALSE WHERE restaurant_id=$1;`, [id]);
     await pool.query(`UPDATE public.owner_keys SET is_active=FALSE WHERE restaurant_id=$1;`, [id]);
 
@@ -852,8 +844,6 @@ app.post("/admin/restaurants/:id/rotate-keys", requireAdminKey, requireDbReady, 
 });
 
 // ==================== CONSENTS (LEGAL) ====================
-
-// Helper: normalize boolean values safely
 function toBoolOrNull(v) {
   if (v === undefined || v === null) return null;
   if (typeof v === "boolean") return v;
@@ -863,11 +853,6 @@ function toBoolOrNull(v) {
   return null;
 }
 
-/**
- * POST /consents
- * NOTE: Nëse një consent nuk vjen në body, nuk e ndryshojmë.
- * ✅ pranon edhe alias keys: whatsapp/sms/email/marketing
- */
 app.post("/consents", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const b = req.body || {};
@@ -878,7 +863,6 @@ app.post("/consents", requireApiKey, requireDbReady, async (req, res) => {
 
     const full_name = b.full_name !== undefined ? String(b.full_name || "").trim() : null;
 
-    // ✅ ALIAS SUPPORT
     const c_marketing = toBoolOrNull(b.consent_marketing ?? b.marketing);
     const c_sms = toBoolOrNull(b.consent_sms ?? b.sms);
     const c_whatsapp = toBoolOrNull(b.consent_whatsapp ?? b.whatsapp);
@@ -889,8 +873,7 @@ app.post("/consents", requireApiKey, requireDbReady, async (req, res) => {
       return res.status(400).json({
         success: false,
         version: APP_VERSION,
-        error:
-          "No consent fields provided (send at least one of whatsapp/sms/email/marketing OR consent_* OR full_name).",
+        error: "No consent fields provided (send whatsapp/sms/email/marketing OR consent_* OR full_name).",
       });
     }
 
@@ -956,8 +939,6 @@ function segmentFromDays(daysSince) {
   return "COLD";
 }
 
-// ==================== SEGMENTS (PRO) ====================
-// GET /segments?days=60
 app.get("/segments", requireApiKey, requireDbReady, requirePlan("PRO"), async (req, res) => {
   try {
     const days = Math.min(Math.max(Number(req.query.days || 60), 1), 3650);
@@ -980,7 +961,7 @@ app.get("/segments", requireApiKey, requireDbReady, requirePlan("PRO"), async (r
       WHERE restaurant_id = $2
         AND phone IS NOT NULL AND phone <> ''
         AND last_seen_at IS NOT NULL
-        AND last_seen_at <= NOW()  -- ✅ mos kthe future
+        AND last_seen_at <= NOW()
         AND (last_seen_at AT TIME ZONE 'Europe/Tirane')::date >= ($1::date - ($3::int || ' days')::interval)::date
       ORDER BY last_seen_at DESC;
       `,
@@ -1035,10 +1016,6 @@ app.get("/segments", requireApiKey, requireDbReady, requirePlan("PRO"), async (r
   }
 });
 
-/**
- * GET /audience/export (PRO)
- * /audience/export?channel=whatsapp&segment=all&days=60&limit=200&format=json|csv
- */
 app.get("/audience/export", requireApiKey, requireDbReady, requirePlan("PRO"), async (req, res) => {
   try {
     const channel = String(req.query.channel || "whatsapp").trim().toLowerCase();
@@ -1070,7 +1047,7 @@ app.get("/audience/export", requireApiKey, requireDbReady, requirePlan("PRO"), a
       WHERE restaurant_id = $2
         AND phone IS NOT NULL AND phone <> ''
         AND last_seen_at IS NOT NULL
-        AND last_seen_at <= NOW()  -- ✅ mos nxirr future
+        AND last_seen_at <= NOW()
         AND (last_seen_at AT TIME ZONE 'Europe/Tirane')::date >= ($1::date - ($4::int || ' days')::interval)::date
         AND ${consentColumn} = TRUE
       ORDER BY last_seen_at DESC
@@ -1129,7 +1106,6 @@ app.get("/audience/export", requireApiKey, requireDbReady, requirePlan("PRO"), a
 });
 
 // ==================== OWNER VIEW (READ ONLY) ====================
-
 app.get("/owner/customers", requireOwnerKey, requireDbReady, async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 50), 200);
@@ -1152,7 +1128,7 @@ app.get("/owner/customers", requireOwnerKey, requireDbReady, async (req, res) =>
         updated_at
       FROM public.customers
       WHERE restaurant_id = $1
-        AND (last_seen_at IS NULL OR last_seen_at <= NOW()) -- ✅ safety
+        AND (last_seen_at IS NULL OR last_seen_at <= NOW())
       ORDER BY last_seen_at DESC NULLS LAST, visits_count DESC
       LIMIT $2;
       `,
@@ -1171,7 +1147,6 @@ app.get("/owner/customers", requireOwnerKey, requireDbReady, async (req, res) =>
   }
 });
 
-// ==================== OWNER RESERVATIONS (READ ONLY) ====================
 app.get("/owner/reservations", requireOwnerKey, requireDbReady, async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 20), 100);
@@ -1202,7 +1177,6 @@ app.get("/owner/reservations", requireOwnerKey, requireDbReady, async (req, res)
     );
 
     const rows = result.rows.map((x) => ({ ...x, created_at_local: formatALDate(x.created_at) }));
-
     return res.json({ success: true, version: APP_VERSION, restaurant_id: req.restaurant_id, data: rows });
   } catch (err) {
     console.error("❌ GET /owner/reservations error:", err);
@@ -1301,17 +1275,13 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
     const required = ["customer_name", "phone", "date", "time", "people"];
     for (const f of required) {
       if (r[f] === undefined || r[f] === null || r[f] === "") {
-        return res
-          .status(400)
-          .json({ success: false, version: APP_VERSION, error: `Missing field: ${f}` });
+        return res.status(400).json({ success: false, version: APP_VERSION, error: `Missing field: ${f}` });
       }
     }
 
     const people = Number(r.people);
     if (!Number.isFinite(people) || people <= 0) {
-      return res
-        .status(400)
-        .json({ success: false, version: APP_VERSION, error: "people must be a positive number" });
+      return res.status(400).json({ success: false, version: APP_VERSION, error: "people must be a positive number" });
     }
 
     const dateStr = String(r.date).trim(); // "YYYY-MM-DD"
@@ -1321,9 +1291,7 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
     // - SOT (AL) => gjithmonë Pending (manual confirm)
     // - ditë të tjera => auto-confirm, përveç kur people >= threshold
     const isTodayAL = await isReservationTodayAL(dateStr);
-    const status = isTodayAL
-      ? "Pending"
-      : (people >= MAX_AUTO_CONFIRM_PEOPLE ? "Pending" : "Confirmed");
+    const status = isTodayAL ? "Pending" : (people >= MAX_AUTO_CONFIRM_PEOPLE ? "Pending" : "Confirmed");
 
     const reservation_id = r.reservation_id || crypto.randomUUID();
 
@@ -1370,7 +1338,6 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
 
     const inserted = result.rows[0];
 
-    // Payload standard për Make (owner/client)
     const payload = {
       restaurant_id: req.restaurant_id,
       restaurant_name: r.restaurant_name || "Te Ta Gastronomi",
@@ -1389,50 +1356,18 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
       },
     };
 
-    // ==================== ROUTING EVENTS ====================
-// RREGULLI FINAL:
-// - Rezervim për SOT (AL)  -> gjithmonë te OWNER (Pending)
-// - Ditë të tjera:
-//    - Confirmed -> te KLIENTI
-//    - Pending   -> te OWNER
-
-if (isTodayAL) {
-  // SOT: gjithmonë manual confirmation
-  await sendMakeEvent("reservation_created", payload);
-} else {
-  if (inserted.status === "Confirmed") {
-    // Auto-confirm për ditë të tjera
-    await sendMakeEvent("reservation_confirmed", payload);
-  } else {
-    // Large group / threshold -> owner
-    await sendMakeEvent("reservation_created", payload);
-  }
-}
-
+    // ROUTING EVENTS
+    if (isTodayAL) {
+      await sendMakeEvent("reservation_created", payload);
+    } else {
+      if (inserted.status === "Confirmed") {
+        await sendMakeEvent("reservation_confirmed", payload);
+      } else {
+        await sendMakeEvent("reservation_created", payload);
+      }
     }
 
-    return res.status(200).json({
-      success: true,
-      version: APP_VERSION,
-      restaurant_id: req.restaurant_id,
-      id: inserted.id,
-      reservation_id: inserted.reservation_id,
-      status: inserted.status,
-      created_at: inserted.created_at,
-    });
-  } catch (err) {
-    console.error("❌ /reservations error:", err);
-    return res.status(500).json({
-      success: false,
-      version: APP_VERSION,
-      error: "DB insert failed",
-    });
-  }
-});
-
-
     // ✅ AUTO-SYNC INTO CUSTOMERS (CRM) – non-blocking
-    // FIX: mos vendos last_seen_at në të ardhmen + mos rrit visits_count për rezervime të ardhshme
     try {
       await pool.query(
         `
@@ -1468,19 +1403,14 @@ if (isTodayAL) {
         ON CONFLICT (restaurant_id, phone)
         DO UPDATE SET
           full_name = COALESCE(NULLIF(EXCLUDED.full_name,''), public.customers.full_name),
-
-          -- ✅ first_seen_at NUK preket kurrë nga rezervime future
           first_seen_at = COALESCE(public.customers.first_seen_at, EXCLUDED.first_seen_at),
-
           last_seen_at = CASE
             WHEN (SELECT is_past FROM flags)=1
             THEN GREATEST(COALESCE(public.customers.last_seen_at, (SELECT ts FROM flags)), (SELECT ts FROM flags))
             ELSE public.customers.last_seen_at
           END,
-
           visits_count = public.customers.visits_count +
             (SELECT CASE WHEN is_past=1 THEN 1 ELSE 0 END FROM flags),
-
           updated_at = NOW();
         `,
         [dateStr, timeStr, req.restaurant_id, r.phone, r.customer_name]
@@ -1518,18 +1448,14 @@ if (isTodayAL) {
       console.error("⚠️ Sync to events failed (non-blocking):", e.message);
     }
 
-    const row = result.rows[0];
     const httpStatus = status === "Pending" ? 202 : 201;
 
     return res.status(httpStatus).json({
       success: true,
       version: APP_VERSION,
       restaurant_id: req.restaurant_id,
-      message:
-        status === "Pending"
-          ? `Reservation is pending owner approval (people >= ${MAX_AUTO_CONFIRM_PEOPLE}).`
-          : "Reservation confirmed.",
-      data: { ...row, created_at_local: formatALDate(row.created_at) },
+      message: status === "Pending" ? "Reservation pending owner approval." : "Reservation confirmed.",
+      data: { ...inserted, created_at_local: formatALDate(inserted.created_at) },
     });
   } catch (err) {
     console.error("❌ POST /reservations error:", err);
@@ -1644,94 +1570,132 @@ app.get("/reservations/upcoming", requireApiKey, requireDbReady, async (req, res
   }
 });
 
-// Owner actions: approve/reject (manual) - KEEP api-key, tied to restaurant_id
-app.post("/reservations/:id/approve", requireApiKey, requireDbReady, async (req, res) => {
+// ✅ Owner Confirm/Reject (FAZA 1.3) — uses x-owner-key (DB)
+app.post("/owner/reservations/:id/confirm", requireOwnerKey, requireDbReady, async (req, res) => {
   try {
     const id = Number(req.params.id);
-    if (!Number.isFinite(id)) {
+    if (!Number.isFinite(id) || id <= 0) {
       return res.status(400).json({ success: false, version: APP_VERSION, error: "Invalid id" });
     }
 
-    const result = await pool.query(
+    const up = await pool.query(
       `
       UPDATE public.reservations
       SET status = 'Confirmed'
-      WHERE restaurant_id = $1 AND id = $2
-      RETURNING id, reservation_id, status, created_at;
+      WHERE id = $1 AND restaurant_id = $2
+      RETURNING id, reservation_id, restaurant_id, restaurant_name, customer_name, phone, date, time, people, channel, area, status, created_at;
       `,
-      [req.restaurant_id, id]
+      [id, req.restaurant_id]
     );
 
-    if (result.rows.length === 0) {
+    if (!up.rows.length) {
       return res.status(404).json({ success: false, version: APP_VERSION, error: "Reservation not found" });
     }
 
-    const row = result.rows[0];
+    const row = up.rows[0];
 
-    try {
-      await pool.query(`UPDATE public.events SET status='Confirmed' WHERE restaurant_id=$1 AND reservation_id=$2;`, [
+    // sync events best-effort
+    pool
+      .query(`UPDATE public.events SET status='Confirmed' WHERE restaurant_id=$1 AND reservation_id=$2;`, [
         req.restaurant_id,
         row.reservation_id,
-      ]);
-    } catch (e) {
-      console.error("⚠️ Sync approve to events failed (non-blocking):", e.message);
-    }
+      ])
+      .catch(() => {});
+
+    const payload = {
+      restaurant_id: row.restaurant_id,
+      restaurant_name: row.restaurant_name || "Te Ta Gastronomi",
+      ts: new Date().toISOString(),
+      data: {
+        id: row.id,
+        reservation_id: row.reservation_id,
+        date: toYMD(row.date),
+        time: String(row.time || "").slice(0, 5),
+        people: Number(row.people || 0),
+        customer_name: row.customer_name,
+        phone: row.phone,
+        channel: row.channel || null,
+        area: row.area || null,
+        status: row.status,
+      },
+    };
+
+    await sendMakeEvent("reservation_confirmed", payload);
 
     return res.json({
       success: true,
       version: APP_VERSION,
       restaurant_id: req.restaurant_id,
-      message: "Reservation approved (Confirmed).",
+      message: "Reservation confirmed.",
       data: { ...row, created_at_local: formatALDate(row.created_at) },
     });
   } catch (err) {
-    console.error("❌ POST /reservations/:id/approve error:", err);
-    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
+    console.error("❌ POST /owner/reservations/:id/confirm error:", err);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: "Confirm failed" });
   }
 });
 
-app.post("/reservations/:id/reject", requireApiKey, requireDbReady, async (req, res) => {
+app.post("/owner/reservations/:id/decline", requireOwnerKey, requireDbReady, async (req, res) => {
   try {
     const id = Number(req.params.id);
-    if (!Number.isFinite(id)) {
+    if (!Number.isFinite(id) || id <= 0) {
       return res.status(400).json({ success: false, version: APP_VERSION, error: "Invalid id" });
     }
 
-    const result = await pool.query(
+    const up = await pool.query(
       `
       UPDATE public.reservations
-      SET status = 'Rejected'
-      WHERE restaurant_id = $1 AND id = $2
-      RETURNING id, reservation_id, status, created_at;
+      SET status = 'Declined'
+      WHERE id = $1 AND restaurant_id = $2
+      RETURNING id, reservation_id, restaurant_id, restaurant_name, customer_name, phone, date, time, people, channel, area, status, created_at;
       `,
-      [req.restaurant_id, id]
+      [id, req.restaurant_id]
     );
 
-    if (result.rows.length === 0) {
+    if (!up.rows.length) {
       return res.status(404).json({ success: false, version: APP_VERSION, error: "Reservation not found" });
     }
 
-    const row = result.rows[0];
+    const row = up.rows[0];
 
-    try {
-      await pool.query(`UPDATE public.events SET status='Rejected' WHERE restaurant_id=$1 AND reservation_id=$2;`, [
+    // sync events best-effort
+    pool
+      .query(`UPDATE public.events SET status='Declined' WHERE restaurant_id=$1 AND reservation_id=$2;`, [
         req.restaurant_id,
         row.reservation_id,
-      ]);
-    } catch (e) {
-      console.error("⚠️ Sync reject to events failed (non-blocking):", e.message);
-    }
+      ])
+      .catch(() => {});
+
+    const payload = {
+      restaurant_id: row.restaurant_id,
+      restaurant_name: row.restaurant_name || "Te Ta Gastronomi",
+      ts: new Date().toISOString(),
+      data: {
+        id: row.id,
+        reservation_id: row.reservation_id,
+        date: toYMD(row.date),
+        time: String(row.time || "").slice(0, 5),
+        people: Number(row.people || 0),
+        customer_name: row.customer_name,
+        phone: row.phone,
+        channel: row.channel || null,
+        area: row.area || null,
+        status: row.status,
+      },
+    };
+
+    await sendMakeEvent("reservation_declined", payload);
 
     return res.json({
       success: true,
       version: APP_VERSION,
       restaurant_id: req.restaurant_id,
-      message: "Reservation rejected.",
+      message: "Reservation declined.",
       data: { ...row, created_at_local: formatALDate(row.created_at) },
     });
   } catch (err) {
-    console.error("❌ POST /reservations/:id/reject error:", err);
-    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
+    console.error("❌ POST /owner/reservations/:id/decline error:", err);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: "Decline failed" });
   }
 });
 
@@ -1743,9 +1707,7 @@ app.post("/feedback", requireApiKey, requireDbReady, async (req, res) => {
 
     const ratings = normalizeFeedbackRatings(req.body);
     if (Object.values(ratings).some((v) => v === null)) {
-      return res
-        .status(400)
-        .json({ success: false, version: APP_VERSION, error: "Ratings must be numbers between 1 and 5" });
+      return res.status(400).json({ success: false, version: APP_VERSION, error: "Ratings must be numbers between 1 and 5" });
     }
 
     const result = await pool.query(
@@ -1865,9 +1827,7 @@ app.get("/reports/today", requireApiKey, requireDbReady, async (req, res) => {
     const avgOfAvg =
       feedbackCount === 0
         ? null
-        : Math.round(
-            (feedbackRows.reduce((s, x) => s + Number(x.avg_rating), 0) / feedbackCount) * 10
-          ) / 10;
+        : Math.round((feedbackRows.reduce((s, x) => s + Number(x.avg_rating), 0) / feedbackCount) * 10) / 10;
 
     const fiveStars = feedbackCount === 0 ? 0 : feedbackRows.filter((x) => Number(x.avg_rating) >= 5).length;
     const fiveStarsPct = feedbackCount === 0 ? 0 : Math.round((fiveStars / feedbackCount) * 100);
@@ -1890,69 +1850,6 @@ app.get("/reports/today", requireApiKey, requireDbReady, async (req, res) => {
   } catch (err) {
     console.error("❌ GET /reports/today error:", err);
     return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
-  }
-});
-
-// ==================== OWNER KEY MIDDLEWARE ====================
-function requireOwnerKey(req, res, next) {
-  const k = req.headers["x-owner-key"];
-  if (!k || k !== process.env.OWNER_KEY) {
-    return res.status(401).json({
-      success: false,
-      version: APP_VERSION,
-      error: "Invalid owner key",
-    });
-  }
-  next();
-}
-
-// ==================== ALERTS ====================
-app.post("/alerts/reservation-created", requireOwnerKey, async (req, res) => {
-  try {
-    const payload = req.body;
-
-    if (!payload || payload.type !== "reservation_created" || !payload.data) {
-      return res.status(400).json({
-        success: false,
-        version: APP_VERSION,
-        error: "Invalid payload",
-      });
-    }
-
-    const makeWebhook = process.env.MAKE_ALERTS_WEBHOOK_URL;
-
-    // nëse webhook s’është vendosur ende
-    if (!makeWebhook) {
-      return res.json({
-        success: true,
-        version: APP_VERSION,
-        forwarded: false,
-        payload,
-      });
-    }
-
-    const r = await fetch(makeWebhook, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    const text = await r.text();
-
-    return res.json({
-      success: true,
-      version: APP_VERSION,
-      forwarded: true,
-      make_status: r.status,
-      make_response: text,
-    });
-  } catch (err) {
-    console.error("❌ POST /alerts/reservation-created error:", err);
-    return res.status(500).json({
-      success: false,
-      version: APP_VERSION,
-      error: err.message,
-    });
   }
 });
 
