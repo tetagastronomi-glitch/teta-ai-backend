@@ -1,5 +1,5 @@
 /**
- * index.js (FINAL - MULTI-RESTAURANT + ADMIN + PLANS)
+ * index.js (FINAL - MULTI-RESTAURANT + ADMIN + PLANS + OWNER ALERTS + CONFIRM/DECLINE EVENTS)
  * Te Ta AI Backend — Reservations + Feedback + Events(CORE) + Reports (Today)
  * + CRM Customers + Consents (LEGAL) + Owner View (read-only via OWNER_KEY table)
  * + Segments (premium) + Audience Export (premium)
@@ -12,6 +12,12 @@
  * ✅ Admin Mode:
  * - x-admin-key validated from env ADMIN_KEY (raw compare via safeEqual)
  * - create restaurants, rotate keys, disable keys, set plan
+ *
+ * ✅ Owner Alerts:
+ * - Make webhook (one webhook for all events), routed by `type`
+ * - reservation_created (Pending Today AL / or Pending by people threshold)
+ * - reservation_confirmed (auto-confirmed or owner confirmed)
+ * - reservation_declined (owner declined)
  */
 
 require("dotenv").config({ override: true });
@@ -78,13 +84,13 @@ async function getTodayAL() {
 // ✅ Helper: normalize any date input to YYYY-MM-DD string (safe)
 function toYMD(x) {
   if (!x) return "";
-  return String(x).trim().slice(0, 10); // handles "2025-12-25..." safely
+  return String(x).trim().slice(0, 10);
 }
 
 // ✅ Helper: is reservation date = today (Europe/Tirane) – SAFE STRING compare
 async function isReservationTodayAL(reservationDate) {
-  const todayYMD = await getTodayAL();      // "YYYY-MM-DD"
-  const reqYMD = toYMD(reservationDate);    // "YYYY-MM-DD"
+  const todayYMD = await getTodayAL(); // "YYYY-MM-DD"
+  const reqYMD = toYMD(reservationDate);
   return reqYMD === todayYMD;
 }
 
@@ -106,22 +112,42 @@ function normalizeTimeHHMI(t) {
 // ==================== MAKE EVENT SENDER ====================
 // Uses one webhook for all events; Make routes by `type`
 async function sendMakeEvent(type, payload) {
-  try {
-    const makeWebhook = String(process.env.MAKE_ALERTS_WEBHOOK_URL || "").trim();
-    if (!makeWebhook) return;
+  const makeWebhook = String(process.env.MAKE_ALERTS_WEBHOOK_URL || "").trim();
+  const t = String(type || "").trim();
+  if (!makeWebhook || !t) return { ok: false, skipped: true };
 
-    const body = { type, ...payload };
+  const body = { type: t, ...(payload || {}) };
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000); // 8s
 
     const r = await fetch(makeWebhook, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
+      signal: controller.signal,
     });
 
-    await r.text().catch(() => {});
+    clearTimeout(timeout);
+
+    const text = await r.text().catch(() => "");
+    if (!r.ok) {
+      console.error("⚠️ sendMakeEvent: Make non-OK", r.status, text.slice(0, 200));
+      return { ok: false, status: r.status };
+    }
+
+    return { ok: true, status: r.status };
   } catch (e) {
-    console.error("⚠️ sendMakeEvent failed (non-blocking):", e.message);
+    const msg = e?.name === "AbortError" ? "Timeout calling Make webhook" : String(e?.message || e);
+    console.error("⚠️ sendMakeEvent failed (non-blocking):", msg);
+    return { ok: false, error: msg };
   }
+}
+
+// Helper: fire-and-forget (mos e blloko request-in)
+function fireMakeEvent(type, payload) {
+  sendMakeEvent(type, payload).catch(() => {});
 }
 
 // ==================== AUTH HELPERS (HASH + SAFE EQUAL) ====================
@@ -169,7 +195,6 @@ async function requireApiKey(req, res, next) {
     }
 
     req.restaurant_id = Number(r.rows[0].restaurant_id);
-
     pool.query(`UPDATE public.api_keys SET last_used_at = NOW() WHERE key_hash = $1;`, [keyHash]).catch(() => {});
     return next();
   } catch (err) {
@@ -199,7 +224,6 @@ async function requireOwnerKey(req, res, next) {
     }
 
     req.restaurant_id = Number(r.rows[0].restaurant_id);
-
     pool.query(`UPDATE public.owner_keys SET last_used_at = NOW() WHERE key_hash = $1;`, [keyHash]).catch(() => {});
     return next();
   } catch (err) {
@@ -1291,7 +1315,7 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
     // - SOT (AL) => gjithmonë Pending (manual confirm)
     // - ditë të tjera => auto-confirm, përveç kur people >= threshold
     const isTodayAL = await isReservationTodayAL(dateStr);
-    const status = isTodayAL ? "Pending" : (people >= MAX_AUTO_CONFIRM_PEOPLE ? "Pending" : "Confirmed");
+    const status = isTodayAL ? "Pending" : people >= MAX_AUTO_CONFIRM_PEOPLE ? "Pending" : "Confirmed";
 
     const reservation_id = r.reservation_id || crypto.randomUUID();
 
@@ -1356,14 +1380,14 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
       },
     };
 
-    // ROUTING EVENTS
+    // ROUTING EVENTS (non-blocking)
     if (isTodayAL) {
-      await sendMakeEvent("reservation_created", payload);
+      fireMakeEvent("reservation_created", payload);
     } else {
       if (inserted.status === "Confirmed") {
-        await sendMakeEvent("reservation_confirmed", payload);
+        fireMakeEvent("reservation_confirmed", payload);
       } else {
-        await sendMakeEvent("reservation_created", payload);
+        fireMakeEvent("reservation_created", payload);
       }
     }
 
@@ -1620,7 +1644,8 @@ app.post("/owner/reservations/:id/confirm", requireOwnerKey, requireDbReady, asy
       },
     };
 
-    await sendMakeEvent("reservation_confirmed", payload);
+    // non-blocking
+    fireMakeEvent("reservation_confirmed", payload);
 
     return res.json({
       success: true,
@@ -1684,7 +1709,8 @@ app.post("/owner/reservations/:id/decline", requireOwnerKey, requireDbReady, asy
       },
     };
 
-    await sendMakeEvent("reservation_declined", payload);
+    // non-blocking
+    fireMakeEvent("reservation_declined", payload);
 
     return res.json({
       success: true,
@@ -1707,7 +1733,9 @@ app.post("/feedback", requireApiKey, requireDbReady, async (req, res) => {
 
     const ratings = normalizeFeedbackRatings(req.body);
     if (Object.values(ratings).some((v) => v === null)) {
-      return res.status(400).json({ success: false, version: APP_VERSION, error: "Ratings must be numbers between 1 and 5" });
+      return res
+        .status(400)
+        .json({ success: false, version: APP_VERSION, error: "Ratings must be numbers between 1 and 5" });
     }
 
     const result = await pool.query(
