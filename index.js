@@ -82,10 +82,16 @@ function toYMD(x) {
   return String(x).trim().slice(0, 10);
 }
 
-// Helper: is reservation date = today (Europe/Tirane), using DB time
+// Helper: is reservation date = today (Europe/Tirane) – SAFE
 async function isReservationTodayAL(reservationDate) {
-  const todayAL = await getTodayAL();
-  return toYMD(reservationDate) === toYMD(todayAL);
+  const todayAL = await getTodayAL(); // from DB, Europe/Tirane
+
+  const todayYMD = String(todayAL).slice(0, 10);        // "2025-12-25"
+  const reqYMD = String(reservationDate).slice(0, 10); // "2025-12-25"
+
+  return reqYMD === todayYMD;
+}
+
 }
 
 // Helper normalize HH:MI (for casting to time safely)
