@@ -67,31 +67,26 @@ function formatALDate(d) {
   });
 }
 
-// Helper: get "today" in Albania date (server-agnostic)
+// ✅ Helper: get "today" in Albania date as YYYY-MM-DD string (server-agnostic)
 async function getTodayAL() {
-  const q = await pool.query(
-    `SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AS d`
-  );
-  return q.rows[0].d;
+  const q = await pool.query(`
+    SELECT to_char((CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date, 'YYYY-MM-DD') AS d
+  `);
+  return q.rows[0].d; // "2025-12-25"
 }
 
-// Helper: normalize any date input to YYYY-MM-DD (safe)
+// ✅ Helper: normalize any date input to YYYY-MM-DD string (safe)
 function toYMD(x) {
   if (!x) return "";
-  if (x instanceof Date) return x.toISOString().slice(0, 10);
-  return String(x).trim().slice(0, 10);
+  return String(x).trim().slice(0, 10); // handles "2025-12-25..." safely
 }
 
-// Helper: is reservation date = today (Europe/Tirane) – SAFE
+// ✅ Helper: is reservation date = today (Europe/Tirane) – SAFE STRING compare
 async function isReservationTodayAL(reservationDate) {
-  const todayAL = await getTodayAL(); // from DB, Europe/Tirane
-
-  const todayYMD = String(todayAL).slice(0, 10);        // "2025-12-25"
-  const reqYMD = String(reservationDate).slice(0, 10); // "2025-12-25"
-
+  const todayYMD = await getTodayAL();      // "YYYY-MM-DD"
+  const reqYMD = toYMD(reservationDate);    // "YYYY-MM-DD"
   return reqYMD === todayYMD;
 }
-
 
 // Helper normalize HH:MI (for casting to time safely)
 function normalizeTimeHHMI(t) {
