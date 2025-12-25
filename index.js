@@ -591,7 +591,7 @@ async function initDb() {
 
 // ==================== HEALTH ====================
 app.get("/", (req, res) => {
-  res.status(200).send(`Te Ta Backend is running ✅ (${APP_VERSION})`);
+  res.status(200).send(`Te Ta Backend is running OK (${APP_VERSION})`);
 });
 
 app.get("/health/db", requireApiKey, async (req, res) => {
