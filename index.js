@@ -92,7 +92,6 @@ async function isReservationTodayAL(reservationDate) {
   return reqYMD === todayYMD;
 }
 
-}
 
 // Helper normalize HH:MI (for casting to time safely)
 function normalizeTimeHHMI(t) {
