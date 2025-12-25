@@ -1,5 +1,5 @@
 /**
- * index.js (FINAL - MULTI-RESTAURANT + ADMIN + PLANS + OWNER ALERTS + CONFIRM/DECLINE EVENTS)
+ * index.js (FINAL - MULTI-RESTAURANT + ADMIN + PLANS + OWNER ALERTS + CONFIRM/DECLINE EVENTS + CLICK LINKS)
  * Te Ta AI Backend — Reservations + Feedback + Events(CORE) + Reports (Today)
  * + CRM Customers + Consents (LEGAL) + Owner View (read-only via OWNER_KEY table)
  * + Segments (premium) + Audience Export (premium)
@@ -18,6 +18,11 @@
  * - reservation_created (Pending Today AL / or Pending by people threshold)
  * - reservation_confirmed (auto-confirmed or owner confirmed)
  * - reservation_declined (owner declined)
+ *
+ * ✅ Owner Click Links (NO HEADERS):
+ * - /o/confirm/:token
+ * - /o/decline/:token
+ * - token stored in DB (owner_action_tokens), expires, single-use
  */
 
 require("dotenv").config({ override: true });
@@ -35,7 +40,7 @@ app.use(express.json({ limit: "1mb" }));
 const MAX_AUTO_CONFIRM_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 8);
 
 // ✅ version marker (ndryshoje kur bën deploy)
-const APP_VERSION = "v-2025-12-25-owner-alerts-3";
+const APP_VERSION = "v-2025-12-25-owner-click-links-1";
 
 // ==================== DB READY FLAG ====================
 let DB_READY = false;
@@ -78,7 +83,7 @@ async function getTodayAL() {
   const q = await pool.query(`
     SELECT to_char((CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date, 'YYYY-MM-DD') AS d
   `);
-  return q.rows[0].d; // "2025-12-25"
+  return q.rows[0].d; // "YYYY-MM-DD"
 }
 
 // ✅ Helper: normalize any date input to YYYY-MM-DD string (safe)
@@ -89,7 +94,7 @@ function toYMD(x) {
 
 // ✅ Helper: is reservation date = today (Europe/Tirane) – SAFE STRING compare
 async function isReservationTodayAL(reservationDate) {
-  const todayYMD = await getTodayAL(); // "YYYY-MM-DD"
+  const todayYMD = await getTodayAL();
   const reqYMD = toYMD(reservationDate);
   return reqYMD === todayYMD;
 }
@@ -110,7 +115,6 @@ function normalizeTimeHHMI(t) {
 }
 
 // ==================== MAKE EVENT SENDER ====================
-// Uses one webhook for all events; Make routes by `type`
 async function sendMakeEvent(type, payload) {
   const makeWebhook = String(process.env.MAKE_ALERTS_WEBHOOK_URL || "").trim();
   const t = String(type || "").trim();
@@ -120,7 +124,7 @@ async function sendMakeEvent(type, payload) {
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000); // 8s
+    const timeout = setTimeout(() => controller.abort(), 8000);
 
     const r = await fetch(makeWebhook, {
       method: "POST",
@@ -145,7 +149,6 @@ async function sendMakeEvent(type, payload) {
   }
 }
 
-// Helper: fire-and-forget (mos e blloko request-in)
 function fireMakeEvent(type, payload) {
   sendMakeEvent(type, payload).catch(() => {});
 }
@@ -270,7 +273,6 @@ async function requireAdminKey(req, res, next) {
 }
 
 // ==================== ADMIN ENV DEBUG (SAFE) ====================
-// ✅ e mbrojmë me admin key
 app.get("/admin/debug-env", requireAdminKey, (req, res) => {
   const provided = String(req.headers["x-admin-key"] || "");
   const envKey = String(process.env.ADMIN_KEY || "");
@@ -293,7 +295,7 @@ function requirePlan(requiredPlan) {
       const plan = String(q.rows[0]?.plan || "FREE").toUpperCase();
       const need = String(requiredPlan || "FREE").toUpperCase();
 
-      const rank = (p) => (p === "PRO" ? 2 : 1); // FREE=1, PRO=2
+      const rank = (p) => (p === "PRO" ? 2 : 1);
       if (rank(plan) < rank(need)) {
         return res.status(403).json({
           success: false,
@@ -571,6 +573,24 @@ async function initDb() {
       CREATE INDEX IF NOT EXISTS idx_res_rest_phone_date
       ON public.reservations (restaurant_id, phone, date);
     `);
+
+    // ==================== OWNER ACTION TOKENS (CLICK LINKS) ====================
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS public.owner_action_tokens (
+        id SERIAL PRIMARY KEY,
+        restaurant_id INT NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
+        reservation_id INT NOT NULL REFERENCES public.reservations(id) ON DELETE CASCADE,
+        token TEXT NOT NULL UNIQUE,
+        action TEXT NOT NULL CHECK (action IN ('confirm','decline')),
+        expires_at TIMESTAMPTZ NOT NULL,
+        used_at TIMESTAMPTZ
+      );
+    `);
+
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_owner_action_tokens_token ON public.owner_action_tokens(token);`);
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS idx_owner_action_tokens_reservation ON public.owner_action_tokens(reservation_id);`
+    );
 
     console.log("✅ DB ready (migrations applied)");
   } catch (err) {
@@ -1309,12 +1329,10 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
       return res.status(400).json({ success: false, version: APP_VERSION, error: "people must be a positive number" });
     }
 
-    const dateStr = String(r.date).trim(); // "YYYY-MM-DD"
+    const dateStr = String(r.date).trim();
     const timeStr = normalizeTimeHHMI(r.time);
 
     // ✅ LOGJIKA FINALE:
-    // - SOT (AL) => gjithmonë Pending (manual confirm)
-    // - ditë të tjera => auto-confirm, përveç kur people >= threshold
     const isTodayAL = await isReservationTodayAL(dateStr);
     const status = isTodayAL ? "Pending" : people >= MAX_AUTO_CONFIRM_PEOPLE ? "Pending" : "Confirmed";
 
@@ -1380,6 +1398,30 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
         status: inserted.status,
       },
     };
+
+    // ✅ CLICK LINKS (ONLY IF PENDING)
+    if (status === "Pending") {
+      const base = String(process.env.PUBLIC_BASE_URL || "https://teta-ai-backend-production.up.railway.app").replace(
+        /\/$/,
+        ""
+      );
+
+      const confirmToken = crypto.randomBytes(18).toString("hex");
+      const declineToken = crypto.randomBytes(18).toString("hex");
+
+      await pool.query(
+        `
+        INSERT INTO public.owner_action_tokens (restaurant_id, reservation_id, token, action, expires_at)
+        VALUES
+          ($1,$2,$3,'confirm', NOW() + INTERVAL '2 hours'),
+          ($1,$2,$4,'decline', NOW() + INTERVAL '2 hours');
+        `,
+        [req.restaurant_id, inserted.id, confirmToken, declineToken]
+      );
+
+      payload.data.confirm_url = `${base}/o/confirm/${confirmToken}`;
+      payload.data.decline_url = `${base}/o/decline/${declineToken}`;
+    }
 
     // ROUTING EVENTS (non-blocking)
     if (isTodayAL) {
@@ -1597,7 +1639,6 @@ app.get("/reservations/upcoming", requireApiKey, requireDbReady, async (req, res
 
 // ==================== OWNER CONFIRM / DECLINE (ONLY PENDING) ====================
 
-// ✅ Owner Confirm — only if Pending
 app.post("/owner/reservations/:id/confirm", requireOwnerKey, requireDbReady, async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -1654,7 +1695,6 @@ app.post("/owner/reservations/:id/confirm", requireOwnerKey, requireDbReady, asy
 
     const row = up.rows[0];
 
-    // sync events best-effort
     pool
       .query(`UPDATE public.events SET status='Confirmed' WHERE restaurant_id=$1 AND reservation_id=$2;`, [
         req.restaurant_id,
@@ -1695,7 +1735,6 @@ app.post("/owner/reservations/:id/confirm", requireOwnerKey, requireDbReady, asy
   }
 });
 
-// ✅ Owner Decline — only if Pending
 app.post("/owner/reservations/:id/decline", requireOwnerKey, requireDbReady, async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -1752,7 +1791,6 @@ app.post("/owner/reservations/:id/decline", requireOwnerKey, requireDbReady, asy
 
     const row = up.rows[0];
 
-    // sync events best-effort
     pool
       .query(`UPDATE public.events SET status='Declined' WHERE restaurant_id=$1 AND reservation_id=$2;`, [
         req.restaurant_id,
@@ -1790,6 +1828,156 @@ app.post("/owner/reservations/:id/decline", requireOwnerKey, requireDbReady, asy
   } catch (err) {
     console.error("❌ POST /owner/reservations/:id/decline error:", err);
     return res.status(500).json({ success: false, version: APP_VERSION, error: "Decline failed" });
+  }
+});
+
+// ==================== OWNER CLICK LINKS (PUBLIC) ====================
+// These links are meant to be clicked from WhatsApp/SMS without headers.
+// Token is stored in DB, expires, and can be used once.
+
+async function consumeOwnerToken(token, action) {
+  const t = String(token || "").trim();
+  if (!t) return { ok: false, code: 400, error: "Missing token" };
+
+  const q = await pool.query(
+    `
+    SELECT id, restaurant_id, reservation_id, action, expires_at, used_at
+    FROM public.owner_action_tokens
+    WHERE token=$1
+    LIMIT 1;
+    `,
+    [t]
+  );
+
+  if (!q.rows.length) return { ok: false, code: 404, error: "Token not found" };
+
+  const row = q.rows[0];
+  if (row.action !== action) return { ok: false, code: 409, error: "Token action mismatch" };
+  if (row.used_at) return { ok: false, code: 409, error: "Token already used" };
+  if (new Date(row.expires_at).getTime() < Date.now()) return { ok: false, code: 410, error: "Token expired" };
+
+  const u = await pool.query(
+    `
+    UPDATE public.owner_action_tokens
+    SET used_at=NOW()
+    WHERE token=$1 AND used_at IS NULL
+    RETURNING token;
+    `,
+    [t]
+  );
+  if (!u.rows.length) return { ok: false, code: 409, error: "Token already used" };
+
+  return { ok: true, restaurant_id: row.restaurant_id, reservation_id: row.reservation_id };
+}
+
+function htmlPage(title, msg) {
+  return `<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${title}</title>
+</head>
+<body style="font-family:system-ui;padding:24px;max-width:520px;margin:auto">
+<h2>${title}</h2>
+<p>${msg}</p>
+</body></html>`;
+}
+
+app.get("/o/confirm/:token", requireDbReady, async (req, res) => {
+  try {
+    const consumed = await consumeOwnerToken(req.params.token, "confirm");
+    if (!consumed.ok) return res.status(consumed.code).send(htmlPage("Error", consumed.error));
+
+    const up = await pool.query(
+      `
+      UPDATE public.reservations
+      SET status='Confirmed'
+      WHERE id=$1 AND restaurant_id=$2 AND status='Pending'
+      RETURNING id, reservation_id, restaurant_id, restaurant_name, customer_name, phone, date, time, people, channel, area, status, created_at;
+      `,
+      [consumed.reservation_id, consumed.restaurant_id]
+    );
+
+    if (!up.rows.length) return res.status(409).send(htmlPage("Already decided", "Rezervimi nuk është më Pending."));
+
+    const row = up.rows[0];
+
+    pool
+      .query(`UPDATE public.events SET status='Confirmed' WHERE restaurant_id=$1 AND reservation_id=$2;`, [
+        row.restaurant_id,
+        row.reservation_id,
+      ])
+      .catch(() => {});
+
+    fireMakeEvent("reservation_confirmed", {
+      restaurant_id: row.restaurant_id,
+      restaurant_name: row.restaurant_name,
+      ts: new Date().toISOString(),
+      data: {
+        id: row.id,
+        reservation_id: row.reservation_id,
+        date: toYMD(row.date),
+        time: String(row.time || "").slice(0, 5),
+        people: Number(row.people || 0),
+        customer_name: row.customer_name,
+        phone: row.phone,
+        channel: row.channel || null,
+        area: row.area || null,
+        status: row.status,
+      },
+    });
+
+    return res.status(200).send(htmlPage("✅ Confirmed", "Rezervimi u konfirmua me sukses."));
+  } catch (e) {
+    return res.status(500).send(htmlPage("Error", "Confirm failed"));
+  }
+});
+
+app.get("/o/decline/:token", requireDbReady, async (req, res) => {
+  try {
+    const consumed = await consumeOwnerToken(req.params.token, "decline");
+    if (!consumed.ok) return res.status(consumed.code).send(htmlPage("Error", consumed.error));
+
+    const up = await pool.query(
+      `
+      UPDATE public.reservations
+      SET status='Declined'
+      WHERE id=$1 AND restaurant_id=$2 AND status='Pending'
+      RETURNING id, reservation_id, restaurant_id, restaurant_name, customer_name, phone, date, time, people, channel, area, status, created_at;
+      `,
+      [consumed.reservation_id, consumed.restaurant_id]
+    );
+
+    if (!up.rows.length) return res.status(409).send(htmlPage("Already decided", "Rezervimi nuk është më Pending."));
+
+    const row = up.rows[0];
+
+    pool
+      .query(`UPDATE public.events SET status='Declined' WHERE restaurant_id=$1 AND reservation_id=$2;`, [
+        row.restaurant_id,
+        row.reservation_id,
+      ])
+      .catch(() => {});
+
+    fireMakeEvent("reservation_declined", {
+      restaurant_id: row.restaurant_id,
+      restaurant_name: row.restaurant_name,
+      ts: new Date().toISOString(),
+      data: {
+        id: row.id,
+        reservation_id: row.reservation_id,
+        date: toYMD(row.date),
+        time: String(row.time || "").slice(0, 5),
+        people: Number(row.people || 0),
+        customer_name: row.customer_name,
+        phone: row.phone,
+        channel: row.channel || null,
+        area: row.area || null,
+        status: row.status,
+      },
+    });
+
+    return res.status(200).send(htmlPage("❌ Declined", "Rezervimi u refuzua."));
+  } catch (e) {
+    return res.status(500).send(htmlPage("Error", "Decline failed"));
   }
 });
 
