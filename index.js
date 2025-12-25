@@ -35,7 +35,7 @@ app.use(express.json({ limit: "1mb" }));
 const MAX_AUTO_CONFIRM_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 8);
 
 // ✅ version marker (ndryshoje kur bën deploy)
-const APP_VERSION = "v-2025-12-25-owner-alerts-2";
+const APP_VERSION = "v-2025-12-25-owner-alerts-3";
 
 // ==================== DB READY FLAG ====================
 let DB_READY = false;
@@ -270,7 +270,8 @@ async function requireAdminKey(req, res, next) {
 }
 
 // ==================== ADMIN ENV DEBUG (SAFE) ====================
-app.get("/admin/debug-env", (req, res) => {
+// ✅ e mbrojmë me admin key
+app.get("/admin/debug-env", requireAdminKey, (req, res) => {
   const provided = String(req.headers["x-admin-key"] || "");
   const envKey = String(process.env.ADMIN_KEY || "");
 
@@ -1594,7 +1595,9 @@ app.get("/reservations/upcoming", requireApiKey, requireDbReady, async (req, res
   }
 });
 
-// ✅ Owner Confirm/Reject (FAZA 1.3) — uses x-owner-key (DB)
+// ==================== OWNER CONFIRM / DECLINE (ONLY PENDING) ====================
+
+// ✅ Owner Confirm — only if Pending
 app.post("/owner/reservations/:id/confirm", requireOwnerKey, requireDbReady, async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -1606,14 +1609,47 @@ app.post("/owner/reservations/:id/confirm", requireOwnerKey, requireDbReady, asy
       `
       UPDATE public.reservations
       SET status = 'Confirmed'
-      WHERE id = $1 AND restaurant_id = $2
-      RETURNING id, reservation_id, restaurant_id, restaurant_name, customer_name, phone, date, time, people, channel, area, status, created_at;
+      WHERE id = $1
+        AND restaurant_id = $2
+        AND status = 'Pending'
+      RETURNING
+        id,
+        reservation_id,
+        restaurant_id,
+        restaurant_name,
+        customer_name,
+        phone,
+        date,
+        time,
+        people,
+        channel,
+        area,
+        status,
+        created_at;
       `,
       [id, req.restaurant_id]
     );
 
     if (!up.rows.length) {
-      return res.status(404).json({ success: false, version: APP_VERSION, error: "Reservation not found" });
+      const chk = await pool.query(
+        `
+        SELECT status
+        FROM public.reservations
+        WHERE id = $1 AND restaurant_id = $2
+        LIMIT 1;
+        `,
+        [id, req.restaurant_id]
+      );
+
+      if (!chk.rows.length) {
+        return res.status(404).json({ success: false, version: APP_VERSION, error: "Reservation not found" });
+      }
+
+      return res.status(409).json({
+        success: false,
+        version: APP_VERSION,
+        error: `Already decided: ${chk.rows[0].status}`,
+      });
     }
 
     const row = up.rows[0];
@@ -1644,7 +1680,6 @@ app.post("/owner/reservations/:id/confirm", requireOwnerKey, requireDbReady, asy
       },
     };
 
-    // non-blocking
     fireMakeEvent("reservation_confirmed", payload);
 
     return res.json({
@@ -1660,6 +1695,7 @@ app.post("/owner/reservations/:id/confirm", requireOwnerKey, requireDbReady, asy
   }
 });
 
+// ✅ Owner Decline — only if Pending
 app.post("/owner/reservations/:id/decline", requireOwnerKey, requireDbReady, async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -1671,14 +1707,47 @@ app.post("/owner/reservations/:id/decline", requireOwnerKey, requireDbReady, asy
       `
       UPDATE public.reservations
       SET status = 'Declined'
-      WHERE id = $1 AND restaurant_id = $2
-      RETURNING id, reservation_id, restaurant_id, restaurant_name, customer_name, phone, date, time, people, channel, area, status, created_at;
+      WHERE id = $1
+        AND restaurant_id = $2
+        AND status = 'Pending'
+      RETURNING
+        id,
+        reservation_id,
+        restaurant_id,
+        restaurant_name,
+        customer_name,
+        phone,
+        date,
+        time,
+        people,
+        channel,
+        area,
+        status,
+        created_at;
       `,
       [id, req.restaurant_id]
     );
 
     if (!up.rows.length) {
-      return res.status(404).json({ success: false, version: APP_VERSION, error: "Reservation not found" });
+      const chk = await pool.query(
+        `
+        SELECT status
+        FROM public.reservations
+        WHERE id = $1 AND restaurant_id = $2
+        LIMIT 1;
+        `,
+        [id, req.restaurant_id]
+      );
+
+      if (!chk.rows.length) {
+        return res.status(404).json({ success: false, version: APP_VERSION, error: "Reservation not found" });
+      }
+
+      return res.status(409).json({
+        success: false,
+        version: APP_VERSION,
+        error: `Already decided: ${chk.rows[0].status}`,
+      });
     }
 
     const row = up.rows[0];
@@ -1709,7 +1778,6 @@ app.post("/owner/reservations/:id/decline", requireOwnerKey, requireDbReady, asy
       },
     };
 
-    // non-blocking
     fireMakeEvent("reservation_declined", payload);
 
     return res.json({
