@@ -350,6 +350,31 @@ async function initDb() {
       );
     `);
 
+    // ✅ owner_phone (for WhatsApp routing) — keep it ALWAYS present
+    // 1) Add column if missing
+    await pool.query(`
+      ALTER TABLE public.restaurants
+      ADD COLUMN IF NOT EXISTS owner_phone TEXT;
+    `);
+
+    // 2) Backfill old NULLs to ''
+    await pool.query(`
+      UPDATE public.restaurants
+      SET owner_phone = ''
+      WHERE owner_phone IS NULL;
+    `);
+
+    // 3) Enforce NOT NULL + DEFAULT ''
+    await pool.query(`
+      ALTER TABLE public.restaurants
+      ALTER COLUMN owner_phone SET DEFAULT '';
+    `);
+
+    await pool.query(`
+      ALTER TABLE public.restaurants
+      ALTER COLUMN owner_phone SET NOT NULL;
+    `);
+
     // plan
     await pool.query(`
       ALTER TABLE public.restaurants
@@ -617,6 +642,7 @@ async function initDb() {
     console.error("❌ initDb error:", err);
   }
 }
+
 
 // Boot DB (safe: server can still run even if DB down)
 (async () => {
