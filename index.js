@@ -37,10 +37,11 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 
-const MAX_AUTO_CONFIRM_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 8);
+// ✅ MOD: default e bëmë 4 (më realist), por env e mbivendos
+const MAX_AUTO_CONFIRM_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 4);
 
 // ✅ version marker (ndryshoje kur bën deploy)
-const APP_VERSION = "v-2025-12-25-owner-click-links-1";
+const APP_VERSION = "v-2025-12-27-status-rule-final-1";
 
 // ==================== DB READY FLAG ====================
 let DB_READY = false;
@@ -112,6 +113,25 @@ function normalizeTimeHHMI(t) {
   if (mm < 0) mm = 0;
   if (mm > 59) mm = 59;
   return String(hh).padStart(2, "0") + ":" + String(mm).padStart(2, "0");
+}
+
+// ==================== ✅ MOD: STATUS RULE (CENTRALIZED) ====================
+// RREGULLI FINAL:
+// - SOT: gjithmonë Pending
+// - NË TË ARDHMEN: Confirmed, përveç kur people > MAX_AUTO_CONFIRM_PEOPLE -> Pending
+async function decideReservationStatus(dateStr, people) {
+  const isTodayAL = await isReservationTodayAL(dateStr);
+
+  if (isTodayAL) {
+    return { isTodayAL: true, status: "Pending" };
+  }
+
+  // ✅ MOD: përdorim > (jo >=)
+  if (Number(people) > Number(MAX_AUTO_CONFIRM_PEOPLE)) {
+    return { isTodayAL: false, status: "Pending" };
+  }
+
+  return { isTodayAL: false, status: "Confirmed" };
 }
 
 // ==================== MAKE EVENT SENDER ====================
@@ -1332,9 +1352,10 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
     const dateStr = String(r.date).trim();
     const timeStr = normalizeTimeHHMI(r.time);
 
-    // ✅ LOGJIKA FINALE:
-    const isTodayAL = await isReservationTodayAL(dateStr);
-    const status = isTodayAL ? "Pending" : people >= MAX_AUTO_CONFIRM_PEOPLE ? "Pending" : "Confirmed";
+    // ✅ MOD: përdorim helper-in e ri
+    const decision = await decideReservationStatus(dateStr, people);
+    const isTodayAL = decision.isTodayAL;
+    const status = decision.status;
 
     const reservation_id = r.reservation_id || crypto.randomUUID();
 
@@ -1423,15 +1444,13 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
       payload.data.decline_url = `${base}/o/decline/${declineToken}`;
     }
 
-    // ROUTING EVENTS (non-blocking)
-    if (isTodayAL) {
+    // ✅ MOD: ROUTING EVENTS (konsistent)
+    // Pending -> reservation_created
+    // Confirmed -> reservation_confirmed
+    if (inserted.status === "Pending") {
       fireMakeEvent("reservation_created", payload);
     } else {
-      if (inserted.status === "Confirmed") {
-        fireMakeEvent("reservation_confirmed", payload);
-      } else {
-        fireMakeEvent("reservation_created", payload);
-      }
+      fireMakeEvent("reservation_confirmed", payload);
     }
 
     // ✅ AUTO-SYNC INTO CUSTOMERS (CRM) – non-blocking
