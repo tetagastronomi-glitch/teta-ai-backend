@@ -342,57 +342,59 @@ function requirePlan(requiredPlan) {
 async function initDb() {
   try {
     // restaurants
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS public.restaurants (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT NOW()
-      );
-    `);
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS public.restaurants (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+  );
+`);
 
-    // ✅ owner_phone (for WhatsApp routing) — keep it ALWAYS present
-    // 1) Add column if missing
-    await pool.query(`
-      ALTER TABLE public.restaurants
-      ADD COLUMN IF NOT EXISTS owner_phone TEXT;
-    `);
+// ✅ owner_phone (for WhatsApp routing) — always present, safe migration
+// 1) Add column if missing
+await pool.query(`
+  ALTER TABLE public.restaurants
+  ADD COLUMN IF NOT EXISTS owner_phone TEXT;
+`);
 
-    // 2) Backfill old NULLs to ''
-    await pool.query(`
-      UPDATE public.restaurants
-      SET owner_phone = ''
-      WHERE owner_phone IS NULL;
-    `);
+// 2) Set default first (so new rows get it)
+await pool.query(`
+  ALTER TABLE public.restaurants
+  ALTER COLUMN owner_phone SET DEFAULT '';
+`);
 
-    // 3) Enforce NOT NULL + DEFAULT ''
-    await pool.query(`
-      ALTER TABLE public.restaurants
-      ALTER COLUMN owner_phone SET DEFAULT '';
-    `);
+// 3) Backfill any existing NULLs
+await pool.query(`
+  UPDATE public.restaurants
+  SET owner_phone = ''
+  WHERE owner_phone IS NULL;
+`);
 
-    await pool.query(`
-      ALTER TABLE public.restaurants
-      ALTER COLUMN owner_phone SET NOT NULL;
-    `);
+// 4) Enforce NOT NULL (now safe)
+await pool.query(`
+  ALTER TABLE public.restaurants
+  ALTER COLUMN owner_phone SET NOT NULL;
+`);
 
-    // plan
-    await pool.query(`
-      ALTER TABLE public.restaurants
-      ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'FREE';
-    `);
+// plan
+await pool.query(`
+  ALTER TABLE public.restaurants
+  ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'FREE';
+`);
 
-    // api_keys
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS public.api_keys (
-        id SERIAL PRIMARY KEY,
-        restaurant_id INT NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
-        key_hash TEXT NOT NULL,
-        label TEXT DEFAULT '',
-        is_active BOOLEAN NOT NULL DEFAULT TRUE,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        last_used_at TIMESTAMPTZ
-      );
-    `);
+// api_keys
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS public.api_keys (
+    id SERIAL PRIMARY KEY,
+    restaurant_id INT NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
+    key_hash TEXT NOT NULL,
+    label TEXT DEFAULT '',
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_used_at TIMESTAMPTZ
+  );
+`);
+
 
     // owner_keys
     await pool.query(`
