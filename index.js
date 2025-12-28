@@ -752,139 +752,144 @@ function normalizeFeedbackRatings(body) {
   };
 }
 
-// ==================== ADMIN (PLATFORM OWNER) ====================
-app.get("/admin/restaurants", requireAdminKey, requireDbReady, async (req, res) => {
-  const q = await pool.query(`SELECT id, name, plan, created_at FROM public.restaurants ORDER BY id ASC;`);
-  res.json({ success: true, version: APP_VERSION, count: q.rows.length, data: q.rows });
-});
-
-app.post("/admin/restaurants", requireAdminKey, requireDbReady, async (req, res) => {
+// ==================== AUTH MIDDLEWARES ====================
+async function requireApiKey(req, res, next) {
   try {
-    const name = String(req.body?.name || "").trim();
-    if (!name) {
-      return res.status(400).json({ success: false, version: APP_VERSION, error: "Missing field: name" });
-    }
-
-    const r = await pool.query(
-      `INSERT INTO public.restaurants (name) VALUES ($1) RETURNING id, name, plan, created_at;`,
-      [name]
-    );
-    const restaurant = r.rows[0];
-
-    const api_key = genApiKey();
-    const owner_key = genOwnerKey();
-
-    const api_hash = hashKey(api_key);
-    const owner_hash = hashKey(owner_key);
-
-    await pool.query(
-      `INSERT INTO public.api_keys (restaurant_id, key_hash, label, is_active) VALUES ($1,$2,$3,TRUE);`,
-      [restaurant.id, api_hash, "auto-created"]
-    );
-    await pool.query(
-      `INSERT INTO public.owner_keys (restaurant_id, key_hash, label, is_active) VALUES ($1,$2,$3,TRUE);`,
-      [restaurant.id, owner_hash, "auto-created"]
-    );
-
-    return res.json({
-      success: true,
-      version: APP_VERSION,
-      data: {
-        restaurant,
-        api_key,
-        owner_key,
-        note: "Ruaji këto keys tani. Në DB ruhet vetëm hash; s’mund t’i shohësh raw më vonë.",
-      },
-    });
-  } catch (err) {
-    console.error("❌ POST /admin/restaurants error:", err);
-    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
-  }
-});
-
-app.post("/admin/restaurants/:id/plan", requireAdminKey, requireDbReady, async (req, res) => {
-  const id = Number(req.params.id);
-  const plan = String(req.body?.plan || "").trim().toUpperCase();
-
-  if (!Number.isFinite(id)) return res.status(400).json({ success: false, version: APP_VERSION, error: "Invalid id" });
-  if (!["FREE", "PRO"].includes(plan)) {
-    return res.status(400).json({ success: false, version: APP_VERSION, error: "plan must be FREE or PRO" });
-  }
-
-  const q = await pool.query(`UPDATE public.restaurants SET plan=$1 WHERE id=$2 RETURNING id,name,plan;`, [plan, id]);
-  if (q.rows.length === 0) return res.status(404).json({ success: false, version: APP_VERSION, error: "Not found" });
-
-  res.json({ success: true, version: APP_VERSION, data: q.rows[0] });
-});
-
-app.post("/admin/keys/disable", requireAdminKey, requireDbReady, async (req, res) => {
-  try {
-    const type = String(req.body?.type || "").trim().toLowerCase(); // api | owner
-    const rawKey = String(req.body?.key || "").trim();
-    if (!["api", "owner"].includes(type)) {
-      return res.status(400).json({ success: false, version: APP_VERSION, error: "type must be api or owner" });
-    }
+    const rawKey = String(req.headers["x-api-key"] || "").trim();
     if (!rawKey) {
-      return res.status(400).json({ success: false, version: APP_VERSION, error: "Missing key" });
+      return res.status(401).json({
+        success: false,
+        version: APP_VERSION,
+        error: "Missing x-api-key",
+      });
+    }
+
+    // 🔵 SHTESË (NUK HEQ ASGJË)
+    // Lejo master API key nga .env për ops / health / cron
+    const master = String(process.env.API_KEY || "").trim();
+    if (master && safeEqual(rawKey, master)) {
+      // vendos kontekst restoranti vetëm për ops lokale
+      req.restaurant_id = Number(process.env.RESTAURANT_ID || 0) || null;
+      return next();
+    }
+    // 🔵 FUND SHTESE
+
+    const keyHash = hashKey(rawKey);
+
+    const q = `
+      SELECT restaurant_id
+      FROM public.api_keys
+      WHERE key_hash = $1 AND is_active = TRUE
+      LIMIT 1;
+    `;
+    const r = await pool.query(q, [keyHash]);
+
+    if (r.rows.length === 0) {
+      return res.status(401).json({
+        success: false,
+        version: APP_VERSION,
+        error: "Invalid api key",
+      });
+    }
+
+    req.restaurant_id = Number(r.rows[0].restaurant_id);
+    pool
+      .query(`UPDATE public.api_keys SET last_used_at = NOW() WHERE key_hash = $1;`, [keyHash])
+      .catch(() => {});
+
+    return next();
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      version: APP_VERSION,
+      error: "Auth failed",
+    });
+  }
+}
+
+async function requireOwnerKey(req, res, next) {
+  try {
+    const rawKey = String(req.headers["x-owner-key"] || "").trim();
+    if (!rawKey) {
+      return res.status(401).json({
+        success: false,
+        version: APP_VERSION,
+        error: "Missing x-owner-key",
+      });
     }
 
     const keyHash = hashKey(rawKey);
-    const table = type === "api" ? "public.api_keys" : "public.owner_keys";
 
-    const q = await pool.query(
-      `UPDATE ${table} SET is_active=FALSE WHERE key_hash=$1 RETURNING id, restaurant_id, label, is_active;`,
-      [keyHash]
-    );
+    const q = `
+      SELECT restaurant_id
+      FROM public.owner_keys
+      WHERE key_hash = $1 AND is_active = TRUE
+      LIMIT 1;
+    `;
+    const r = await pool.query(q, [keyHash]);
 
-    if (q.rows.length === 0) {
-      return res.status(404).json({ success: false, version: APP_VERSION, error: "Key not found" });
+    if (r.rows.length === 0) {
+      return res.status(401).json({
+        success: false,
+        version: APP_VERSION,
+        error: "Invalid owner key",
+      });
     }
 
-    res.json({ success: true, version: APP_VERSION, data: q.rows[0] });
+    req.restaurant_id = Number(r.rows[0].restaurant_id);
+    pool
+      .query(`UPDATE public.owner_keys SET last_used_at = NOW() WHERE key_hash = $1;`, [keyHash])
+      .catch(() => {});
+
+    return next();
   } catch (err) {
-    console.error("❌ POST /admin/keys/disable error:", err);
-    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
-  }
-});
-
-app.post("/admin/restaurants/:id/rotate-keys", requireAdminKey, requireDbReady, async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isFinite(id)) return res.status(400).json({ success: false, version: APP_VERSION, error: "Invalid id" });
-
-    await pool.query(`UPDATE public.api_keys SET is_active=FALSE WHERE restaurant_id=$1;`, [id]);
-    await pool.query(`UPDATE public.owner_keys SET is_active=FALSE WHERE restaurant_id=$1;`, [id]);
-
-    const api_key = genApiKey();
-    const owner_key = genOwnerKey();
-
-    const api_hash = hashKey(api_key);
-    const owner_hash = hashKey(owner_key);
-
-    await pool.query(
-      `INSERT INTO public.api_keys (restaurant_id, key_hash, label, is_active) VALUES ($1,$2,$3,TRUE);`,
-      [id, api_hash, "rotated"]
-    );
-    await pool.query(
-      `INSERT INTO public.owner_keys (restaurant_id, key_hash, label, is_active) VALUES ($1,$2,$3,TRUE);`,
-      [id, owner_hash, "rotated"]
-    );
-
-    res.json({
-      success: true,
+    return res.status(500).json({
+      success: false,
       version: APP_VERSION,
-      data: {
-        restaurant_id: id,
-        api_key,
-        owner_key,
-        note: "Ruaji këto keys tani. Në DB ruhet vetëm hash; s’mund t’i shohësh raw më vonë.",
-      },
+      error: "Owner auth failed",
     });
-  } catch (err) {
-    console.error("❌ POST /admin/restaurants/:id/rotate-keys error:", err);
-    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
   }
-});
+}
+
+async function requireAdminKey(req, res, next) {
+  try {
+    const rawKey = String(req.headers["x-admin-key"] || "").trim();
+    if (!rawKey) {
+      return res.status(401).json({
+        success: false,
+        version: APP_VERSION,
+        error: "Missing x-admin-key",
+      });
+    }
+
+    const expected = String(process.env.ADMIN_KEY || "").trim();
+    if (!expected) {
+      // Admin endpoints disabled until ADMIN_KEY is configured (prevents startup crashes)
+      return res.status(503).json({
+        success: false,
+        version: APP_VERSION,
+        error: "ADMIN endpoints disabled (ADMIN_KEY not configured)",
+      });
+    }
+
+    if (!safeEqual(rawKey, expected)) {
+      return res.status(401).json({
+        success: false,
+        version: APP_VERSION,
+        error: "Invalid admin key",
+      });
+    }
+
+    return next();
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      version: APP_VERSION,
+      error: "Admin auth failed",
+    });
+  }
+}
+
 
 // ==================== CONSENTS (LEGAL) ====================
 function toBoolOrNull(v) {
