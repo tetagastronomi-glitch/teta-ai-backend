@@ -253,27 +253,14 @@ async function requireApiKey(req, res, next) {
   }
 }
 
-
-// ==================== ADMIN ENV DEBUG (SAFE) ====================
-app.get("/admin/debug-env", requireAdminKey, (req, res) => {
-  const provided = String(req.headers["x-admin-key"] || "");
-  const envKey = String(process.env.ADMIN_KEY || "");
-
-  return res.json({
-    ok: true,
-    version: APP_VERSION,
-    has_env_admin_key: envKey.trim().length > 0,
-    env_admin_key_length: envKey.trim().length,
-    provided_length: provided.trim().length,
-    node_env: String(process.env.NODE_ENV || ""),
-  });
-});
-
 // ==================== PLANS (FREE/PRO) ====================
 function requirePlan(requiredPlan) {
   return async (req, res, next) => {
     try {
-      const q = await pool.query(`SELECT plan FROM public.restaurants WHERE id=$1 LIMIT 1;`, [req.restaurant_id]);
+      const q = await pool.query(
+        `SELECT plan FROM public.restaurants WHERE id=$1 LIMIT 1;`,
+        [req.restaurant_id]
+      );
       const plan = String(q.rows[0]?.plan || "FREE").toUpperCase();
       const need = String(requiredPlan || "FREE").toUpperCase();
 
@@ -299,6 +286,7 @@ function requirePlan(requiredPlan) {
     }
   };
 }
+
 
 // ==================== INIT / MIGRATIONS ====================
 async function initDb() {
