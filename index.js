@@ -1720,12 +1720,44 @@ app.get("/reservations/upcoming", requireApiKey, requireDbReady, async (req, res
 });
 
 // ==================== OWNER CONFIRM / DECLINE (ONLY PENDING) ====================
+
+// Small audit logger (console -> Railway logs)
+function logOwnerDecision(req, action, meta = {}) {
+  const ip =
+    (req.headers["x-forwarded-for"] || "").split(",")[0].trim() ||
+    req.socket?.remoteAddress ||
+    req.ip;
+
+  console.log("OWNER_DECISION", {
+    action, // "confirm" | "decline"
+    actor: meta.actor || "owner_key", // owner_key | click_link
+    token: meta.token || null,
+    id: meta.id || null, // reservation numeric id (public.reservations.id)
+    reservation_id: meta.reservation_id || null, // uuid
+    restaurant_id: meta.restaurant_id || req.restaurant_id || null,
+    status_before: meta.status_before || null,
+    status_after: meta.status_after || null,
+    ip,
+    ua: req.headers["user-agent"] || null,
+    referer: req.headers["referer"] || null,
+    ts: new Date().toISOString(),
+  });
+}
+
 app.post("/owner/reservations/:id/confirm", requireOwnerKey, requireDbReady, async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) {
       return res.status(400).json({ success: false, version: APP_VERSION, error: "Invalid id" });
     }
+
+    // Optional: check current status for better logs when update doesn't happen
+    const before = await pool.query(
+      `SELECT status, reservation_id FROM public.reservations WHERE id=$1 AND restaurant_id=$2 LIMIT 1;`,
+      [id, req.restaurant_id]
+    );
+    const statusBefore = before.rows?.[0]?.status || null;
+    const reservationUuid = before.rows?.[0]?.reservation_id || null;
 
     const up = await pool.query(
       `
@@ -1753,28 +1785,43 @@ app.post("/owner/reservations/:id/confirm", requireOwnerKey, requireDbReady, asy
     );
 
     if (!up.rows.length) {
-      const chk = await pool.query(
-        `
-        SELECT status
-        FROM public.reservations
-        WHERE id = $1 AND restaurant_id = $2
-        LIMIT 1;
-        `,
-        [id, req.restaurant_id]
-      );
-
-      if (!chk.rows.length) {
+      if (!before.rows.length) {
+        logOwnerDecision(req, "confirm", {
+          actor: "owner_key",
+          id,
+          restaurant_id: req.restaurant_id,
+          status_before: null,
+          status_after: null,
+        });
         return res.status(404).json({ success: false, version: APP_VERSION, error: "Reservation not found" });
       }
+
+      logOwnerDecision(req, "confirm", {
+        actor: "owner_key",
+        id,
+        reservation_id: reservationUuid,
+        restaurant_id: req.restaurant_id,
+        status_before: statusBefore,
+        status_after: statusBefore,
+      });
 
       return res.status(409).json({
         success: false,
         version: APP_VERSION,
-        error: `Already decided: ${chk.rows[0].status}`,
+        error: `Already decided: ${statusBefore}`,
       });
     }
 
     const row = up.rows[0];
+
+    logOwnerDecision(req, "confirm", {
+      actor: "owner_key",
+      id: row.id,
+      reservation_id: row.reservation_id,
+      restaurant_id: row.restaurant_id,
+      status_before: statusBefore,
+      status_after: "Confirmed",
+    });
 
     pool
       .query(`UPDATE public.events SET status='Confirmed' WHERE restaurant_id=$1 AND reservation_id=$2;`, [
@@ -1823,6 +1870,13 @@ app.post("/owner/reservations/:id/decline", requireOwnerKey, requireDbReady, asy
       return res.status(400).json({ success: false, version: APP_VERSION, error: "Invalid id" });
     }
 
+    const before = await pool.query(
+      `SELECT status, reservation_id FROM public.reservations WHERE id=$1 AND restaurant_id=$2 LIMIT 1;`,
+      [id, req.restaurant_id]
+    );
+    const statusBefore = before.rows?.[0]?.status || null;
+    const reservationUuid = before.rows?.[0]?.reservation_id || null;
+
     const up = await pool.query(
       `
       UPDATE public.reservations
@@ -1849,28 +1903,43 @@ app.post("/owner/reservations/:id/decline", requireOwnerKey, requireDbReady, asy
     );
 
     if (!up.rows.length) {
-      const chk = await pool.query(
-        `
-        SELECT status
-        FROM public.reservations
-        WHERE id = $1 AND restaurant_id = $2
-        LIMIT 1;
-        `,
-        [id, req.restaurant_id]
-      );
-
-      if (!chk.rows.length) {
+      if (!before.rows.length) {
+        logOwnerDecision(req, "decline", {
+          actor: "owner_key",
+          id,
+          restaurant_id: req.restaurant_id,
+          status_before: null,
+          status_after: null,
+        });
         return res.status(404).json({ success: false, version: APP_VERSION, error: "Reservation not found" });
       }
+
+      logOwnerDecision(req, "decline", {
+        actor: "owner_key",
+        id,
+        reservation_id: reservationUuid,
+        restaurant_id: req.restaurant_id,
+        status_before: statusBefore,
+        status_after: statusBefore,
+      });
 
       return res.status(409).json({
         success: false,
         version: APP_VERSION,
-        error: `Already decided: ${chk.rows[0].status}`,
+        error: `Already decided: ${statusBefore}`,
       });
     }
 
     const row = up.rows[0];
+
+    logOwnerDecision(req, "decline", {
+      actor: "owner_key",
+      id: row.id,
+      reservation_id: row.reservation_id,
+      restaurant_id: row.restaurant_id,
+      status_before: statusBefore,
+      status_after: "Declined",
+    });
 
     pool
       .query(`UPDATE public.events SET status='Declined' WHERE restaurant_id=$1 AND reservation_id=$2;`, [
@@ -1962,21 +2031,53 @@ function htmlPage(title, msg) {
 app.get("/o/confirm/:token", requireDbReady, async (req, res) => {
   try {
     const consumed = await consumeOwnerToken(req.params.token, "confirm");
-    if (!consumed.ok) return res.status(consumed.code).send(htmlPage("Error", consumed.error));
+    if (!consumed.ok) {
+      logOwnerDecision(req, "confirm", { actor: "click_link", token: req.params.token, status_before: null, status_after: null });
+      return res.status(consumed.code).send(htmlPage("Error", consumed.error));
+    }
+
+    // Fetch current state for better logging (uuid -> numeric id, status)
+    const before = await pool.query(
+      `SELECT id, status, reservation_id FROM public.reservations WHERE reservation_id=$1 AND restaurant_id=$2 LIMIT 1;`,
+      [consumed.reservation_id, consumed.restaurant_id]
+    );
+    const id = before.rows?.[0]?.id || null;
+    const statusBefore = before.rows?.[0]?.status || null;
 
     const up = await pool.query(
       `
       UPDATE public.reservations
       SET status='Confirmed'
-      WHERE id=$1 AND restaurant_id=$2 AND status='Pending'
+      WHERE reservation_id=$1 AND restaurant_id=$2 AND status='Pending'
       RETURNING id, reservation_id, restaurant_id, restaurant_name, customer_name, phone, date, time, people, channel, area, status, created_at;
       `,
       [consumed.reservation_id, consumed.restaurant_id]
     );
 
-    if (!up.rows.length) return res.status(409).send(htmlPage("Already decided", "Rezervimi nuk është më Pending."));
+    if (!up.rows.length) {
+      logOwnerDecision(req, "confirm", {
+        actor: "click_link",
+        token: req.params.token,
+        id,
+        reservation_id: consumed.reservation_id,
+        restaurant_id: consumed.restaurant_id,
+        status_before: statusBefore,
+        status_after: statusBefore,
+      });
+      return res.status(409).send(htmlPage("Already decided", "Rezervimi nuk është më Pending."));
+    }
 
     const row = up.rows[0];
+
+    logOwnerDecision(req, "confirm", {
+      actor: "click_link",
+      token: req.params.token,
+      id: row.id,
+      reservation_id: row.reservation_id,
+      restaurant_id: row.restaurant_id,
+      status_before: statusBefore,
+      status_after: "Confirmed",
+    });
 
     pool
       .query(`UPDATE public.events SET status='Confirmed' WHERE restaurant_id=$1 AND reservation_id=$2;`, [
@@ -2005,6 +2106,8 @@ app.get("/o/confirm/:token", requireDbReady, async (req, res) => {
 
     return res.status(200).send(htmlPage("✅ Confirmed", "Rezervimi u konfirmua me sukses."));
   } catch (e) {
+    console.error("❌ GET /o/confirm/:token error:", e);
+    logOwnerDecision(req, "confirm", { actor: "click_link", token: req.params.token, status_before: null, status_after: null });
     return res.status(500).send(htmlPage("Error", "Confirm failed"));
   }
 });
@@ -2012,21 +2115,52 @@ app.get("/o/confirm/:token", requireDbReady, async (req, res) => {
 app.get("/o/decline/:token", requireDbReady, async (req, res) => {
   try {
     const consumed = await consumeOwnerToken(req.params.token, "decline");
-    if (!consumed.ok) return res.status(consumed.code).send(htmlPage("Error", consumed.error));
+    if (!consumed.ok) {
+      logOwnerDecision(req, "decline", { actor: "click_link", token: req.params.token, status_before: null, status_after: null });
+      return res.status(consumed.code).send(htmlPage("Error", consumed.error));
+    }
+
+    const before = await pool.query(
+      `SELECT id, status, reservation_id FROM public.reservations WHERE reservation_id=$1 AND restaurant_id=$2 LIMIT 1;`,
+      [consumed.reservation_id, consumed.restaurant_id]
+    );
+    const id = before.rows?.[0]?.id || null;
+    const statusBefore = before.rows?.[0]?.status || null;
 
     const up = await pool.query(
       `
       UPDATE public.reservations
       SET status='Declined'
-      WHERE id=$1 AND restaurant_id=$2 AND status='Pending'
+      WHERE reservation_id=$1 AND restaurant_id=$2 AND status='Pending'
       RETURNING id, reservation_id, restaurant_id, restaurant_name, customer_name, phone, date, time, people, channel, area, status, created_at;
       `,
       [consumed.reservation_id, consumed.restaurant_id]
     );
 
-    if (!up.rows.length) return res.status(409).send(htmlPage("Already decided", "Rezervimi nuk është më Pending."));
+    if (!up.rows.length) {
+      logOwnerDecision(req, "decline", {
+        actor: "click_link",
+        token: req.params.token,
+        id,
+        reservation_id: consumed.reservation_id,
+        restaurant_id: consumed.restaurant_id,
+        status_before: statusBefore,
+        status_after: statusBefore,
+      });
+      return res.status(409).send(htmlPage("Already decided", "Rezervimi nuk është më Pending."));
+    }
 
     const row = up.rows[0];
+
+    logOwnerDecision(req, "decline", {
+      actor: "click_link",
+      token: req.params.token,
+      id: row.id,
+      reservation_id: row.reservation_id,
+      restaurant_id: row.restaurant_id,
+      status_before: statusBefore,
+      status_after: "Declined",
+    });
 
     pool
       .query(`UPDATE public.events SET status='Declined' WHERE restaurant_id=$1 AND reservation_id=$2;`, [
@@ -2055,6 +2189,8 @@ app.get("/o/decline/:token", requireDbReady, async (req, res) => {
 
     return res.status(200).send(htmlPage("❌ Declined", "Rezervimi u refuzua."));
   } catch (e) {
+    console.error("❌ GET /o/decline/:token error:", e);
+    logOwnerDecision(req, "decline", { actor: "click_link", token: req.params.token, status_before: null, status_after: null });
     return res.status(500).send(htmlPage("Error", "Decline failed"));
   }
 });
