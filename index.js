@@ -41,7 +41,7 @@ app.use(express.json({ limit: "1mb" }));
 const MAX_AUTO_CONFIRM_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 4);
 
 // ✅ version marker (ndryshoje kur bën deploy)
-const APP_VERSION = "v-2025-12-27-status-rule-final-1";
+const APP_VERSION = "v-2026-01-24-feedback-owner-controlled-1";
 
 // ==================== DB READY FLAG ====================
 let DB_READY = false;
@@ -173,6 +173,11 @@ function fireMakeEvent(type, payload) {
   sendMakeEvent(type, payload).catch(() => {});
 }
 
+// ✅ Feedback request wrapper (owner-controlled)
+function fireFeedbackRequest(payload) {
+  fireMakeEvent("feedback_request", payload);
+}
+
 // ==================== AUTH HELPERS (HASH + SAFE EQUAL) ====================
 function hashKey(raw) {
   return crypto.createHash("sha256").update(String(raw)).digest("hex");
@@ -289,6 +294,7 @@ async function requireOwnerKey(req, res, next) {
   }
 }
 
+// ✅ FIX: removed stray characters, keep original logic
 async function requireAdminKey(req, res, next) {
   try {
     const rawKey = String(req.headers["x-admin-key"] || "").trim();
@@ -403,6 +409,32 @@ async function initDb() {
       ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'FREE';
     `);
 
+    // ✅ FEEDBACK SETTINGS (OWNER-CONTROLLED)
+    await pool.query(`
+      ALTER TABLE public.restaurants
+      ADD COLUMN IF NOT EXISTS feedback_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+    `);
+
+    await pool.query(`
+      ALTER TABLE public.restaurants
+      ADD COLUMN IF NOT EXISTS feedback_cooldown_days INT NOT NULL DEFAULT 10;
+    `);
+
+    await pool.query(`
+      ALTER TABLE public.restaurants
+      ADD COLUMN IF NOT EXISTS feedback_batch_limit INT NOT NULL DEFAULT 30;
+    `);
+
+    await pool.query(`
+      ALTER TABLE public.restaurants
+      ADD COLUMN IF NOT EXISTS feedback_exclude_frequent_over_visits INT NOT NULL DEFAULT 5;
+    `);
+
+    await pool.query(`
+      ALTER TABLE public.restaurants
+      ADD COLUMN IF NOT EXISTS feedback_template TEXT NOT NULL DEFAULT '';
+    `);
+
     // api_keys
     await pool.query(`
       CREATE TABLE IF NOT EXISTS public.api_keys (
@@ -468,6 +500,16 @@ async function initDb() {
       );
     `);
 
+    // Optional: link feedback -> reservation (safe)
+    await pool.query(`
+      ALTER TABLE public.feedback
+      ADD COLUMN IF NOT EXISTS reservation_id INTEGER;
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_feedback_reservation_id
+      ON public.feedback (reservation_id);
+    `);
+
     // reservations
     await pool.query(`
       CREATE TABLE IF NOT EXISTS public.reservations (
@@ -504,6 +546,10 @@ async function initDb() {
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS special_requests TEXT DEFAULT '';`);
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS raw JSON;`);
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'Confirmed';`);
+
+    // ✅ feedback anti-spam flags (safe)
+    await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS feedback_requested_at TIMESTAMP;`);
+    await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS feedback_received_at TIMESTAMP;`);
 
     // FK (safe)
     await pool.query(`
@@ -553,6 +599,10 @@ async function initDb() {
         consent_email BOOLEAN NOT NULL DEFAULT FALSE,
         consent_source TEXT,
         consent_updated_at TIMESTAMPTZ,
+
+        -- ✅ feedback cooldown tracking (safe)
+        feedback_last_sent_at TIMESTAMP,
+        feedback_last_received_at TIMESTAMP,
 
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -794,7 +844,10 @@ app.get("/admin/debug-env", requireAdminKey, (req, res) => {
 });
 
 app.get("/admin/restaurants", requireAdminKey, requireDbReady, async (req, res) => {
-  const q = await pool.query(`SELECT id, name, owner_phone, plan, created_at FROM public.restaurants ORDER BY id ASC;`);
+  const q = await pool.query(
+    `SELECT id, name, owner_phone, plan, feedback_enabled, feedback_cooldown_days, feedback_batch_limit, feedback_exclude_frequent_over_visits, created_at
+     FROM public.restaurants ORDER BY id ASC;`
+  );
   res.json({ success: true, version: APP_VERSION, count: q.rows.length, data: q.rows });
 });
 
@@ -859,6 +912,56 @@ app.post("/admin/restaurants/:id/plan", requireAdminKey, requireDbReady, async (
   if (q.rows.length === 0) return res.status(404).json({ success: false, version: APP_VERSION, error: "Not found" });
 
   res.json({ success: true, version: APP_VERSION, data: q.rows[0] });
+});
+
+// ✅ Admin: update feedback settings
+app.post("/admin/restaurants/:id/feedback-settings", requireAdminKey, requireDbReady, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ success: false, version: APP_VERSION, error: "Invalid id" });
+
+    const enabled =
+      req.body?.feedback_enabled === undefined ? null : String(req.body.feedback_enabled).trim().toLowerCase();
+    const feedback_enabled =
+      enabled === null
+        ? null
+        : ["true", "1", "yes", "po", "ok"].includes(enabled)
+        ? true
+        : ["false", "0", "no", "jo"].includes(enabled)
+        ? false
+        : null;
+
+    const feedback_cooldown_days =
+      req.body?.feedback_cooldown_days === undefined ? null : Number(req.body.feedback_cooldown_days);
+    const feedback_batch_limit = req.body?.feedback_batch_limit === undefined ? null : Number(req.body.feedback_batch_limit);
+    const feedback_exclude_frequent_over_visits =
+      req.body?.feedback_exclude_frequent_over_visits === undefined
+        ? null
+        : Number(req.body.feedback_exclude_frequent_over_visits);
+
+    const feedback_template = req.body?.feedback_template === undefined ? null : String(req.body.feedback_template || "");
+
+    const q = await pool.query(
+      `
+      UPDATE public.restaurants
+      SET
+        feedback_enabled = COALESCE($1, feedback_enabled),
+        feedback_cooldown_days = COALESCE($2, feedback_cooldown_days),
+        feedback_batch_limit = COALESCE($3, feedback_batch_limit),
+        feedback_exclude_frequent_over_visits = COALESCE($4, feedback_exclude_frequent_over_visits),
+        feedback_template = COALESCE($5, feedback_template)
+      WHERE id=$6
+      RETURNING id, name, feedback_enabled, feedback_cooldown_days, feedback_batch_limit, feedback_exclude_frequent_over_visits, feedback_template;
+      `,
+      [feedback_enabled, feedback_cooldown_days, feedback_batch_limit, feedback_exclude_frequent_over_visits, feedback_template, id]
+    );
+
+    if (!q.rows.length) return res.status(404).json({ success: false, version: APP_VERSION, error: "Not found" });
+    return res.json({ success: true, version: APP_VERSION, data: q.rows[0] });
+  } catch (err) {
+    console.error("❌ POST /admin/restaurants/:id/feedback-settings error:", err);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
+  }
 });
 
 app.post("/admin/keys/disable", requireAdminKey, requireDbReady, async (req, res) => {
@@ -1256,6 +1359,8 @@ app.get("/owner/customers", requireOwnerKey, requireDbReady, async (req, res) =>
         consent_sms,
         consent_whatsapp,
         consent_email,
+        feedback_last_sent_at,
+        feedback_last_received_at,
         created_at,
         updated_at
       FROM public.customers
@@ -1299,6 +1404,8 @@ app.get("/owner/reservations", requireOwnerKey, requireDbReady, async (req, res)
         allergies,
         special_requests,
         status,
+        feedback_requested_at,
+        feedback_received_at,
         created_at
       FROM public.reservations
       WHERE restaurant_id = $1
@@ -1312,6 +1419,194 @@ app.get("/owner/reservations", requireOwnerKey, requireDbReady, async (req, res)
     return res.json({ success: true, version: APP_VERSION, restaurant_id: req.restaurant_id, data: rows });
   } catch (err) {
     console.error("❌ GET /owner/reservations error:", err);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
+  }
+});
+
+// ==================== OWNER FEEDBACK (OWNER-CONTROLLED) ====================
+async function getFeedbackSettings(restaurantId) {
+  const st = await pool.query(
+    `
+    SELECT
+      feedback_enabled,
+      feedback_cooldown_days,
+      feedback_batch_limit,
+      feedback_exclude_frequent_over_visits,
+      feedback_template
+    FROM public.restaurants
+    WHERE id=$1
+    LIMIT 1;
+    `,
+    [restaurantId]
+  );
+  return st.rows[0] || {
+    feedback_enabled: true,
+    feedback_cooldown_days: 10,
+    feedback_batch_limit: 30,
+    feedback_exclude_frequent_over_visits: 5,
+    feedback_template: "",
+  };
+}
+
+// Owner: send feedback to ONE customer (manual)
+app.post("/owner/feedback/send-one", requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const phone = String(req.body?.phone || "").trim();
+    if (!phone) return res.status(400).json({ success: false, version: APP_VERSION, error: "Missing field: phone" });
+
+    const s = await getFeedbackSettings(req.restaurant_id);
+    if (!s.feedback_enabled) {
+      return res.status(403).json({ success: false, version: APP_VERSION, error: "Feedback disabled by owner" });
+    }
+
+    const cu = await pool.query(
+      `
+      SELECT id, phone, full_name, consent_whatsapp, visits_count, feedback_last_sent_at
+      FROM public.customers
+      WHERE restaurant_id=$1 AND phone=$2
+      LIMIT 1;
+      `,
+      [req.restaurant_id, phone]
+    );
+    if (!cu.rows.length) {
+      return res.status(404).json({ success: false, version: APP_VERSION, error: "Customer not found" });
+    }
+
+    const c = cu.rows[0];
+    if (!c.consent_whatsapp) {
+      return res.status(409).json({ success: false, version: APP_VERSION, error: "Customer has no WhatsApp consent" });
+    }
+
+    const cooldownDays = Number(s.feedback_cooldown_days || 10);
+    const okCooldown =
+      !c.feedback_last_sent_at || new Date(c.feedback_last_sent_at).getTime() < Date.now() - cooldownDays * 86400000;
+    if (!okCooldown) {
+      return res
+        .status(409)
+        .json({ success: false, version: APP_VERSION, error: "Cooldown active (already contacted recently)" });
+    }
+
+    // Mark sent first (anti-spam)
+    await pool.query(
+      `
+      UPDATE public.customers
+      SET feedback_last_sent_at = NOW(), updated_at = NOW()
+      WHERE id=$1 AND restaurant_id=$2;
+      `,
+      [c.id, req.restaurant_id]
+    );
+
+    fireFeedbackRequest({
+      restaurant_id: req.restaurant_id,
+      ts: new Date().toISOString(),
+      data: {
+        customer_id: c.id,
+        phone: c.phone,
+        full_name: c.full_name || "",
+        template: s.feedback_template || "",
+        mode: "manual_one",
+      },
+    });
+
+    return res.json({ success: true, version: APP_VERSION, sent: true, phone: c.phone, customer_id: c.id });
+  } catch (err) {
+    console.error("❌ POST /owner/feedback/send-one error:", err);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
+  }
+});
+
+// Owner: send feedback to BATCH (yesterday by default)
+app.post("/owner/feedback/send-batch", requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const date_from_in = String(req.body?.date_from || "").trim(); // "YYYY-MM-DD"
+    const date_to_in = String(req.body?.date_to || "").trim(); // "YYYY-MM-DD"
+    const limitReq = Number(req.body?.limit || 0);
+
+    const s = await getFeedbackSettings(req.restaurant_id);
+    if (!s.feedback_enabled) {
+      return res.status(403).json({ success: false, version: APP_VERSION, error: "Feedback disabled by owner" });
+    }
+
+    const cooldownDays = Number(s.feedback_cooldown_days || 10);
+    const excludeOver = Number(s.feedback_exclude_frequent_over_visits || 5);
+    const batchLimit = Math.min(Math.max(limitReq || Number(s.feedback_batch_limit || 30), 1), 200);
+
+    // Default: dje
+    let from = date_from_in;
+    let to = date_to_in;
+    if (!from || !to) {
+      const today = await getTodayAL();
+      const y = (await pool.query(`SELECT ($1::date - INTERVAL '1 day')::date::text AS d;`, [today])).rows[0].d;
+      from = y;
+      to = y;
+    }
+
+    const q = await pool.query(
+      `
+      WITH candidates AS (
+        SELECT DISTINCT
+          cu.id AS customer_id,
+          cu.phone,
+          cu.full_name,
+          cu.visits_count,
+          cu.feedback_last_sent_at
+        FROM public.reservations r
+        JOIN public.customers cu
+          ON cu.restaurant_id = r.restaurant_id
+         AND cu.phone = r.phone
+        WHERE r.restaurant_id = $1
+          AND r.date::date BETWEEN $2::date AND $3::date
+          AND cu.consent_whatsapp = TRUE
+          AND (cu.feedback_last_sent_at IS NULL OR cu.feedback_last_sent_at < NOW() - ($4::int || ' days')::interval)
+          AND (cu.visits_count IS NULL OR cu.visits_count <= $5::int)
+      )
+      SELECT * FROM candidates
+      ORDER BY visits_count ASC NULLS FIRST
+      LIMIT $6;
+      `,
+      [req.restaurant_id, from, to, cooldownDays, excludeOver, batchLimit]
+    );
+
+    const rows = q.rows;
+
+    const ids = rows.map((x) => x.customer_id);
+    if (ids.length) {
+      await pool.query(
+        `
+        UPDATE public.customers
+        SET feedback_last_sent_at = NOW(), updated_at = NOW()
+        WHERE restaurant_id=$1 AND id = ANY($2::bigint[]);
+        `,
+        [req.restaurant_id, ids]
+      );
+    }
+
+    for (const c of rows) {
+      fireFeedbackRequest({
+        restaurant_id: req.restaurant_id,
+        ts: new Date().toISOString(),
+        data: {
+          customer_id: c.customer_id,
+          phone: c.phone,
+          full_name: c.full_name || "",
+          template: s.feedback_template || "",
+          mode: "manual_batch",
+          date_from: from,
+          date_to: to,
+        },
+      });
+    }
+
+    return res.json({
+      success: true,
+      version: APP_VERSION,
+      restaurant_id: req.restaurant_id,
+      range: { from, to },
+      sent_count: rows.length,
+      sent: rows.map((x) => ({ customer_id: x.customer_id, phone: x.phone, full_name: x.full_name || "" })),
+    });
+  } catch (err) {
+    console.error("❌ POST /owner/feedback/send-batch error:", err);
     return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
   }
 });
@@ -1650,6 +1945,8 @@ app.get("/reservations", requireApiKey, requireDbReady, async (req, res) => {
         allergies,
         special_requests,
         status,
+        feedback_requested_at,
+        feedback_received_at,
         created_at
       FROM public.reservations
       WHERE restaurant_id = $1
@@ -1693,6 +1990,8 @@ app.get("/reservations/upcoming", requireApiKey, requireDbReady, async (req, res
         allergies,
         special_requests,
         status,
+        feedback_requested_at,
+        feedback_received_at,
         created_at
       FROM public.reservations
       WHERE restaurant_id = $1
@@ -1724,16 +2023,14 @@ app.get("/reservations/upcoming", requireApiKey, requireDbReady, async (req, res
 // Small audit logger (console -> Railway logs)
 function logOwnerDecision(req, action, meta = {}) {
   const ip =
-    (req.headers["x-forwarded-for"] || "").split(",")[0].trim() ||
-    req.socket?.remoteAddress ||
-    req.ip;
+    (req.headers["x-forwarded-for"] || "").split(",")[0].trim() || req.socket?.remoteAddress || req.ip;
 
   console.log("OWNER_DECISION", {
     action, // "confirm" | "decline"
     actor: meta.actor || "owner_key", // owner_key | click_link
     token: meta.token || null,
     id: meta.id || null, // reservation numeric id (public.reservations.id)
-    reservation_id: meta.reservation_id || null, // uuid
+    reservation_id: meta.reservation_id || null, // uuid/text if you use it
     restaurant_id: meta.restaurant_id || req.restaurant_id || null,
     status_before: meta.status_before || null,
     status_after: meta.status_after || null,
@@ -2014,7 +2311,8 @@ async function consumeOwnerToken(token, action) {
   );
   if (!u.rows.length) return { ok: false, code: 409, error: "Token already used" };
 
-  return { ok: true, restaurant_id: row.restaurant_id, reservation_id: row.reservation_id };
+  // reservation_id here is the numeric PK id (public.reservations.id)
+  return { ok: true, restaurant_id: row.restaurant_id, reservation_pk_id: row.reservation_id };
 }
 
 function htmlPage(title, msg) {
@@ -2032,14 +2330,19 @@ app.get("/o/confirm/:token", requireDbReady, async (req, res) => {
   try {
     const consumed = await consumeOwnerToken(req.params.token, "confirm");
     if (!consumed.ok) {
-      logOwnerDecision(req, "confirm", { actor: "click_link", token: req.params.token, status_before: null, status_after: null });
+      logOwnerDecision(req, "confirm", {
+        actor: "click_link",
+        token: req.params.token,
+        status_before: null,
+        status_after: null,
+      });
       return res.status(consumed.code).send(htmlPage("Error", consumed.error));
     }
 
-    // Fetch current state for better logging (uuid -> numeric id, status)
+    // Fetch current state for better logging
     const before = await pool.query(
-      `SELECT id, status, reservation_id FROM public.reservations WHERE reservation_id=$1 AND restaurant_id=$2 LIMIT 1;`,
-      [consumed.reservation_id, consumed.restaurant_id]
+      `SELECT id, status, reservation_id FROM public.reservations WHERE id=$1 AND restaurant_id=$2 LIMIT 1;`,
+      [consumed.reservation_pk_id, consumed.restaurant_id]
     );
     const id = before.rows?.[0]?.id || null;
     const statusBefore = before.rows?.[0]?.status || null;
@@ -2048,10 +2351,10 @@ app.get("/o/confirm/:token", requireDbReady, async (req, res) => {
       `
       UPDATE public.reservations
       SET status='Confirmed'
-      WHERE reservation_id=$1 AND restaurant_id=$2 AND status='Pending'
+      WHERE id=$1 AND restaurant_id=$2 AND status='Pending'
       RETURNING id, reservation_id, restaurant_id, restaurant_name, customer_name, phone, date, time, people, channel, area, status, created_at;
       `,
-      [consumed.reservation_id, consumed.restaurant_id]
+      [consumed.reservation_pk_id, consumed.restaurant_id]
     );
 
     if (!up.rows.length) {
@@ -2059,7 +2362,7 @@ app.get("/o/confirm/:token", requireDbReady, async (req, res) => {
         actor: "click_link",
         token: req.params.token,
         id,
-        reservation_id: consumed.reservation_id,
+        reservation_id: before.rows?.[0]?.reservation_id || null,
         restaurant_id: consumed.restaurant_id,
         status_before: statusBefore,
         status_after: statusBefore,
@@ -2116,13 +2419,18 @@ app.get("/o/decline/:token", requireDbReady, async (req, res) => {
   try {
     const consumed = await consumeOwnerToken(req.params.token, "decline");
     if (!consumed.ok) {
-      logOwnerDecision(req, "decline", { actor: "click_link", token: req.params.token, status_before: null, status_after: null });
+      logOwnerDecision(req, "decline", {
+        actor: "click_link",
+        token: req.params.token,
+        status_before: null,
+        status_after: null,
+      });
       return res.status(consumed.code).send(htmlPage("Error", consumed.error));
     }
 
     const before = await pool.query(
-      `SELECT id, status, reservation_id FROM public.reservations WHERE reservation_id=$1 AND restaurant_id=$2 LIMIT 1;`,
-      [consumed.reservation_id, consumed.restaurant_id]
+      `SELECT id, status, reservation_id FROM public.reservations WHERE id=$1 AND restaurant_id=$2 LIMIT 1;`,
+      [consumed.reservation_pk_id, consumed.restaurant_id]
     );
     const id = before.rows?.[0]?.id || null;
     const statusBefore = before.rows?.[0]?.status || null;
@@ -2131,10 +2439,10 @@ app.get("/o/decline/:token", requireDbReady, async (req, res) => {
       `
       UPDATE public.reservations
       SET status='Declined'
-      WHERE reservation_id=$1 AND restaurant_id=$2 AND status='Pending'
+      WHERE id=$1 AND restaurant_id=$2 AND status='Pending'
       RETURNING id, reservation_id, restaurant_id, restaurant_name, customer_name, phone, date, time, people, channel, area, status, created_at;
       `,
-      [consumed.reservation_id, consumed.restaurant_id]
+      [consumed.reservation_pk_id, consumed.restaurant_id]
     );
 
     if (!up.rows.length) {
@@ -2142,7 +2450,7 @@ app.get("/o/decline/:token", requireDbReady, async (req, res) => {
         actor: "click_link",
         token: req.params.token,
         id,
-        reservation_id: consumed.reservation_id,
+        reservation_id: before.rows?.[0]?.reservation_id || null,
         restaurant_id: consumed.restaurant_id,
         status_before: statusBefore,
         status_after: statusBefore,
@@ -2208,25 +2516,48 @@ app.post("/feedback", requireApiKey, requireDbReady, async (req, res) => {
         .json({ success: false, version: APP_VERSION, error: "Ratings must be numbers between 1 and 5" });
     }
 
+    const reservation_pk_id = req.body?.reservation_id ? Number(req.body.reservation_id) : null;
+    const reservationIdSafe = Number.isFinite(reservation_pk_id) ? reservation_pk_id : null;
+
     const result = await pool.query(
       `
       INSERT INTO public.feedback
         (restaurant_id, restaurant_name, phone,
-         location_rating, hospitality_rating, food_rating, price_rating, comment)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+         location_rating, hospitality_rating, food_rating, price_rating, comment, reservation_id)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
       RETURNING id, created_at;
       `,
       [
         req.restaurant_id,
         "Te Ta Gastronomi",
-        phone,
+        String(phone).trim(),
         ratings.location_rating,
         ratings.hospitality_rating,
         ratings.food_rating,
         ratings.price_rating,
         req.body.comment || "",
+        reservationIdSafe,
       ]
     );
+
+    // Mark "received" timestamps (best-effort)
+    pool
+      .query(
+        `UPDATE public.customers SET feedback_last_received_at=NOW(), updated_at=NOW()
+         WHERE restaurant_id=$1 AND phone=$2;`,
+        [req.restaurant_id, String(phone).trim()]
+      )
+      .catch(() => {});
+
+    if (reservationIdSafe) {
+      pool
+        .query(
+          `UPDATE public.reservations SET feedback_received_at=NOW()
+           WHERE restaurant_id=$1 AND id=$2;`,
+          [req.restaurant_id, reservationIdSafe]
+        )
+        .catch(() => {});
+    }
 
     const row = result.rows[0];
     return res.status(201).json({
@@ -2258,6 +2589,7 @@ app.get("/feedback", requireApiKey, requireDbReady, async (req, res) => {
         price_rating,
         ROUND((location_rating + hospitality_rating + food_rating + price_rating) / 4.0, 1) AS avg_rating,
         comment,
+        reservation_id,
         created_at
       FROM public.feedback
       WHERE restaurant_id = $1
@@ -2287,7 +2619,7 @@ app.get("/reports/today", requireApiKey, requireDbReady, async (req, res) => {
         customer_name, phone,
         date::text AS date,
         time, people, channel, area,
-        first_time, allergies, special_requests, status, created_at
+        first_time, allergies, special_requests, status, feedback_requested_at, feedback_received_at, created_at
       FROM public.reservations
       WHERE restaurant_id = $1
         AND date::date = $2::date
@@ -2307,7 +2639,7 @@ app.get("/reports/today", requireApiKey, requireDbReady, async (req, res) => {
         id, restaurant_id, restaurant_name, phone,
         location_rating, hospitality_rating, food_rating, price_rating,
         ROUND((location_rating + hospitality_rating + food_rating + price_rating) / 4.0, 1) AS avg_rating,
-        comment, created_at
+        comment, reservation_id, created_at
       FROM public.feedback
       WHERE restaurant_id = $1
         AND (created_at AT TIME ZONE 'Europe/Tirane')::date = $2::date
