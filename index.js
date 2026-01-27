@@ -2743,6 +2743,43 @@ app.post("/feedback/messages", async (req, res) => {
     return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
   }
 });
+// ===============================
+// OWNER: Daily feedback report
+// GET /owner/reports/feedback/daily
+// ===============================
+app.get("/owner/reports/feedback/daily", async (req, res) => {
+  try {
+    const restaurant_id = req.query.restaurant_id;
+    if (!restaurant_id) {
+      return res.status(400).json({ success: false, error: "restaurant_id required" });
+    }
+
+    const q = `
+      SELECT
+        DATE(created_at) AS day,
+        COUNT(*) AS total_feedback,
+        AVG(score)::numeric(3,2) AS avg_score,
+        SUM(CASE WHEN classification = 'risk' THEN 1 ELSE 0 END) AS risk_count,
+        SUM(CASE WHEN classification = 'positive' THEN 1 ELSE 0 END) AS positive_count
+      FROM public.feedback_messages
+      WHERE direction='inbound'
+        AND restaurant_id=$1
+        AND DATE(created_at)=CURRENT_DATE
+      GROUP BY DATE(created_at);
+    `;
+
+    const r = await db.query(q, [restaurant_id]);
+
+    if (r.rows.length === 0) {
+      return res.json({ success: true, message: "No feedback today" });
+    }
+
+    return res.json({ success: true, data: r.rows[0] });
+  } catch (err) {
+    console.error("daily feedback report error", err);
+    res.status(500).json({ success: false, error: "internal error" });
+  }
+});
 
 // ==================== START ====================
 const PORT = process.env.PORT || 3000;
