@@ -2668,14 +2668,15 @@ app.get("/reports/today", requireApiKey, requireDbReady, async (req, res) => {
 app.post("/feedback/messages", async (req, res) => {
   try {
     const {
-      restaurant_id,
-      from_phone,
-      message_body,
-      direction = "inbound",
-      classification = null,
-      score = null,
-      feedback_request_id = null
-    } = req.body || {};
+  restaurant_id,
+  from_phone,
+  message_body,
+  direction = "inbound",
+  classification = null,
+  score = null,
+  feedback_request_id = null
+} = req.body || {};
+
 
     if (!restaurant_id) return res.status(400).json({ success: false, error: "restaurant_id is required" });
     if (!from_phone) return res.status(400).json({ success: false, error: "from_phone is required" });
@@ -2692,20 +2693,25 @@ app.post("/feedback/messages", async (req, res) => {
     }
 
     const q = `
-      INSERT INTO public.feedback_messages
-      (feedback_request_id, restaurant_id, from_phone, message_body, direction, classification, score)
-      VALUES ($1,$2,$3,$4,$5,$6,$7)
-      RETURNING id, restaurant_id, from_phone, classification, score, created_at;
-    `;
+  INSERT INTO public.feedback_messages
+  (twilio_message_sid, feedback_request_id, restaurant_id, from_phone, message_body, direction, classification, score)
+  VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+  ON CONFLICT (twilio_message_sid) DO NOTHING
+  RETURNING id, restaurant_id, from_phone, classification, score, created_at;
+`;
 
-    const vals = [
-      feedback_request_id,
-      restaurant_id,
-      from_phone,
-      message_body,
-      direction,
-      classification,
-      parsedScore
+
+   const vals = [
+  twilio_message_sid,
+  feedback_request_id,
+  restaurant_id,
+  from_phone,
+  message_body,
+  direction,
+  classification,
+  parsedScore
+];
+
     ];
 
     const result = await db.query(q, vals);
