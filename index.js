@@ -2712,7 +2712,6 @@ app.post("/feedback/messages", async (req, res) => {
   parsedScore
 ];
 
-    ];
 
     const result = await db.query(q, vals);
 
