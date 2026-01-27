@@ -2608,6 +2608,7 @@ app.get("/feedback", requireApiKey, requireDbReady, async (req, res) => {
 });
 
 // ==================== REPORTS ====================
+// ==================== REPORTS ====================
 app.get("/reports/today", requireApiKey, requireDbReady, async (req, res) => {
   try {
     const today = await getTodayAL();
@@ -2619,7 +2620,8 @@ app.get("/reports/today", requireApiKey, requireDbReady, async (req, res) => {
         customer_name, phone,
         date::text AS date,
         time, people, channel, area,
-        first_time, allergies, special_requests, status, feedback_requested_at, feedback_received_at, created_at
+        first_time, allergies, special_requests, status,
+        feedback_requested_at, feedback_received_at, created_at
       FROM public.reservations
       WHERE restaurant_id = $1
         AND date::date = $2::date
@@ -2654,73 +2656,14 @@ app.get("/reports/today", requireApiKey, requireDbReady, async (req, res) => {
     }));
 
     const feedbackCount = feedbackRows.length;
+
     const avgOfAvg =
       feedbackCount === 0
         ? null
-        : Math.round((feedbackRows.reduce((s, x) => s + Number(x.avg_rating), 0) / feedbackCount) * 10) / 10;
+        : Math.round((feedbackRows.reduce((s, x) => s + Number(x.avg_rating || 0), 0) / feedbackCount) * 10) / 10;
 
     const fiveStars = feedbackCount === 0 ? 0 : feedbackRows.filter((x) => Number(x.avg_rating) >= 5).length;
     const fiveStarsPct = feedbackCount === 0 ? 0 : Math.round((fiveStars / feedbackCount) * 100);
-// ===============================
-// FEEDBACK: Save messages from Make
-// POST /feedback/messages
-// ===============================
-app.post("/feedback/messages", async (req, res) => {
-  try {
-    const {
-  restaurant_id,
-  from_phone,
-  message_body,
-  direction = "inbound",
-  classification = null,
-  score = null,
-  feedback_request_id = null
-} = req.body || {};
-
-
-    if (!restaurant_id) return res.status(400).json({ success: false, error: "restaurant_id is required" });
-    if (!from_phone) return res.status(400).json({ success: false, error: "from_phone is required" });
-    if (!message_body) return res.status(400).json({ success: false, error: "message_body is required" });
-    if (!["inbound", "outbound"].includes(direction)) {
-      return res.status(400).json({ success: false, error: "direction must be inbound|outbound" });
-    }
-
-    const parsedScore =
-      score === null || score === undefined || score === "" ? null : Number(score);
-
-    if (parsedScore !== null && (!Number.isInteger(parsedScore) || parsedScore < 1 || parsedScore > 10)) {
-      return res.status(400).json({ success: false, error: "score must be integer 1-10 (or null)" });
-    }
-
-    const q = `
-  INSERT INTO public.feedback_messages
-  (twilio_message_sid, feedback_request_id, restaurant_id, from_phone, message_body, direction, classification, score)
-  VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-  ON CONFLICT (twilio_message_sid) DO NOTHING
-  RETURNING id, restaurant_id, from_phone, classification, score, created_at;
-`;
-
-
-   const vals = [
-  twilio_message_sid,
-  feedback_request_id,
-  restaurant_id,
-  from_phone,
-  message_body,
-  direction,
-  classification,
-  parsedScore
-];
-
-
-    const result = await db.query(q, vals);
-
-    return res.json({ success: true, data: result.rows[0] });
-  } catch (err) {
-    console.error("POST /feedback/messages error:", err);
-    return res.status(500).json({ success: false, error: "Internal server error" });
-  }
-});
 
     return res.json({
       success: true,
@@ -2742,41 +2685,108 @@ app.post("/feedback/messages", async (req, res) => {
     return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
   }
 });
+
+// ===============================
+// FEEDBACK: Save messages from Make / WhatsApp
+// POST /feedback/messages
+// ===============================
+app.post("/feedback/messages", requireApiKey, requireDbReady, async (req, res) => {
+  try {
+    const {
+      twilio_message_sid = null,
+      feedback_request_id = null,
+      from_phone,
+      message_body,
+      direction = "inbound",
+      classification = null,
+      score = null,
+    } = req.body || {};
+
+    if (!from_phone) return res.status(400).json({ success: false, version: APP_VERSION, error: "from_phone is required" });
+    if (!message_body) return res.status(400).json({ success: false, version: APP_VERSION, error: "message_body is required" });
+
+    const dir = String(direction || "").trim().toLowerCase();
+    if (!["inbound", "outbound"].includes(dir)) {
+      return res.status(400).json({ success: false, version: APP_VERSION, error: "direction must be inbound|outbound" });
+    }
+
+    const parsedScore = score === null || score === undefined || score === "" ? null : Number(score);
+    if (parsedScore !== null && (!Number.isInteger(parsedScore) || parsedScore < 1 || parsedScore > 10)) {
+      return res.status(400).json({ success: false, version: APP_VERSION, error: "score must be integer 1-10 (or null)" });
+    }
+
+    const q = `
+      INSERT INTO public.feedback_messages
+        (twilio_message_sid, feedback_request_id, restaurant_id, from_phone, message_body, direction, classification, score)
+      VALUES
+        ($1,$2,$3,$4,$5,$6,$7,$8)
+      ON CONFLICT (twilio_message_sid) DO NOTHING
+      RETURNING id, restaurant_id, from_phone, classification, score, created_at;
+    `;
+
+    const vals = [
+      twilio_message_sid,
+      feedback_request_id,
+      req.restaurant_id,
+      String(from_phone).trim(),
+      String(message_body),
+      dir,
+      classification ? String(classification) : null,
+      parsedScore,
+    ];
+
+    const result = await pool.query(q, vals);
+
+    return res.json({
+      success: true,
+      version: APP_VERSION,
+      restaurant_id: req.restaurant_id,
+      data: result.rows[0] || null,
+      duplicate: result.rows.length === 0,
+    });
+  } catch (err) {
+    console.error("❌ POST /feedback/messages error:", err);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: "Internal server error" });
+  }
+});
+
 // ===============================
 // OWNER: Daily feedback report
 // GET /owner/reports/feedback/daily
 // ===============================
-app.get("/owner/reports/feedback/daily", async (req, res) => {
+app.get("/owner/reports/feedback/daily", requireOwnerKey, requireDbReady, async (req, res) => {
   try {
-    const restaurant_id = req.query.restaurant_id;
-    if (!restaurant_id) {
-      return res.status(400).json({ success: false, error: "restaurant_id required" });
-    }
-
     const q = `
       SELECT
-        DATE(created_at) AS day,
-        COUNT(*) AS total_feedback,
-        AVG(score)::numeric(3,2) AS avg_score,
-        SUM(CASE WHEN classification = 'risk' THEN 1 ELSE 0 END) AS risk_count,
-        SUM(CASE WHEN classification = 'positive' THEN 1 ELSE 0 END) AS positive_count
+        ((CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date)::text AS day,
+        COUNT(*)::int AS total_feedback,
+        ROUND(AVG(score)::numeric, 2) AS avg_score,
+        SUM(CASE WHEN classification = 'risk' THEN 1 ELSE 0 END)::int AS risk_count,
+        SUM(CASE WHEN classification = 'positive' THEN 1 ELSE 0 END)::int AS positive_count
       FROM public.feedback_messages
       WHERE direction='inbound'
         AND restaurant_id=$1
-        AND DATE(created_at)=CURRENT_DATE
-      GROUP BY DATE(created_at);
+        AND (created_at AT TIME ZONE 'Europe/Tirane')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date;
     `;
 
-    const r = await db.query(q, [restaurant_id]);
+    const r = await pool.query(q, [req.restaurant_id]);
+    const row = r.rows[0] || null;
+    const total = row ? Number(row.total_feedback || 0) : 0;
 
-    if (r.rows.length === 0) {
-      return res.json({ success: true, message: "No feedback today" });
+    if (!row || total === 0) {
+      return res.json({
+        success: true,
+        version: APP_VERSION,
+        restaurant_id: req.restaurant_id,
+        message: "No feedback today",
+        data: null,
+      });
     }
 
-    return res.json({ success: true, data: r.rows[0] });
+    return res.json({ success: true, version: APP_VERSION, restaurant_id: req.restaurant_id, data: row });
   } catch (err) {
-    console.error("daily feedback report error", err);
-    res.status(500).json({ success: false, error: "internal error" });
+    console.error("❌ daily feedback report error", err);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: "internal error" });
   }
 });
 
