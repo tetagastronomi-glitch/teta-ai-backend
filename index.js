@@ -2661,6 +2661,61 @@ app.get("/reports/today", requireApiKey, requireDbReady, async (req, res) => {
 
     const fiveStars = feedbackCount === 0 ? 0 : feedbackRows.filter((x) => Number(x.avg_rating) >= 5).length;
     const fiveStarsPct = feedbackCount === 0 ? 0 : Math.round((fiveStars / feedbackCount) * 100);
+// ===============================
+// FEEDBACK: Save messages from Make
+// POST /feedback/messages
+// ===============================
+app.post("/feedback/messages", async (req, res) => {
+  try {
+    const {
+      restaurant_id,
+      from_phone,
+      message_body,
+      direction = "inbound",
+      classification = null,
+      score = null,
+      feedback_request_id = null
+    } = req.body || {};
+
+    if (!restaurant_id) return res.status(400).json({ success: false, error: "restaurant_id is required" });
+    if (!from_phone) return res.status(400).json({ success: false, error: "from_phone is required" });
+    if (!message_body) return res.status(400).json({ success: false, error: "message_body is required" });
+    if (!["inbound", "outbound"].includes(direction)) {
+      return res.status(400).json({ success: false, error: "direction must be inbound|outbound" });
+    }
+
+    const parsedScore =
+      score === null || score === undefined || score === "" ? null : Number(score);
+
+    if (parsedScore !== null && (!Number.isInteger(parsedScore) || parsedScore < 1 || parsedScore > 10)) {
+      return res.status(400).json({ success: false, error: "score must be integer 1-10 (or null)" });
+    }
+
+    const q = `
+      INSERT INTO public.feedback_messages
+      (feedback_request_id, restaurant_id, from_phone, message_body, direction, classification, score)
+      VALUES ($1,$2,$3,$4,$5,$6,$7)
+      RETURNING id, restaurant_id, from_phone, classification, score, created_at;
+    `;
+
+    const vals = [
+      feedback_request_id,
+      restaurant_id,
+      from_phone,
+      message_body,
+      direction,
+      classification,
+      parsedScore
+    ];
+
+    const result = await db.query(q, vals);
+
+    return res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    console.error("POST /feedback/messages error:", err);
+    return res.status(500).json({ success: false, error: "Internal server error" });
+  }
+});
 
     return res.json({
       success: true,
