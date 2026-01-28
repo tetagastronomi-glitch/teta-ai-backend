@@ -2506,18 +2506,21 @@ app.get("/o/decline/:token", requireDbReady, async (req, res) => {
 app.post("/owner/debug/make/:type", requireOwnerKey, requireDbReady, async (req, res) => {
   try {
     const type = String(req.params.type || "").trim();
-    if (!type) return res.status(400).json({ success: false, error: "Missing type" });
+    if (!type) return res.status(400).json({ success: false, version: APP_VERSION, error: "Missing type" });
 
-    const payload = req.body || {};
-    // Force restaurant_id from auth context
-    payload.restaurant_id = req.restaurant_id;
-    payload.ts = payload.ts || new Date().toISOString();
+    const incoming = (req.body && typeof req.body === "object") ? req.body : {};
+
+    const payload = {
+      ...incoming,
+      restaurant_id: req.restaurant_id,
+      ts: incoming.ts || new Date().toISOString(),
+    };
 
     fireMakeEvent(type, payload);
 
     return res.json({ success: true, version: APP_VERSION, sent_type: type, restaurant_id: req.restaurant_id });
   } catch (e) {
-    return res.status(500).json({ success: false, error: e.message });
+    return res.status(500).json({ success: false, version: APP_VERSION, error: e.message });
   }
 });
 
