@@ -66,7 +66,9 @@ function requireDbReady(req, res, next) {
   next();
 }
 
-// ==================== TIME HELPERS ====================
+// ==================== TIME HELPERS (FINAL) ====================
+// Assumes you already have: const pool = new Pool({ ... })
+
 function formatALDate(d) {
   if (!d) return null;
   return new Date(d).toLocaleString("sq-AL", {
@@ -100,20 +102,67 @@ async function isReservationTodayAL(reservationDate) {
   return reqYMD === todayYMD;
 }
 
-// Helper normalize HH:MI (for casting to time safely)
+// ✅ Helper: normalize HH:MI (returns null if invalid)
 function normalizeTimeHHMI(t) {
   const s = String(t || "").trim();
   const m = s.match(/^(\d{1,2}):(\d{2})$/);
-  if (!m) return "00:00";
-  let hh = Number(m[1]);
-  let mm = Number(m[2]);
-  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return "00:00";
-  if (hh < 0) hh = 0;
-  if (hh > 23) hh = 23;
-  if (mm < 0) mm = 0;
-  if (mm > 59) mm = 59;
+  if (!m) return null;
+
+  const hh = Number(m[1]);
+  const mm = Number(m[2]);
+
+  if (!Number.isInteger(hh) || !Number.isInteger(mm)) return null;
+  if (hh < 0 || hh > 23) return null;
+  if (mm < 0 || mm > 59) return null;
+
   return String(hh).padStart(2, "0") + ":" + String(mm).padStart(2, "0");
 }
+
+// ✅ Helper: get "now" time in Albania as HH:MI string (server-agnostic)
+async function getNowHHMI_AL() {
+  const q = await pool.query(`
+    SELECT to_char((CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::time, 'HH24:MI') AS now_hhmi
+  `);
+  return q.rows[0].now_hhmi; // "HH:MI"
+}
+
+// ✅ Helper: returns true if reservation is for TODAY and time has already passed (Europe/Tirane)
+async function isTimePassedTodayAL(reservationDate, reservationTimeHHMI) {
+  const reqYMD = toYMD(reservationDate);
+  const todayYMD = await getTodayAL();
+  if (reqYMD !== todayYMD) return false;
+
+  if (!reservationTimeHHMI) return false; // invalid time should be handled earlier
+  const nowHHMI = await getNowHHMI_AL();
+
+  // String compare works because both are zero-padded "HH:MI"
+  return reservationTimeHHMI < nowHHMI;
+}
+
+// ✅ Helper: enforce "reject if time passed today" with your exact user-facing message
+async function rejectIfTimePassedTodayAL(reservationDate, rawTime) {
+  const timeHHMI = normalizeTimeHHMI(rawTime);
+  if (!timeHHMI) {
+    return {
+      ok: false,
+      error_code: "INVALID_TIME",
+      message: "Ora është e pavlefshme.",
+    };
+  }
+
+  const passed = await isTimePassedTodayAL(reservationDate, timeHHMI);
+  if (passed) {
+    return {
+      ok: false,
+      error_code: "TIME_PASSED",
+      message:
+        "Ora që ke zgjedhur ka kaluar.\nTë lutem zgjidh një orë tjetër sot ose një ditë tjetër.",
+    };
+  }
+
+  return { ok: true, timeHHMI };
+}
+
 
 // ==================== ✅ MOD: STATUS RULE (CENTRALIZED) ====================
 // RREGULLI FINAL:
@@ -1712,7 +1761,33 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
     }
 
     const dateStr = String(r.date).trim();
+
+    // ✅ NEW: strict time normalize (do NOT default to "00:00")
     const timeStr = normalizeTimeHHMI(r.time);
+    if (!timeStr) {
+      return res.status(400).json({
+        success: false,
+        version: APP_VERSION,
+        error: "Ora është e pavlefshme.",
+        error_code: "INVALID_TIME",
+      });
+    }
+
+    // ✅ NEW: REJECT if reservation is for TODAY and time already passed (Europe/Tirane)
+    // NOTE: requires you have these helpers defined ABOVE routes:
+    // - toYMD()
+    // - rejectIfTimePassedTodayAL()
+    const guard = await rejectIfTimePassedTodayAL(toYMD(dateStr), timeStr);
+    if (!guard.ok) {
+      return res.status(400).json({
+        success: false,
+        version: APP_VERSION,
+        error_code: guard.error_code || "TIME_PASSED",
+        error:
+          guard.message ||
+          "Ora që ke zgjedhur ka kaluar.\nTë lutem zgjidh një orë tjetër sot ose një ditë tjetër.",
+      });
+    }
 
     const decision = await decideReservationStatus(dateStr, people);
     const status = decision.status;
@@ -1779,6 +1854,13 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
         status: inserted.status,
       },
     };
+
+    // ... (vazhdon kodi yt siç e ke)
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: "Server error" });
+  }
+});
 
     // ✅ CLICK LINKS (ONLY IF PENDING)
     if (status === "Pending") {
