@@ -1762,7 +1762,7 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
 
     const dateStr = String(r.date).trim();
 
-    // ✅ NEW: strict time normalize (do NOT default to "00:00")
+    // ✅ strict time normalize (do NOT default to "00:00")
     const timeStr = normalizeTimeHHMI(r.time);
     if (!timeStr) {
       return res.status(400).json({
@@ -1773,10 +1773,7 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
       });
     }
 
-    // ✅ NEW: REJECT if reservation is for TODAY and time already passed (Europe/Tirane)
-    // NOTE: requires you have these helpers defined ABOVE routes:
-    // - toYMD()
-    // - rejectIfTimePassedTodayAL()
+    // ✅ REJECT if reservation is for TODAY and time already passed (Europe/Tirane)
     const guard = await rejectIfTimePassedTodayAL(toYMD(dateStr), timeStr);
     if (!guard.ok) {
       return res.status(400).json({
@@ -1854,13 +1851,6 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
         status: inserted.status,
       },
     };
-
-    // ... (vazhdon kodi yt siç e ke)
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ success: false, version: APP_VERSION, error: "Server error" });
-  }
-});
 
     // ✅ CLICK LINKS (ONLY IF PENDING)
     if (status === "Pending") {
@@ -2004,6 +1994,7 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
     });
   }
 });
+
 
 app.get("/reservations", requireApiKey, requireDbReady, async (req, res) => {
   try {
