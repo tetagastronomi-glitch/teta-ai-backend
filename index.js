@@ -141,6 +141,7 @@ async function isTimePassedTodayAL(reservationDate, reservationTimeHHMI) {
 
 // ✅ Helper: enforce "reject if time passed today" with your exact user-facing message
 async function rejectIfTimePassedTodayAL(reservationDate, rawTime) {
+  // rawTime may already be normalized, but we keep it robust
   const timeHHMI = normalizeTimeHHMI(rawTime);
   if (!timeHHMI) {
     return {
@@ -163,24 +164,47 @@ async function rejectIfTimePassedTodayAL(reservationDate, rawTime) {
   return { ok: true, timeHHMI };
 }
 
-
-// ==================== ✅ MOD: STATUS RULE (CENTRALIZED) ====================
-// RREGULLI FINAL:
-// - SOT: gjithmonë Pending
-// - NË TË ARDHMEN: Confirmed, përveç kur people > MAX_AUTO_CONFIRM_PEOPLE -> Pending
+// ==================== ✅ STATUS RULE (CENTRALIZED) — FIXED ====================
+// RREGULLI FINAL (siç the ti):
+// - SOT:
+//    - Pending nëse (now >= 11:00) OSE people > MAX_AUTO_CONFIRM_PEOPLE
+//    - përndryshe Confirmed
+// - NË TË ARDHMEN:
+//    - Pending vetëm nëse people > MAX_AUTO_CONFIRM_PEOPLE
+//    - përndryshe Confirmed
+//
+// NOTE: Cutoff dhe threshold do bëhen "per business" më vonë; tani janë globale.
 async function decideReservationStatus(dateStr, people) {
   const isTodayAL = await isReservationTodayAL(dateStr);
 
+  const p = Number(people);
+  const maxPeople = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE ?? MAX_AUTO_CONFIRM_PEOPLE ?? 6);
+
+  // default cutoff 11:00, mund ta override me env SAME_DAY_CUTOFF_HHMI
+  const cutoffHHMI = String(process.env.SAME_DAY_CUTOFF_HHMI || "11:00").trim();
+
+  // ✅ groups rule applies everywhere
+  if (Number.isFinite(p) && Number.isFinite(maxPeople) && p > maxPeople) {
+    return { isTodayAL, status: "Pending", reason: "group_over_threshold" };
+  }
+
   if (isTodayAL) {
-    return { isTodayAL: true, status: "Pending" };
+    const nowHHMI = await getNowHHMI_AL();
+
+    // If cutoffHHMI is malformed, fail safe to Pending (avoid accidental auto-confirm)
+    const cutoffOk = /^(\d{2}):(\d{2})$/.test(cutoffHHMI);
+    if (!cutoffOk) {
+      return { isTodayAL: true, status: "Pending", reason: "cutoff_invalid_failsafe" };
+    }
+
+    if (nowHHMI >= cutoffHHMI) {
+      return { isTodayAL: true, status: "Pending", reason: "same_day_after_cutoff" };
+    }
+
+    return { isTodayAL: true, status: "Confirmed", reason: "same_day_before_cutoff" };
   }
 
-  // ✅ MOD: përdorim > (jo >=)
-  if (Number(people) > Number(MAX_AUTO_CONFIRM_PEOPLE)) {
-    return { isTodayAL: false, status: "Pending" };
-  }
-
-  return { isTodayAL: false, status: "Confirmed" };
+  return { isTodayAL: false, status: "Confirmed", reason: "future_auto_confirm" };
 }
 
 // ==================== MAKE EVENT SENDER ====================
