@@ -203,16 +203,15 @@ async function rejectIfTimePassedTodayAL(reservationDate, rawTime) {
 //    - përndryshe Confirmed
 //
 // NOTE: Cutoff dhe threshold do bëhen "per business" më vonë; tani janë globale.
-async function decideReservationStatus(dateStr, people) {
+async function decideReservationStatus(restaurantId, dateStr, people) {
   const isTodayAL = await isReservationTodayAL(dateStr);
 
+  // per momentin: env fallback; më vonë merr nga DB per restaurant
   const p = Number(people);
   const maxPeople = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE ?? MAX_AUTO_CONFIRM_PEOPLE ?? 6);
-
-  // default cutoff 11:00, mund ta override me env SAME_DAY_CUTOFF_HHMI
   const cutoffHHMI = String(process.env.SAME_DAY_CUTOFF_HHMI || "11:00").trim();
 
-  // ✅ groups rule applies everywhere
+  // grupet => gjithmonë Pending
   if (Number.isFinite(p) && Number.isFinite(maxPeople) && p > maxPeople) {
     return { isTodayAL, status: "Pending", reason: "group_over_threshold" };
   }
@@ -220,21 +219,17 @@ async function decideReservationStatus(dateStr, people) {
   if (isTodayAL) {
     const nowHHMI = await getNowHHMI_AL();
 
-    // If cutoffHHMI is malformed, fail safe to Pending (avoid accidental auto-confirm)
     const cutoffOk = /^(\d{2}):(\d{2})$/.test(cutoffHHMI);
-    if (!cutoffOk) {
-      return { isTodayAL: true, status: "Pending", reason: "cutoff_invalid_failsafe" };
-    }
+    if (!cutoffOk) return { isTodayAL: true, status: "Pending", reason: "cutoff_invalid_failsafe" };
 
-    if (nowHHMI >= cutoffHHMI) {
-      return { isTodayAL: true, status: "Pending", reason: "same_day_after_cutoff" };
-    }
+    if (nowHHMI >= cutoffHHMI) return { isTodayAL: true, status: "Pending", reason: "same_day_after_cutoff" };
 
     return { isTodayAL: true, status: "Confirmed", reason: "same_day_before_cutoff" };
   }
 
   return { isTodayAL: false, status: "Confirmed", reason: "future_auto_confirm" };
 }
+
 
 // ==================== MAKE EVENT SENDER ====================
 async function sendMakeEvent(type, payload) {
@@ -1804,35 +1799,6 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
     const required = ["customer_name", "phone", "date", "time", "people"];
     for (const f of required) {
       if (r[f] === undefined || r[f] === null || r[f] === "") {
-        return res.status(400).json({ success: false, version: APP_VERSION, error: `Missing field: ${f}` });
-      }
-    }
-
-    const people = Number(r.people);
-    if (!Number.isFinite(people) || people <= 0) {
-      return res.status(400).json({ success: false, version: APP_VERSION, error: "people must be a positive number" });
-    }
-
-    const dateStr = String(r.date).trim();
-
-    // ✅ strict time normalize (do NOT default to "00:00")
-    const timeStr = normalizeTimeHHMI(r.time);
-    if (!timeStr) {
-      return res.status(400).json({
-        success: false,
-        version: APP_VERSION,
-        error: "Ora është e pavlefshme.",
-        error_code: "INVALID_TIME",
-      });
-    }
-
-   // ==================== RESERVATIONS ====================
-app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
-  try {
-    const r = req.body || {};
-    const required = ["customer_name", "phone", "date", "time", "people"];
-    for (const f of required) {
-      if (r[f] === undefined || r[f] === null || r[f] === "") {
         return res.status(400).json({
           success: false,
           version: APP_VERSION,
@@ -1854,7 +1820,7 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
 
     const dateStr = String(r.date).trim();
 
-    // ✅ strict time normalize (returns null if invalid)
+    // strict normalize HH:MI
     const timeStr = normalizeTimeHHMI(r.time);
     if (!timeStr) {
       return res.status(400).json({
@@ -1865,8 +1831,7 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
       });
     }
 
-    // ✅ REJECT if reservation is for TODAY and time already passed (Europe/Tirane)
-    // NOTE: rejectIfTimePassedTodayAL does its own toYMD normalization internally
+    // reject if today and time passed
     const guard = await rejectIfTimePassedTodayAL(dateStr, timeStr);
     if (!guard.ok) {
       return res.status(400).json({
@@ -1879,7 +1844,6 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
       });
     }
 
-    // ✅ STATUS (PER BUSINESS - DB rules)
     const decision = await decideReservationStatus(req.restaurant_id, dateStr, people);
     const status = decision.status;
 
@@ -1943,16 +1907,13 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
         channel: r.channel || null,
         area: r.area || null,
         status: inserted.status,
-        reason: decision.reason || null, // helpful debug
+        reason: decision.reason || null,
       },
     };
 
-    // ✅ CLICK LINKS (ONLY IF PENDING)
+    // CLICK LINKS only for Pending
     if (status === "Pending") {
-      const base = String(process.env.PUBLIC_BASE_URL || "https://teta-ai-backend-production.up.railway.app").replace(
-        /\/$/,
-        ""
-      );
+      const base = String(process.env.PUBLIC_BASE_URL || "https://teta-ai-backend-production.up.railway.app").replace(/\/$/, "");
 
       const confirmToken = crypto.randomBytes(18).toString("hex");
       const declineToken = crypto.randomBytes(18).toString("hex");
@@ -1971,13 +1932,11 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
       payload.data.decline_url = `${base}/o/decline/${declineToken}`;
     }
 
-    // Pending -> reservation_created, Confirmed -> reservation_confirmed
-    if (inserted.status === "Pending") {
-      fireMakeEvent("reservation_created", payload);
-    } else {
-      fireMakeEvent("reservation_confirmed", payload);
-    }
-    // ✅ AUTO-SYNC INTO CUSTOMERS (CRM) – non-blocking
+    // Make events
+    if (inserted.status === "Pending") fireMakeEvent("reservation_created", payload);
+    else fireMakeEvent("reservation_confirmed", payload);
+
+    // Sync to customers (non-blocking)
     try {
       await pool.query(
         `
@@ -1985,30 +1944,19 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
           SELECT
             NOW() AS now_ts,
             (($1::date + $2::time) AT TIME ZONE 'Europe/Tirane') AS ts,
-            CASE
-              WHEN (($1::date + $2::time) AT TIME ZONE 'Europe/Tirane') <= NOW()
-              THEN 1 ELSE 0
-            END AS is_past
+            CASE WHEN (($1::date + $2::time) AT TIME ZONE 'Europe/Tirane') <= NOW() THEN 1 ELSE 0 END AS is_past
         )
         INSERT INTO public.customers (
-          restaurant_id,
-          phone,
-          full_name,
-          first_seen_at,
-          last_seen_at,
-          visits_count,
-          created_at,
-          updated_at
+          restaurant_id, phone, full_name,
+          first_seen_at, last_seen_at, visits_count,
+          created_at, updated_at
         )
         VALUES (
-          $3,
-          $4,
-          NULLIF($5,''),
+          $3, $4, NULLIF($5,''),
           (SELECT now_ts FROM flags),
           (SELECT CASE WHEN is_past=1 THEN ts ELSE NULL END FROM flags),
           (SELECT CASE WHEN is_past=1 THEN 1 ELSE 0 END FROM flags),
-          NOW(),
-          NOW()
+          NOW(), NOW()
         )
         ON CONFLICT (restaurant_id, phone)
         DO UPDATE SET
@@ -2019,8 +1967,7 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
             THEN GREATEST(COALESCE(public.customers.last_seen_at, (SELECT ts FROM flags)), (SELECT ts FROM flags))
             ELSE public.customers.last_seen_at
           END,
-          visits_count = public.customers.visits_count +
-            (SELECT CASE WHEN is_past=1 THEN 1 ELSE 0 END FROM flags),
+          visits_count = public.customers.visits_count + (SELECT CASE WHEN is_past=1 THEN 1 ELSE 0 END FROM flags),
           updated_at = NOW();
         `,
         [dateStr, timeStr, req.restaurant_id, r.phone, r.customer_name]
@@ -2029,7 +1976,7 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
       console.error("⚠️ Sync to customers failed (non-blocking):", e.message);
     }
 
-    // ✅ SYNC INTO EVENTS (CORE) – non-blocking
+    // Sync to events (non-blocking)
     try {
       await pool.query(
         `
@@ -2069,7 +2016,6 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
     });
   } catch (err) {
     console.error("❌ POST /reservations error:", err);
-
     if (err && err.code === "23505") {
       return res.status(409).json({
         success: false,
@@ -2079,16 +2025,9 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
         code: err.code,
       });
     }
-
-    return res.status(500).json({
-      success: false,
-      version: APP_VERSION,
-      error: err.message,
-      code: err.code || null,
-    });
+    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message, code: err.code || null });
   }
 });
-
 
 app.get("/reservations", requireApiKey, requireDbReady, async (req, res) => {
   try {
@@ -2097,24 +2036,12 @@ app.get("/reservations", requireApiKey, requireDbReady, async (req, res) => {
     const result = await pool.query(
       `
       SELECT
-        id,
-        restaurant_id,
-        reservation_id,
-        restaurant_name,
-        customer_name,
-        phone,
+        id, restaurant_id, reservation_id, restaurant_name,
+        customer_name, phone,
         date::text AS date,
-        time,
-        people,
-        channel,
-        area,
-        first_time,
-        allergies,
-        special_requests,
-        status,
-        feedback_requested_at,
-        feedback_received_at,
-        created_at
+        time, people, channel, area,
+        first_time, allergies, special_requests,
+        status, feedback_requested_at, feedback_received_at, created_at
       FROM public.reservations
       WHERE restaurant_id = $1
       ORDER BY created_at DESC
@@ -2136,30 +2063,17 @@ app.get("/reservations/upcoming", requireApiKey, requireDbReady, async (req, res
     const days = Math.min(Math.max(Number(req.query.days || 30), 1), 365);
 
     const today = await getTodayAL();
-    const end = (await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [today, days]))
-      .rows[0].d;
+    const end = (await pool.query(`SELECT ($1::date + ($2::int || ' days')::interval)::date AS d`, [today, days])).rows[0].d;
 
     const result = await pool.query(
       `
       SELECT
-        id,
-        restaurant_id,
-        reservation_id,
-        restaurant_name,
-        customer_name,
-        phone,
+        id, restaurant_id, reservation_id, restaurant_name,
+        customer_name, phone,
         date::text AS date,
-        time,
-        people,
-        channel,
-        area,
-        first_time,
-        allergies,
-        special_requests,
-        status,
-        feedback_requested_at,
-        feedback_received_at,
-        created_at
+        time, people, channel, area,
+        first_time, allergies, special_requests,
+        status, feedback_requested_at, feedback_received_at, created_at
       FROM public.reservations
       WHERE restaurant_id = $1
         AND date::date >= $2::date
@@ -2184,6 +2098,7 @@ app.get("/reservations/upcoming", requireApiKey, requireDbReady, async (req, res
     return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
   }
 });
+
 
 // ==================== OWNER CONFIRM / DECLINE (ONLY PENDING) ====================
 
