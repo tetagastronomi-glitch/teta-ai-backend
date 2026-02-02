@@ -125,6 +125,35 @@ async function getNowHHMI_AL() {
   `);
   return q.rows[0].now_hhmi; // "HH:MI"
 }
+async function getRestaurantRules(restaurant_id) {
+  const DEFAULT_MAX_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 6);
+  const DEFAULT_CUTOFF = String(process.env.SAME_DAY_CUTOFF_HHMI || "11:00").trim();
+
+  try {
+    const q = await pool.query(
+      `
+      SELECT max_auto_confirm_people, same_day_cutoff_hhmi
+      FROM public.restaurants
+      WHERE id = $1
+      LIMIT 1;
+      `,
+      [restaurant_id]
+    );
+
+    const row = q.rows[0] || {};
+    const maxPeople = Number(row.max_auto_confirm_people ?? DEFAULT_MAX_PEOPLE);
+    const cutoff = String(row.same_day_cutoff_hhmi ?? DEFAULT_CUTOFF).trim();
+
+    const cutoffOk = /^(\d{2}):(\d{2})$/.test(cutoff) ? cutoff : DEFAULT_CUTOFF;
+
+    return {
+      maxPeople: Number.isFinite(maxPeople) && maxPeople > 0 ? maxPeople : DEFAULT_MAX_PEOPLE,
+      cutoffHHMI: cutoffOk,
+    };
+  } catch (e) {
+    return { maxPeople: DEFAULT_MAX_PEOPLE, cutoffHHMI: DEFAULT_CUTOFF };
+  }
+}
 
 // ✅ Helper: returns true if reservation is for TODAY and time has already passed (Europe/Tirane)
 async function isTimePassedTodayAL(reservationDate, reservationTimeHHMI) {
@@ -1797,8 +1826,48 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
       });
     }
 
+   // ==================== RESERVATIONS ====================
+app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
+  try {
+    const r = req.body || {};
+    const required = ["customer_name", "phone", "date", "time", "people"];
+    for (const f of required) {
+      if (r[f] === undefined || r[f] === null || r[f] === "") {
+        return res.status(400).json({
+          success: false,
+          version: APP_VERSION,
+          error: `Missing field: ${f}`,
+          error_code: "MISSING_FIELD",
+        });
+      }
+    }
+
+    const people = Number(r.people);
+    if (!Number.isFinite(people) || people <= 0) {
+      return res.status(400).json({
+        success: false,
+        version: APP_VERSION,
+        error: "people must be a positive number",
+        error_code: "INVALID_PEOPLE",
+      });
+    }
+
+    const dateStr = String(r.date).trim();
+
+    // ✅ strict time normalize (returns null if invalid)
+    const timeStr = normalizeTimeHHMI(r.time);
+    if (!timeStr) {
+      return res.status(400).json({
+        success: false,
+        version: APP_VERSION,
+        error: "Ora është e pavlefshme.",
+        error_code: "INVALID_TIME",
+      });
+    }
+
     // ✅ REJECT if reservation is for TODAY and time already passed (Europe/Tirane)
-    const guard = await rejectIfTimePassedTodayAL(toYMD(dateStr), timeStr);
+    // NOTE: rejectIfTimePassedTodayAL does its own toYMD normalization internally
+    const guard = await rejectIfTimePassedTodayAL(dateStr, timeStr);
     if (!guard.ok) {
       return res.status(400).json({
         success: false,
@@ -1810,7 +1879,8 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
       });
     }
 
-    const decision = await decideReservationStatus(dateStr, people);
+    // ✅ STATUS (PER BUSINESS - DB rules)
+    const decision = await decideReservationStatus(req.restaurant_id, dateStr, people);
     const status = decision.status;
 
     const reservation_id = r.reservation_id || crypto.randomUUID();
@@ -1873,6 +1943,7 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
         channel: r.channel || null,
         area: r.area || null,
         status: inserted.status,
+        reason: decision.reason || null, // helpful debug
       },
     };
 
@@ -1906,7 +1977,6 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
     } else {
       fireMakeEvent("reservation_confirmed", payload);
     }
-
     // ✅ AUTO-SYNC INTO CUSTOMERS (CRM) – non-blocking
     try {
       await pool.query(
