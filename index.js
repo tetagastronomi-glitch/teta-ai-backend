@@ -192,6 +192,14 @@ async function rejectIfTimePassedTodayAL(reservationDate, rawTime) {
 
   return { ok: true, timeHHMI };
 }
+function subtractMinutesHHMI(hhmi, minutes) {
+  const [h, m] = hhmi.split(":").map(Number);
+  let total = h * 60 + m - minutes;
+  if (total < 0) total = 0;
+  const hh = String(Math.floor(total / 60)).padStart(2, "0");
+  const mm = String(total % 60).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
 
 // ==================== ✅ STATUS RULE (CENTRALIZED) — FIXED ====================
 // RREGULLI FINAL (siç the ti):
@@ -1081,6 +1089,72 @@ app.post("/admin/restaurants/:id/plan", requireAdminKey, requireDbReady, async (
   if (q.rows.length === 0) return res.status(404).json({ success: false, version: APP_VERSION, error: "Not found" });
 
   res.json({ success: true, version: APP_VERSION, data: q.rows[0] });
+});
+// =====================
+// CRON: AUTO CLOSE RESERVATIONS
+// =====================
+app.post("/cron/auto-close", requireAdminKey, requireDbReady, async (req, res) => {
+  try {
+    const today = getTodayAL();      // "YYYY-MM-DD"
+    const nowHHMI = getNowHHMI_AL(); // "HH:MM"
+
+    const bufferMinutes = 120;
+    const cutoffHHMI = subtractMinutesHHMI(nowHHMI, bufferMinutes);
+
+    const q = await pool.query(
+      `
+      SELECT id, restaurant_id, reservation_id, status, date, time, phone, customer_name
+      FROM public.reservations
+      WHERE
+        status IN ('Confirmed','Pending')
+        AND (
+          (date::date < $1::date)
+          OR (date::date = $1::date AND time <= $2)
+        )
+      ORDER BY date ASC, time ASC
+      LIMIT 500;
+      `,
+      [today, cutoffHHMI]
+    );
+
+    let completed = 0;
+    let noshow = 0;
+
+    for (const r of q.rows) {
+      const finalStatus = r.status === "Confirmed" ? "Completed" : "NoShow";
+
+      const up = await pool.query(
+        `
+        UPDATE public.reservations
+        SET status=$3, closed_at=NOW(), closed_reason='auto_close_cron'
+        WHERE id=$1 AND restaurant_id=$2 AND status=$4
+        RETURNING id;
+        `,
+        [r.id, r.restaurant_id, finalStatus, r.status]
+      );
+
+      if (up.rows.length) {
+        if (finalStatus === "Completed") completed++;
+        else noshow++;
+
+        // sync events (best-effort)
+        pool.query(
+          `UPDATE public.events SET status=$3 WHERE restaurant_id=$1 AND reservation_id=$2;`,
+          [r.restaurant_id, r.reservation_id, finalStatus]
+        ).catch(() => {});
+      }
+    }
+
+    return res.json({
+      success: true,
+      version: APP_VERSION,
+      message: "Auto-close done",
+      data: { scanned: q.rows.length, completed, noshow, today, nowHHMI, cutoffHHMI }
+    });
+  } catch (e) {
+    console.error("❌ /cron/auto-close error:", e);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: "Auto-close failed" });
+  }
 });
 
 // ✅ Admin: update feedback settings
