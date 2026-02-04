@@ -1174,16 +1174,15 @@ app.post("/cron/auto-close", requireAdminKey, requireDbReady, async (req, res) =
       message: "Auto-close done",
       data: { scanned: q.rows.length, completed, noshow, today, nowHHMI, cutoffHHMI }
     });
-  } catch (e) {
-    console.error("❌ /cron/auto-close error:", e);
-    return res.status(500).json({
-      success: false,
-      version: APP_VERSION,
-      error: "Auto-close failed",
-      detail: String(e?.message || e) // ✅ temporary, for debugging
-    });
-  }
-});
+} catch (e) {
+  console.error("❌ /cron/auto-close error:", e);
+  return res.status(500).json({
+    success: false,
+    version: APP_VERSION,
+    error: "Auto-close failed"
+  });
+}
+
 
 
 // ✅ Admin: update feedback settings
