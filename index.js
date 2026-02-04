@@ -1114,9 +1114,8 @@ app.post("/admin/restaurants/:id/plan", requireAdminKey, requireDbReady, async (
 // =====================
 app.post("/cron/auto-close", requireAdminKey, requireDbReady, async (req, res) => {
   try {
-    // ✅ MUST await (async helpers)
-    const today = await getTodayAL();      // "YYYY-MM-DD"
-    const nowHHMI = await getNowHHMI_AL(); // "HH:MM"
+    const today = await getTodayAL();
+    const nowHHMI = await getNowHHMI_AL();
 
     const bufferMinutes = 120;
     const cutoffHHMI = subtractMinutesHHMI(nowHHMI, bufferMinutes);
@@ -1160,7 +1159,6 @@ app.post("/cron/auto-close", requireAdminKey, requireDbReady, async (req, res) =
         if (finalStatus === "Completed") completed++;
         else noshow++;
 
-        // sync events (best-effort)
         pool.query(
           `UPDATE public.events SET status=$3 WHERE restaurant_id=$1 AND reservation_id=$2;`,
           [r.restaurant_id, r.reservation_id, finalStatus]
@@ -1174,15 +1172,15 @@ app.post("/cron/auto-close", requireAdminKey, requireDbReady, async (req, res) =
       message: "Auto-close done",
       data: { scanned: q.rows.length, completed, noshow, today, nowHHMI, cutoffHHMI }
     });
-} catch (e) {
-  console.error("❌ /cron/auto-close error:", e);
-  return res.status(500).json({
-    success: false,
-    version: APP_VERSION,
-    error: "Auto-close failed"
-  });
-}
-
+  } catch (e) {
+    console.error("❌ /cron/auto-close error:", e);
+    return res.status(500).json({
+      success: false,
+      version: APP_VERSION,
+      error: "Auto-close failed"
+    });
+  }
+}); // ✅ KJO MUNGONTE
 
 
 // ✅ Admin: update feedback settings
