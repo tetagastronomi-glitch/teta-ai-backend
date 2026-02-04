@@ -41,7 +41,7 @@ app.use(express.json({ limit: "1mb" }));
 const MAX_AUTO_CONFIRM_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 4);
 
 // ✅ version marker (ndryshoje kur bën deploy)
-const APP_VERSION = "v-2026-01-24-feedback-owner-controlled-1";
+const APP_VERSION = "v-2026-02-04-close-cycle-1";
 
 // ==================== DB READY FLAG ====================
 let DB_READY = false;
