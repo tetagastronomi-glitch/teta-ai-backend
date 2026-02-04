@@ -599,6 +599,10 @@ async function initDb() {
       ALTER TABLE public.restaurants
       ADD COLUMN IF NOT EXISTS feedback_template TEXT NOT NULL DEFAULT '';
     `);
+// ✅ Close-cycle fields (safe)
+await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ;`);
+await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS closed_reason TEXT DEFAULT '';`);
+await pool.query(`CREATE INDEX IF NOT EXISTS idx_res_rest_closed_at ON public.reservations (restaurant_id, closed_at);`);
 
     // api_keys
     await pool.query(`
@@ -1504,6 +1508,101 @@ app.get("/audience/export", requireApiKey, requireDbReady, requirePlan("PRO"), a
     return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
   }
 });
+function mapFinalStatus(action) {
+  if (action === "complete") return "Completed";
+  if (action === "no-show") return "NoShow";
+  if (action === "cancel") return "Cancelled";
+  return null;
+}
+
+async function closeReservationByOwner({ restaurant_id, reservationPkId, action }) {
+  const finalStatus = mapFinalStatus(action);
+  if (!finalStatus) return { ok: false, code: 400, error: "Invalid action" };
+
+  const beforeQ = await pool.query(
+    `
+    SELECT id, reservation_id, status, date, time, phone, customer_name, restaurant_name, people, channel, area, created_at
+    FROM public.reservations
+    WHERE id=$1 AND restaurant_id=$2
+    LIMIT 1;
+    `,
+    [reservationPkId, restaurant_id]
+  );
+  if (!beforeQ.rows.length) return { ok: false, code: 404, error: "Reservation not found" };
+
+  const r = beforeQ.rows[0];
+  const statusBefore = String(r.status || "");
+
+  const finals = new Set(["Completed", "NoShow", "Cancelled"]);
+  if (finals.has(statusBefore)) {
+    return { ok: false, code: 409, error: `Already closed (${statusBefore})`, data: r };
+  }
+
+  if (action === "complete" && statusBefore !== "Confirmed") {
+    return { ok: false, code: 409, error: "Can complete only Confirmed reservations", data: r };
+  }
+  if (action === "cancel" && !(statusBefore === "Pending" || statusBefore === "Confirmed")) {
+    return { ok: false, code: 409, error: "Can cancel only Pending/Confirmed reservations", data: r };
+  }
+  if (action === "no-show" && !(statusBefore === "Pending" || statusBefore === "Confirmed")) {
+    return { ok: false, code: 409, error: "Can mark no-show only Pending/Confirmed reservations", data: r };
+  }
+
+  // Atomic update with optimistic lock on previous status
+  const up = await pool.query(
+    `
+    UPDATE public.reservations
+    SET status=$3, closed_at=NOW(), closed_reason=$4
+    WHERE id=$1 AND restaurant_id=$2 AND status=$5
+    RETURNING id, reservation_id, restaurant_id, restaurant_name, customer_name, phone, date, time, people, channel, area, status, created_at, closed_at, closed_reason;
+    `,
+    [reservationPkId, restaurant_id, finalStatus, `owner_${action}`, statusBefore]
+  );
+
+  if (!up.rows.length) return { ok: false, code: 409, error: "State changed, try again" };
+
+  const row = up.rows[0];
+
+  // Sync events (best-effort)
+  pool
+    .query(`UPDATE public.events SET status=$3 WHERE restaurant_id=$1 AND reservation_id=$2;`, [
+      restaurant_id,
+      row.reservation_id,
+      finalStatus,
+    ])
+    .catch(() => {});
+
+  // Update customer stats ONLY on Completed (best-effort)
+  if (finalStatus === "Completed") {
+    const ymd = String(row.date).slice(0, 10);
+    const hhmi = String(row.time || "").trim().slice(0, 5); // "HH:MI"
+
+    pool
+      .query(
+        `
+        INSERT INTO public.customers (restaurant_id, phone, full_name, first_seen_at, last_seen_at, visits_count)
+        VALUES (
+          $1,
+          $2,
+          $3,
+          ((($4::date + $5::time) AT TIME ZONE 'Europe/Tirane')),
+          ((($4::date + $5::time) AT TIME ZONE 'Europe/Tirane')),
+          1
+        )
+        ON CONFLICT (restaurant_id, phone) DO UPDATE
+        SET
+          full_name = COALESCE(NULLIF(EXCLUDED.full_name, ''), public.customers.full_name),
+          last_seen_at = GREATEST(public.customers.last_seen_at, EXCLUDED.last_seen_at),
+          visits_count = public.customers.visits_count + 1,
+          updated_at = NOW();
+        `,
+        [restaurant_id, row.phone, row.customer_name, ymd, hhmi]
+      )
+      .catch(() => {});
+  }
+
+  return { ok: true, status_before: statusBefore, status_after: finalStatus, row };
+}
 
 // ==================== OWNER VIEW (READ ONLY) ====================
 app.get("/owner/customers", requireOwnerKey, requireDbReady, async (req, res) => {
@@ -1585,6 +1684,113 @@ app.get("/owner/reservations", requireOwnerKey, requireDbReady, async (req, res)
   } catch (err) {
     console.error("❌ GET /owner/reservations error:", err);
     return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
+  }
+});
+app.post("/owner/reservations/:id/complete", requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) {
+      return res.status(400).json({ success: false, version: APP_VERSION, error: "Invalid id" });
+    }
+
+    const r = await closeReservationByOwner({
+      restaurant_id: req.restaurant_id,
+      reservationPkId: id,
+      action: "complete",
+    });
+
+    if (!r.ok) {
+      return res.status(r.code).json({ success: false, version: APP_VERSION, error: r.error, data: r.data || null });
+    }
+
+    fireMakeEvent("reservation_completed", {
+      restaurant_id: req.restaurant_id,
+      ts: new Date().toISOString(),
+      data: { id: r.row.id, reservation_id: r.row.reservation_id, status_before: r.status_before, status_after: r.status_after },
+    });
+
+    return res.json({
+      success: true,
+      version: APP_VERSION,
+      restaurant_id: req.restaurant_id,
+      message: "Reservation completed.",
+      data: { ...r.row, created_at_local: formatALDate(r.row.created_at), closed_at_local: formatALDate(r.row.closed_at) },
+    });
+  } catch (e) {
+    console.error("❌ complete error:", e);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: "Complete failed" });
+  }
+});
+
+app.post("/owner/reservations/:id/no-show", requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) {
+      return res.status(400).json({ success: false, version: APP_VERSION, error: "Invalid id" });
+    }
+
+    const r = await closeReservationByOwner({
+      restaurant_id: req.restaurant_id,
+      reservationPkId: id,
+      action: "no-show",
+    });
+
+    if (!r.ok) {
+      return res.status(r.code).json({ success: false, version: APP_VERSION, error: r.error, data: r.data || null });
+    }
+
+    fireMakeEvent("reservation_no_show", {
+      restaurant_id: req.restaurant_id,
+      ts: new Date().toISOString(),
+      data: { id: r.row.id, reservation_id: r.row.reservation_id, status_before: r.status_before, status_after: r.status_after },
+    });
+
+    return res.json({
+      success: true,
+      version: APP_VERSION,
+      restaurant_id: req.restaurant_id,
+      message: "Reservation marked as no-show.",
+      data: { ...r.row, created_at_local: formatALDate(r.row.created_at), closed_at_local: formatALDate(r.row.closed_at) },
+    });
+  } catch (e) {
+    console.error("❌ no-show error:", e);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: "No-show failed" });
+  }
+});
+
+app.post("/owner/reservations/:id/cancel", requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) {
+      return res.status(400).json({ success: false, version: APP_VERSION, error: "Invalid id" });
+    }
+
+    const r = await closeReservationByOwner({
+      restaurant_id: req.restaurant_id,
+      reservationPkId: id,
+      action: "cancel",
+    });
+
+    if (!r.ok) {
+      return res.status(r.code).json({ success: false, version: APP_VERSION, error: r.error, data: r.data || null });
+    }
+
+    fireMakeEvent("reservation_cancelled", {
+      restaurant_id: req.restaurant_id,
+      ts: new Date().toISOString(),
+      data: { id: r.row.id, reservation_id: r.row.reservation_id, status_before: r.status_before, status_after: r.status_after },
+    });
+
+    return res.json({
+      success: true,
+      version: APP_VERSION,
+      restaurant_id: req.restaurant_id,
+      message: "Reservation cancelled.",
+      data: { ...r.row, created_at_local: formatALDate(r.row.created_at), closed_at_local: formatALDate(r.row.closed_at) },
+    });
+  } catch (e) {
+    console.error("❌ cancel error:", e);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: "Cancel failed" });
   }
 });
 
