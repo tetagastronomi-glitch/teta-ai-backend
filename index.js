@@ -66,7 +66,7 @@ function requireDbReady(req, res, next) {
   next();
 }
 
-// ==================== TIME HELPERS (FINAL) ====================
+// ==================== TIME HELPERS (FINAL - SAFE) ====================
 // Assumes you already have: const pool = new Pool({ ... })
 
 function formatALDate(d) {
@@ -82,11 +82,12 @@ function formatALDate(d) {
 }
 
 // ✅ Helper: get "today" in Albania date as YYYY-MM-DD string (server-agnostic)
+// NOTE: async => MUST be used with await
 async function getTodayAL() {
   const q = await pool.query(`
     SELECT to_char((CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date, 'YYYY-MM-DD') AS d
   `);
-  return q.rows[0].d; // "YYYY-MM-DD"
+  return String(q.rows?.[0]?.d || "").trim(); // "YYYY-MM-DD"
 }
 
 // ✅ Helper: normalize any date input to YYYY-MM-DD string (safe)
@@ -119,12 +120,16 @@ function normalizeTimeHHMI(t) {
 }
 
 // ✅ Helper: get "now" time in Albania as HH:MI string (server-agnostic)
+// NOTE: async => MUST be used with await
 async function getNowHHMI_AL() {
   const q = await pool.query(`
     SELECT to_char((CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::time, 'HH24:MI') AS now_hhmi
   `);
-  return q.rows[0].now_hhmi; // "HH:MI"
+  // ensure always HH:MI
+  return normalizeTimeHHMI(q.rows?.[0]?.now_hhmi) || "00:00";
 }
+
+// ✅ Helper: per-restaurant rules (fallback to env defaults)
 async function getRestaurantRules(restaurant_id) {
   const DEFAULT_MAX_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 6);
   const DEFAULT_CUTOFF = String(process.env.SAME_DAY_CUTOFF_HHMI || "11:00").trim();
@@ -140,18 +145,21 @@ async function getRestaurantRules(restaurant_id) {
       [restaurant_id]
     );
 
-    const row = q.rows[0] || {};
-    const maxPeople = Number(row.max_auto_confirm_people ?? DEFAULT_MAX_PEOPLE);
-    const cutoff = String(row.same_day_cutoff_hhmi ?? DEFAULT_CUTOFF).trim();
+    const row = q.rows?.[0] || {};
+    const maxPeopleRaw = Number(row.max_auto_confirm_people ?? DEFAULT_MAX_PEOPLE);
+    const cutoffRaw = String(row.same_day_cutoff_hhmi ?? DEFAULT_CUTOFF).trim();
 
-    const cutoffOk = /^(\d{2}):(\d{2})$/.test(cutoff) ? cutoff : DEFAULT_CUTOFF;
+    const maxPeople =
+      Number.isFinite(maxPeopleRaw) && maxPeopleRaw > 0 ? maxPeopleRaw : DEFAULT_MAX_PEOPLE;
 
-    return {
-      maxPeople: Number.isFinite(maxPeople) && maxPeople > 0 ? maxPeople : DEFAULT_MAX_PEOPLE,
-      cutoffHHMI: cutoffOk,
-    };
+    const cutoffHHMI = normalizeTimeHHMI(cutoffRaw) || normalizeTimeHHMI(DEFAULT_CUTOFF) || "11:00";
+
+    return { maxPeople, cutoffHHMI };
   } catch (e) {
-    return { maxPeople: DEFAULT_MAX_PEOPLE, cutoffHHMI: DEFAULT_CUTOFF };
+    return {
+      maxPeople: Number.isFinite(DEFAULT_MAX_PEOPLE) && DEFAULT_MAX_PEOPLE > 0 ? DEFAULT_MAX_PEOPLE : 6,
+      cutoffHHMI: normalizeTimeHHMI(DEFAULT_CUTOFF) || "11:00",
+    };
   }
 }
 
@@ -161,16 +169,17 @@ async function isTimePassedTodayAL(reservationDate, reservationTimeHHMI) {
   const todayYMD = await getTodayAL();
   if (reqYMD !== todayYMD) return false;
 
-  if (!reservationTimeHHMI) return false; // invalid time should be handled earlier
+  const timeHHMI = normalizeTimeHHMI(reservationTimeHHMI);
+  if (!timeHHMI) return false;
+
   const nowHHMI = await getNowHHMI_AL();
 
   // String compare works because both are zero-padded "HH:MI"
-  return reservationTimeHHMI < nowHHMI;
+  return timeHHMI < nowHHMI;
 }
 
 // ✅ Helper: enforce "reject if time passed today" with your exact user-facing message
 async function rejectIfTimePassedTodayAL(reservationDate, rawTime) {
-  // rawTime may already be normalized, but we keep it robust
   const timeHHMI = normalizeTimeHHMI(rawTime);
   if (!timeHHMI) {
     return {
@@ -192,14 +201,24 @@ async function rejectIfTimePassedTodayAL(reservationDate, rawTime) {
 
   return { ok: true, timeHHMI };
 }
+
+// ✅ Helper: subtract minutes from HH:MI safely (never returns invalid)
 function subtractMinutesHHMI(hhmi, minutes) {
-  const [h, m] = hhmi.split(":").map(Number);
-  let total = h * 60 + m - minutes;
-  if (total < 0) total = 0;
+  const t = normalizeTimeHHMI(hhmi) || "00:00";
+  const mins = Number(minutes);
+  const safeMins = Number.isFinite(mins) && mins >= 0 ? Math.floor(mins) : 0;
+
+  const [h, m] = t.split(":").map(Number);
+  let total = h * 60 + m - safeMins;
+
+  if (!Number.isFinite(total) || total < 0) total = 0;
+  if (total > 23 * 60 + 59) total = 23 * 60 + 59;
+
   const hh = String(Math.floor(total / 60)).padStart(2, "0");
   const mm = String(total % 60).padStart(2, "0");
   return `${hh}:${mm}`;
 }
+
 
 // ==================== ✅ STATUS RULE (CENTRALIZED) — FIXED ====================
 // RREGULLI FINAL (siç the ti):
@@ -1095,8 +1114,9 @@ app.post("/admin/restaurants/:id/plan", requireAdminKey, requireDbReady, async (
 // =====================
 app.post("/cron/auto-close", requireAdminKey, requireDbReady, async (req, res) => {
   try {
-    const today = getTodayAL();      // "YYYY-MM-DD"
-    const nowHHMI = getNowHHMI_AL(); // "HH:MM"
+    // ✅ MUST await (async helpers)
+    const today = await getTodayAL();      // "YYYY-MM-DD"
+    const nowHHMI = await getNowHHMI_AL(); // "HH:MM"
 
     const bufferMinutes = 120;
     const cutoffHHMI = subtractMinutesHHMI(nowHHMI, bufferMinutes);
@@ -1109,7 +1129,10 @@ app.post("/cron/auto-close", requireAdminKey, requireDbReady, async (req, res) =
         status IN ('Confirmed','Pending')
         AND (
           (date::date < $1::date)
-          OR (date::date = $1::date AND time <= $2)
+          OR (
+            date::date = $1::date
+            AND NULLIF(time::text,'')::time <= $2::time
+          )
         )
       ORDER BY date ASC, time ASC
       LIMIT 500;
@@ -1153,9 +1176,15 @@ app.post("/cron/auto-close", requireAdminKey, requireDbReady, async (req, res) =
     });
   } catch (e) {
     console.error("❌ /cron/auto-close error:", e);
-    return res.status(500).json({ success: false, version: APP_VERSION, error: "Auto-close failed" });
+    return res.status(500).json({
+      success: false,
+      version: APP_VERSION,
+      error: "Auto-close failed",
+      detail: String(e?.message || e) // ✅ temporary, for debugging
+    });
   }
 });
+
 
 // ✅ Admin: update feedback settings
 app.post("/admin/restaurants/:id/feedback-settings", requireAdminKey, requireDbReady, async (req, res) => {
