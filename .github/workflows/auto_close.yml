@@ -1,0 +1,15 @@
+name: Auto Close Reservations
+
+on:
+  schedule:
+    - cron: "30 2 * * *"   # 02:30 UTC = 03:30 Albania (dimër)
+  workflow_dispatch:
+
+jobs:
+  auto_close:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call auto-close endpoint
+        run: |
+          curl -s -X POST "https://teta-ai-backend-production.up.railway.app/cron/auto-close" \
+            -H "x-admin-key: ${{ secrets.ADMIN_KEY }}"
