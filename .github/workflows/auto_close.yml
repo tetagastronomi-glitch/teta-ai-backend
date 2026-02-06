@@ -1,4 +1,4 @@
-name: Auto Close Reservations
+﻿name: Auto Close Reservations
 
 on:
   schedule:
@@ -11,5 +11,5 @@ jobs:
     steps:
       - name: Call auto-close endpoint
         run: |
-          curl -s -X POST "https://teta-ai-backend-production.up.railway.app/cron/auto-close" \
-            -H "x-admin-key: ${{ secrets.ADMIN_KEY }}"
+          curl -s -X POST https://teta-ai-backend-production.up.railway.app/cron/auto-close \
+            -H "x-admin-key: ${{ tta_admin_master_2026lek }}"
