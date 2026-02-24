@@ -1,4 +1,5 @@
 /**
+ * const axios = require('axios');
  * index.js (FINAL - MULTI-RESTAURANT + ADMIN + PLANS + OWNER ALERTS + CONFIRM/DECLINE EVENTS + CLICK LINKS)
  * Te Ta AI Backend — Reservations + Feedback + Events(CORE) + Reports (Today)
  * + CRM Customers + Consents (LEGAL) + Owner View (read-only via OWNER_KEY table)
@@ -937,27 +938,50 @@ app.get("/webhook", (req, res) => {
   }
 });
 
-app.post("/webhook", (req, res) => {
-  console.log("📩 MESAZH I RI:", JSON.stringify(req.body, null, 2));
-  res.sendStatus(200);
-});
-app.get("/webhook", (req, res) => {
-  const verify_token = "te_ta_ai_2026";
-  const mode = req.query["hub.mode"];
-  const token = req.query["hub.verify_token"];
-  const challenge = req.query["hub.challenge"];
+app.post("/webhook", async (req, res) => {
+  // 1. Ky bllok lexon mesazhin që vjen nga WhatsApp
+  const body = req.body;
 
-  if (mode === "subscribe" && token === verify_token) {
-    console.log("✅ WEBHOOK_VERIFIED_BY_META");
-    return res.status(200).send(challenge);
-  } else {
-    return res.sendStatus(403);
+  if (body.object === "whatsapp_business_account") {
+    const entry = body.entry?.[0];
+    const changes = entry?.changes?.[0];
+    const value = changes?.value;
+    const message = value?.messages?.[0];
+
+    // 2. Kontrollojmë nëse kemi marrë një mesazh teksti
+    if (message && message.type === "text") {
+      const from = message.from; // Numri i telefonit të klientit
+      const customerText = message.text.body; // Teksti që shkroi klienti
+
+      console.log(`📩 Mesazh i ri nga ${from}: ${customerText}`);
+
+      // 3. Kjo është përgjigjja që do të dërgojë roboti
+      const aiResponse = "Përshëndetje! Ky është një mesazh automatik nga sistemi Te Ta AI. Sistemi yt është lidhur me sukses! 🚀";
+
+      try {
+        // 4. Dërgimi i përgjigjes mbrapsht te klienti duke përdorur Variablat e Railway
+        await axios({
+          method: "POST",
+          url: `https://graph.facebook.com/v21.0/${process.env.WA_PHONE_NUMBER_ID}/messages`,
+          data: {
+            messaging_product: "whatsapp",
+            to: from,
+            text: { body: aiResponse },
+          },
+          headers: { 
+            "Authorization": `Bearer ${process.env.WA_TOKEN}`,
+            "Content-Type": "application/json"
+          },
+        });
+        console.log("✅ Përgjigjja u dërgua me sukses!");
+      } catch (error) {
+        // Nëse ka gabim, do e shohim te Railway Logs
+        console.error("❌ Gabim gjatë dërgimit:", error.response?.data || error.message);
+      }
+    }
+    return res.sendStatus(200);
   }
-});
-
-app.post("/webhook", (req, res) => {
-  console.log("📩 MESAZH I RI:", JSON.stringify(req.body, null, 2));
-  res.sendStatus(200);
+  res.sendStatus(404);
 });
 // ==================== HEALTH ====================
 app.get("/", (req, res) => {
