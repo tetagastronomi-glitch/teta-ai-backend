@@ -36,7 +36,7 @@ const pool = require("./db");
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
-
+app.use("/webhook", (req, res, next) => next());
 // ✅ MOD: default e bëmë 4 (më realist), por env e mbivendos
 const MAX_AUTO_CONFIRM_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 4);
 
@@ -923,6 +923,24 @@ await pool.query(`CREATE INDEX IF NOT EXISTS idx_res_rest_closed_at ON public.re
   DB_READY = true;
 })();
 // ✅ KËTU VENDOSET KODI I RI PËR WHATSAPP
+app.get("/webhook", (req, res) => {
+  const verify_token = "te_ta_ai_2026";
+  const mode = req.query["hub.mode"];
+  const token = req.query["hub.verify_token"];
+  const challenge = req.query["hub.challenge"];
+
+  if (mode === "subscribe" && token === verify_token) {
+    console.log("✅ WEBHOOK_VERIFIED_BY_META");
+    return res.status(200).send(challenge);
+  } else {
+    return res.sendStatus(403);
+  }
+});
+
+app.post("/webhook", (req, res) => {
+  console.log("📩 MESAZH I RI:", JSON.stringify(req.body, null, 2));
+  res.sendStatus(200);
+});
 app.get("/webhook", (req, res) => {
   const verify_token = "te_ta_ai_2026";
   const mode = req.query["hub.mode"];
