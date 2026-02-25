@@ -34,6 +34,40 @@ const cors = require("cors");
 const crypto = require("crypto");
 const pool = require("./db");
 
+// ==================== HTTP CLIENT (AXIOS OPTIONAL) ====================
+// This keeps compatibility with older code that uses axios(), without requiring axios as a dependency.
+let axios;
+try {
+  axios = require("axios");
+} catch (e) {
+  axios = async function axiosLike(config) {
+    const method = String(config?.method || "GET").toUpperCase();
+    const url = String(config?.url || "");
+    const headers = Object.assign({}, config?.headers || {});
+    let body = undefined;
+    if (config?.data !== undefined) {
+      body = JSON.stringify(config.data);
+      if (!headers["Content-Type"] && !headers["content-type"]) headers["Content-Type"] = "application/json";
+    }
+    const _fetch = async (u, opts) => {
+      if (typeof fetch === "function") return fetch(u, opts);
+      const mod = await import("node-fetch");
+      return mod.default(u, opts);
+    };
+    const r = await _fetch(url, { method, headers, body });
+    const text = await r.text().catch(() => "");
+    let data;
+    try { data = JSON.parse(text); } catch (_) { data = text; }
+    if (!r.ok) {
+      const err = new Error("HTTP " + r.status);
+      err.response = { status: r.status, data };
+      throw err;
+    }
+    return { status: r.status, data };
+  };
+}
+
+
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
