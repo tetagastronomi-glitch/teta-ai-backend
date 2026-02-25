@@ -34,40 +34,6 @@ const cors = require("cors");
 const crypto = require("crypto");
 const pool = require("./db");
 
-// ==================== HTTP CLIENT (AXIOS OPTIONAL) ====================
-// This keeps compatibility with older code that uses axios(), without requiring axios as a dependency.
-let axios;
-try {
-  axios = require("axios");
-} catch (e) {
-  axios = async function axiosLike(config) {
-    const method = String(config?.method || "GET").toUpperCase();
-    const url = String(config?.url || "");
-    const headers = Object.assign({}, config?.headers || {});
-    let body = undefined;
-    if (config?.data !== undefined) {
-      body = JSON.stringify(config.data);
-      if (!headers["Content-Type"] && !headers["content-type"]) headers["Content-Type"] = "application/json";
-    }
-    const _fetch = async (u, opts) => {
-      if (typeof fetch === "function") return fetch(u, opts);
-      const mod = await import("node-fetch");
-      return mod.default(u, opts);
-    };
-    const r = await _fetch(url, { method, headers, body });
-    const text = await r.text().catch(() => "");
-    let data;
-    try { data = JSON.parse(text); } catch (_) { data = text; }
-    if (!r.ok) {
-      const err = new Error("HTTP " + r.status);
-      err.response = { status: r.status, data };
-      throw err;
-    }
-    return { status: r.status, data };
-  };
-}
-
-
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
@@ -729,7 +695,30 @@ await pool.query(`CREATE INDEX IF NOT EXISTS idx_res_rest_closed_at ON public.re
         comment TEXT DEFAULT '',
         created_at TIMESTAMP DEFAULT NOW()
       );
+    `)
+    // ==================== FEEDBACK MESSAGES (WHATSAPP / MAKE) ====================
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS public.feedback_messages (
+        id BIGSERIAL PRIMARY KEY,
+        restaurant_id BIGINT NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
+
+        twilio_message_sid TEXT UNIQUE,
+        feedback_request_id TEXT,
+
+        from_phone TEXT NOT NULL,
+        message_body TEXT NOT NULL,
+        direction TEXT NOT NULL CHECK (direction IN ('inbound','outbound')),
+
+        classification TEXT,
+        score INT CHECK (score BETWEEN 1 AND 10),
+
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
     `);
+
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_feedback_messages_restaurant_created ON public.feedback_messages (restaurant_id, created_at DESC);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_feedback_messages_classification ON public.feedback_messages (restaurant_id, classification);`);
+;
 
     // Optional: link feedback -> reservation (safe)
     await pool.query(`
