@@ -32,6 +32,7 @@ process.env.TZ = "Europe/Tirane";
 const express = require("express");
 const cors = require("cors");
 const crypto = require("crypto");
+const axios = require("axios");
 const pool = require("./db");
 
 const app = express();
@@ -1011,6 +1012,11 @@ app.get("/", (req, res) => {
   res.status(200).send(`Te Ta Backend is running OK (${APP_VERSION})`);
 });
 
+
+// ✅ Railway / Load balancer healthcheck (NO AUTH, NO DB)
+app.get("/health", (req, res) => {
+  return res.json({ success: true, version: APP_VERSION, db_ready: !!DB_READY });
+});
 app.get("/health/db", requireApiKey, async (req, res) => {
   try {
     const r = await pool.query("SELECT NOW() as now");
