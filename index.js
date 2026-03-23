@@ -1125,6 +1125,8 @@ app.get("/admin/debug-env", requireAdminKey, (req, res) => {
     public_base_url: process.env.PUBLIC_BASE_URL || "",
     api_key_masked: safe(process.env.API_KEY),
     restaurant_id_env: process.env.RESTAURANT_ID || "",
+    has_wa_token: !!process.env.WA_TOKEN,
+    has_wa_phone_id: !!process.env.WA_PHONE_NUMBER_ID,
   });
 });
 
