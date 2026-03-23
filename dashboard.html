@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="sq">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Teta AI — Dashboard</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3248;
+    --accent: #6c63ff;
+    --accent2: #a78bfa;
+    --text: #e2e8f0;
+    --text-muted: #7a8099;
+    --green: #22c55e;
+    --yellow: #f59e0b;
+    --red: #ef4444;
+    --blue: #3b82f6;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; min-height: 100vh; }
+
+  /* ===== LOGIN ===== */
+  #login-screen {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; padding: 20px;
+  }
+  .login-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 40px; width: 100%; max-width: 400px;
+    text-align: center;
+  }
+  .login-box h1 { font-size: 1.8rem; margin-bottom: 6px; color: var(--accent2); }
+  .login-box p { color: var(--text-muted); margin-bottom: 28px; }
+  .login-box input {
+    width: 100%; padding: 12px 16px; background: var(--bg);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    color: var(--text); font-size: 14px; margin-bottom: 12px;
+    outline: none; transition: border-color .2s;
+  }
+  .login-box input:focus { border-color: var(--accent); }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 10px 18px; border-radius: var(--radius); border: none;
+    cursor: pointer; font-size: 13px; font-weight: 600; transition: opacity .15s, transform .1s;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-primary { background: var(--accent); color: #fff; width: 100%; padding: 13px; font-size: 15px; }
+  .btn-primary:hover:not(:disabled) { opacity: .88; }
+  .btn-sm { padding: 5px 11px; font-size: 12px; }
+  .btn-green { background: #16532d; color: var(--green); border: 1px solid #22c55e33; }
+  .btn-green:hover:not(:disabled) { background: #1a6337; }
+  .btn-red { background: #4c1515; color: var(--red); border: 1px solid #ef444433; }
+  .btn-red:hover:not(:disabled) { background: #5c1a1a; }
+  .btn-blue { background: #1e3a5f; color: var(--blue); border: 1px solid #3b82f633; }
+  .btn-blue:hover:not(:disabled) { background: #243f6a; }
+  .btn-yellow { background: #44300a; color: var(--yellow); border: 1px solid #f59e0b33; }
+  .btn-yellow:hover:not(:disabled) { background: #4f3810; }
+  .btn-ghost { background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); }
+  .btn-ghost:hover:not(:disabled) { background: var(--border); }
+  .error-msg { color: var(--red); font-size: 13px; margin-top: 10px; min-height: 18px; }
+
+  /* ===== APP LAYOUT ===== */
+  #app { display: none; flex-direction: column; min-height: 100vh; }
+  header {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  header .logo { font-size: 1.1rem; font-weight: 700; color: var(--accent2); }
+  header .restaurant-badge {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 10px; font-size: 12px; color: var(--text-muted);
+  }
+  .tabs {
+    display: flex; gap: 4px; background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 0 24px; overflow-x: auto;
+  }
+  .tab {
+    padding: 12px 18px; cursor: pointer; font-size: 13px; font-weight: 500;
+    color: var(--text-muted); border-bottom: 2px solid transparent;
+    white-space: nowrap; transition: color .2s, border-color .2s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent2); border-bottom-color: var(--accent2); }
+  .tab-content { padding: 24px; flex: 1; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* ===== STATS ROW ===== */
+  .stats-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px 16px;
+  }
+  .stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+  .stat-value { font-size: 1.8rem; font-weight: 700; }
+  .stat-value.green { color: var(--green); }
+  .stat-value.yellow { color: var(--yellow); }
+  .stat-value.red { color: var(--red); }
+  .stat-value.blue { color: var(--blue); }
+  .stat-value.purple { color: var(--accent2); }
+
+  /* ===== TABLE ===== */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 20px; }
+  .card-header {
+    padding: 14px 18px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  }
+  .card-title { font-size: .95rem; font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; }
+  th { padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); background: var(--surface2); border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface2); }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  /* ===== BADGES ===== */
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 600;
+    white-space: nowrap;
+  }
+  .badge-pending { background: #44300a; color: var(--yellow); }
+  .badge-confirmed { background: #16532d; color: var(--green); }
+  .badge-declined { background: #4c1515; color: var(--red); }
+  .badge-completed { background: #1e3a5f; color: var(--blue); }
+  .badge-no_show { background: #2d1a3e; color: var(--accent2); }
+  .badge-cancelled { background: #2a2a2a; color: var(--text-muted); }
+
+  /* ===== EMPTY / LOADING ===== */
+  .empty { padding: 40px; text-align: center; color: var(--text-muted); }
+  .spinner {
+    width: 20px; height: 20px; border: 2px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin .7s linear infinite; display: inline-block;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-row td { text-align: center; padding: 30px; }
+
+  /* ===== TOAST ===== */
+  #toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 12px 18px;
+    font-size: 13px; color: var(--text); max-width: 320px;
+    transform: translateY(80px); opacity: 0;
+    transition: all .25s ease; z-index: 9999; pointer-events: none;
+  }
+  #toast.show { transform: translateY(0); opacity: 1; }
+  #toast.success { border-color: var(--green); color: var(--green); }
+  #toast.error { border-color: var(--red); color: var(--red); }
+
+  /* ===== FEEDBACK SECTION ===== */
+  .feedback-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+  .feedback-card {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px;
+  }
+  .feedback-card .score { font-size: 1.4rem; font-weight: 700; }
+  .feedback-card .score.high { color: var(--green); }
+  .feedback-card .score.mid { color: var(--yellow); }
+  .feedback-card .score.low { color: var(--red); }
+
+  /* ===== FILTER / SEARCH ===== */
+  .toolbar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+  .search-input {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 8px 12px; color: var(--text);
+    font-size: 13px; outline: none; min-width: 200px; transition: border-color .2s;
+  }
+  .search-input:focus { border-color: var(--accent); }
+  select.search-input { cursor: pointer; }
+
+  .text-muted { color: var(--text-muted); }
+  .mt-2 { margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <h1>Teta AI</h1>
+    <p>Hyni me Owner Key-n tuaj</p>
+    <input type="password" id="owner-key-input" placeholder="x-owner-key..." autocomplete="off" />
+    <button class="btn btn-primary" id="login-btn" onclick="doLogin()">Hyr</button>
+    <div class="error-msg" id="login-error"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <header>
+    <span class="logo">Teta AI Dashboard</span>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span class="restaurant-badge" id="restaurant-badge">—</span>
+      <button class="btn btn-ghost btn-sm" onclick="doLogout()">Dil</button>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('reservations', this)">Rezervimet</div>
+    <div class="tab" onclick="switchTab('customers', this)">Klientët</div>
+    <div class="tab" onclick="switchTab('feedback', this)">Feedback</div>
+  </div>
+
+  <div class="tab-content">
+
+    <!-- RESERVATIONS PANEL -->
+    <div id="panel-reservations" class="panel active">
+      <div class="stats-row" id="res-stats"></div>
+
+      <div class="toolbar">
+        <input class="search-input" type="text" id="res-search" placeholder="Kërko emër / telefon..." oninput="renderReservations()" />
+        <select class="search-input" id="res-status-filter" onchange="renderReservations()">
+          <option value="">Të gjitha statuset</option>
+          <option value="pending">Pending</option>
+          <option value="confirmed">Confirmed</option>
+          <option value="declined">Declined</option>
+          <option value="completed">Completed</option>
+          <option value="no_show">No Show</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="loadReservations()">↻ Rifresko</button>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Rezervimet</span>
+          <span class="text-muted" id="res-count">—</span>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Emri</th>
+                <th>Telefon</th>
+                <th>Data</th>
+                <th>Ora</th>
+                <th>Persona</th>
+                <th>Zona</th>
+                <th>Statusi</th>
+                <th>Kanali</th>
+                <th>Veprime</th>
+              </tr>
+            </thead>
+            <tbody id="res-tbody">
+              <tr class="loading-row"><td colspan="10"><div class="spinner"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- CUSTOMERS PANEL -->
+    <div id="panel-customers" class="panel">
+      <div class="toolbar">
+        <input class="search-input" type="text" id="cust-search" placeholder="Kërko emër / telefon..." oninput="renderCustomers()" />
+        <button class="btn btn-ghost btn-sm" onclick="loadCustomers()">↻ Rifresko</button>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Klientët</span>
+          <span class="text-muted" id="cust-count">—</span>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Emri</th>
+                <th>Telefon</th>
+                <th>Vizita</th>
+                <th>E parë</th>
+                <th>E fundit</th>
+                <th>Marketing</th>
+                <th>SMS</th>
+                <th>WhatsApp</th>
+                <th>Veprime</th>
+              </tr>
+            </thead>
+            <tbody id="cust-tbody">
+              <tr class="loading-row"><td colspan="9"><div class="spinner"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- FEEDBACK PANEL -->
+    <div id="panel-feedback" class="panel">
+      <div style="display:flex;gap:10px;margin-bottom:16px;">
+        <button class="btn btn-ghost btn-sm" onclick="loadFeedback()">↻ Rifresko</button>
+      </div>
+      <div id="feedback-content">
+        <div class="empty"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+  let OWNER_KEY = '';
+  let allReservations = [];
+  let allCustomers = [];
+
+  // ===== AUTH =====
+  async function doLogin() {
+    const key = document.getElementById('owner-key-input').value.trim();
+    if (!key) return;
+    const btn = document.getElementById('login-btn');
+    const err = document.getElementById('login-error');
+    btn.disabled = true; btn.textContent = 'Duke u lidhur...';
+    err.textContent = '';
+    try {
+      const res = await apiFetch('/owner/reservations?limit=1', key);
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        err.textContent = j.error || 'Çelës i pasaktë ose gabim serveri.';
+        return;
+      }
+      OWNER_KEY = key;
+      const j = await res.json();
+      document.getElementById('restaurant-badge').textContent = 'restaurant #' + (j.restaurant_id || '?');
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'flex';
+      loadAll();
+    } catch (e) {
+      err.textContent = 'Nuk u lidh: ' + e.message;
+    } finally {
+      btn.disabled = false; btn.textContent = 'Hyr';
+    }
+  }
+
+  document.getElementById('owner-key-input').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+  function doLogout() {
+    OWNER_KEY = '';
+    allReservations = []; allCustomers = [];
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('owner-key-input').value = '';
+  }
+
+  // ===== API =====
+  function apiFetch(path, key, opts = {}) {
+    const headers = { 'Content-Type': 'application/json', 'x-owner-key': key || OWNER_KEY };
+    return fetch(path, { headers, ...opts });
+  }
+
+  async function apiJSON(path, opts = {}) {
+    const res = await apiFetch(path, OWNER_KEY, opts);
+    const j = await res.json();
+    if (!j.success) throw new Error(j.error || 'API error');
+    return j;
+  }
+
+  // ===== TABS =====
+  function switchTab(name, el) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('panel-' + name).classList.add('active');
+    if (name === 'reservations' && allReservations.length === 0) loadReservations();
+    if (name === 'customers' && allCustomers.length === 0) loadCustomers();
+    if (name === 'feedback') loadFeedback();
+  }
+
+  function loadAll() { loadReservations(); }
+
+  // ===== TOAST =====
+  let toastTimer;
+  function toast(msg, type = 'success') {
+    const el = document.getElementById('toast');
+    el.textContent = msg; el.className = 'show ' + type;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.className = ''; }, 3000);
+  }
+
+  // ===== RESERVATIONS =====
+  async function loadReservations() {
+    document.getElementById('res-tbody').innerHTML = '<tr class="loading-row"><td colspan="10"><div class="spinner"></div></td></tr>';
+    try {
+      const j = await apiJSON('/owner/reservations?limit=100');
+      allReservations = j.data || [];
+      renderReservations();
+    } catch (e) {
+      document.getElementById('res-tbody').innerHTML = `<tr><td colspan="10" class="empty">Gabim: ${e.message}</td></tr>`;
+    }
+  }
+
+  function renderReservations() {
+    const search = document.getElementById('res-search').value.toLowerCase();
+    const statusFilter = document.getElementById('res-status-filter').value;
+
+    let rows = allReservations.filter(r => {
+      const matchSearch = !search ||
+        (r.customer_name || '').toLowerCase().includes(search) ||
+        (r.phone || '').includes(search);
+      const matchStatus = !statusFilter || r.status === statusFilter;
+      return matchSearch && matchStatus;
+    });
+
+    // Stats
+    const counts = { pending: 0, confirmed: 0, declined: 0, completed: 0, no_show: 0, cancelled: 0 };
+    allReservations.forEach(r => { if (counts[r.status] !== undefined) counts[r.status]++; });
+    document.getElementById('res-stats').innerHTML = `
+      <div class="stat-card"><div class="stat-label">Pending</div><div class="stat-value yellow">${counts.pending}</div></div>
+      <div class="stat-card"><div class="stat-label">Konfirmuar</div><div class="stat-value green">${counts.confirmed}</div></div>
+      <div class="stat-card"><div class="stat-label">Refuzuar</div><div class="stat-value red">${counts.declined}</div></div>
+      <div class="stat-card"><div class="stat-label">Kompletuar</div><div class="stat-value blue">${counts.completed}</div></div>
+      <div class="stat-card"><div class="stat-label">No Show</div><div class="stat-value purple">${counts.no_show}</div></div>
+      <div class="stat-card"><div class="stat-label">Anuluar</div><div class="stat-value" style="color:var(--text-muted)">${counts.cancelled}</div></div>
+    `;
+
+    document.getElementById('res-count').textContent = rows.length + ' rekorde';
+
+    if (rows.length === 0) {
+      document.getElementById('res-tbody').innerHTML = '<tr><td colspan="10" class="empty">Asnjë rezervim</td></tr>';
+      return;
+    }
+
+    document.getElementById('res-tbody').innerHTML = rows.map(r => {
+      const badge = statusBadge(r.status);
+      const actions = buildResActions(r);
+      return `<tr>
+        <td class="text-muted">${r.id}</td>
+        <td>${esc(r.customer_name || '—')}</td>
+        <td>${esc(r.phone || '—')}</td>
+        <td>${esc(r.date || '—')}</td>
+        <td>${esc(r.time || '—')}</td>
+        <td>${r.people || '—'}</td>
+        <td>${esc(r.area || '—')}</td>
+        <td>${badge}</td>
+        <td class="text-muted">${esc(r.channel || '—')}</td>
+        <td><div class="actions">${actions}</div></td>
+      </tr>`;
+    }).join('');
+  }
+
+  function statusBadge(status) {
+    const map = {
+      pending: ['badge-pending', 'Pending'],
+      confirmed: ['badge-confirmed', 'Konfirmuar'],
+      declined: ['badge-declined', 'Refuzuar'],
+      completed: ['badge-completed', 'Kompletuar'],
+      no_show: ['badge-no_show', 'No Show'],
+      cancelled: ['badge-cancelled', 'Anuluar'],
+    };
+    const [cls, label] = map[status] || ['', status];
+    return `<span class="badge ${cls}">${label}</span>`;
+  }
+
+  function buildResActions(r) {
+    const btns = [];
+    if (r.status === 'pending') {
+      btns.push(`<button class="btn btn-sm btn-green" onclick="resAction(${r.id},'confirm')">✓ Konfirmo</button>`);
+      btns.push(`<button class="btn btn-sm btn-red" onclick="resAction(${r.id},'decline')">✕ Refuzo</button>`);
+    }
+    if (r.status === 'confirmed') {
+      btns.push(`<button class="btn btn-sm btn-blue" onclick="resAction(${r.id},'complete')">✓ Kompletuar</button>`);
+      btns.push(`<button class="btn btn-sm btn-yellow" onclick="resAction(${r.id},'no-show')">? No Show</button>`);
+      btns.push(`<button class="btn btn-sm btn-red" onclick="resAction(${r.id},'cancel')">✕ Anulo</button>`);
+    }
+    return btns.join('') || '<span class="text-muted">—</span>';
+  }
+
+  async function resAction(id, action) {
+    const labels = { confirm: 'Konfirmo', decline: 'Refuzo', complete: 'Kompletim', 'no-show': 'No Show', cancel: 'Anulo' };
+    if (!confirm(`${labels[action] || action} rezervimin #${id}?`)) return;
+    try {
+      const j = await apiJSON(`/owner/reservations/${id}/${action}`, {
+        method: 'POST', body: JSON.stringify({})
+      });
+      toast(`Sukses: rezervimi u ${labels[action] || action}!`);
+      // update locally
+      const idx = allReservations.findIndex(r => r.id === id);
+      if (idx !== -1) {
+        const statusMap = { confirm: 'confirmed', decline: 'declined', complete: 'completed', 'no-show': 'no_show', cancel: 'cancelled' };
+        allReservations[idx].status = statusMap[action] || allReservations[idx].status;
+      }
+      renderReservations();
+    } catch (e) {
+      toast('Gabim: ' + e.message, 'error');
+    }
+  }
+
+  // ===== CUSTOMERS =====
+  async function loadCustomers() {
+    document.getElementById('cust-tbody').innerHTML = '<tr class="loading-row"><td colspan="9"><div class="spinner"></div></td></tr>';
+    try {
+      const j = await apiJSON('/owner/customers?limit=200');
+      allCustomers = j.data || [];
+      renderCustomers();
+    } catch (e) {
+      document.getElementById('cust-tbody').innerHTML = `<tr><td colspan="9" class="empty">Gabim: ${e.message}</td></tr>`;
+    }
+  }
+
+  function renderCustomers() {
+    const search = document.getElementById('cust-search').value.toLowerCase();
+    const rows = allCustomers.filter(c =>
+      !search ||
+      (c.full_name || '').toLowerCase().includes(search) ||
+      (c.phone || '').includes(search)
+    );
+
+    document.getElementById('cust-count').textContent = rows.length + ' klientë';
+
+    if (rows.length === 0) {
+      document.getElementById('cust-tbody').innerHTML = '<tr><td colspan="9" class="empty">Asnjë klient</td></tr>';
+      return;
+    }
+
+    document.getElementById('cust-tbody').innerHTML = rows.map(c => {
+      const yn = v => v ? '<span style="color:var(--green)">✓</span>' : '<span style="color:var(--text-muted)">—</span>';
+      return `<tr>
+        <td>${esc(c.full_name || '—')}</td>
+        <td>${esc(c.phone || '—')}</td>
+        <td><strong>${c.visits_count || 0}</strong></td>
+        <td class="text-muted">${fmtDate(c.first_seen_at)}</td>
+        <td class="text-muted">${fmtDate(c.last_seen_at)}</td>
+        <td>${yn(c.consent_marketing)}</td>
+        <td>${yn(c.consent_sms)}</td>
+        <td>${yn(c.consent_whatsapp)}</td>
+        <td>
+          <button class="btn btn-sm btn-blue" onclick="sendFeedback(${c.id}, '${esc(c.phone)}')">📩 Feedback</button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  async function sendFeedback(customerId, phone) {
+    if (!confirm(`Dërgo kërkesë feedback tek ${phone}?`)) return;
+    try {
+      await apiJSON('/owner/feedback/send-one', {
+        method: 'POST',
+        body: JSON.stringify({ customer_id: customerId })
+      });
+      toast('Feedback u dërgua!');
+    } catch (e) {
+      toast('Gabim: ' + e.message, 'error');
+    }
+  }
+
+  // ===== FEEDBACK =====
+  async function loadFeedback() {
+    document.getElementById('feedback-content').innerHTML = '<div class="empty"><div class="spinner"></div></div>';
+    try {
+      const j = await apiJSON('/owner/reports/feedback/daily');
+      const d = j.data;
+      if (!d) {
+        document.getElementById('feedback-content').innerHTML = `
+          <div class="empty">
+            <div style="font-size:2rem;margin-bottom:8px;">📭</div>
+            <div>${j.message || 'Nuk ka feedback sot.'}</div>
+          </div>`;
+        return;
+      }
+      const scoreClass = d.avg_score >= 4 ? 'high' : d.avg_score >= 3 ? 'mid' : 'low';
+      document.getElementById('feedback-content').innerHTML = `
+        <div class="stats-row">
+          <div class="stat-card"><div class="stat-label">Total Feedback</div><div class="stat-value blue">${d.total_feedback}</div></div>
+          <div class="stat-card"><div class="stat-label">Mesatarja</div><div class="stat-value ${scoreClass}">${d.avg_score}</div></div>
+          <div class="stat-card"><div class="stat-label">Pozitive</div><div class="stat-value green">${d.positive_count}</div></div>
+          <div class="stat-card"><div class="stat-label">Rrezik</div><div class="stat-value red">${d.risk_count}</div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Raporti ditor — ${d.day}</span></div>
+          <div style="padding:20px;color:var(--text-muted)">
+            Të gjitha feedback-et e mbledhura sot për restorantin tuaj.
+          </div>
+        </div>`;
+    } catch (e) {
+      document.getElementById('feedback-content').innerHTML = `<div class="empty">Gabim: ${e.message}</div>`;
+    }
+  }
+
+  // ===== UTILS =====
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function fmtDate(d) {
+    if (!d) return '—';
+    try { return new Date(d).toLocaleDateString('sq-AL', { day:'2-digit', month:'2-digit', year:'numeric' }); }
+    catch { return String(d).slice(0,10); }
+  }
+</script>
+</body>
+</html>
