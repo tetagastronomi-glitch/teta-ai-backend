@@ -411,7 +411,10 @@
 
     // Stats
     const counts = { pending: 0, confirmed: 0, declined: 0, completed: 0, no_show: 0, cancelled: 0 };
-    allReservations.forEach(r => { if (counts[r.status] !== undefined) counts[r.status]++; });
+    (allReservations || []).forEach(r => {
+      const s = (r.status || '').toLowerCase();
+      if (counts[s] !== undefined) counts[s]++;
+    });
     document.getElementById('res-stats').innerHTML = `
       <div class="stat-card"><div class="stat-label">Pending</div><div class="stat-value yellow">${counts.pending}</div></div>
       <div class="stat-card"><div class="stat-label">Konfirmuar</div><div class="stat-value green">${counts.confirmed}</div></div>
@@ -435,7 +438,7 @@
         <td class="text-muted">${r.id}</td>
         <td>${esc(r.customer_name || '—')}</td>
         <td>${esc(r.phone || '—')}</td>
-        <td>${esc(r.date || '—')}</td>
+        <td>${fmtDate(r.date)}</td>
         <td>${esc(r.time || '—')}</td>
         <td>${r.people || '—'}</td>
         <td>${esc(r.area || '—')}</td>
