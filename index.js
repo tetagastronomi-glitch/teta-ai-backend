@@ -3362,6 +3362,28 @@ app.get('/dashboard', (req, res) => {
   res.sendFile(path.join(__dirname, 'dashboard.html'));
 });
 
+app.get('/test-wa', requireAdminKey, async (_req, res) => {
+  try {
+    const r = await axios({
+      method: 'POST',
+      url: `https://graph.facebook.com/v21.0/${process.env.WA_PHONE_NUMBER_ID}/messages`,
+      headers: {
+        'Authorization': `Bearer ${process.env.WA_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      data: {
+        messaging_product: 'whatsapp',
+        to: '355697918181',
+        type: 'text',
+        text: { body: 'Test nga Te Ta AI - sistemi punon!' }
+      }
+    });
+    return res.json({ ok: true, data: r.data });
+  } catch(e) {
+    return res.json({ ok: false, error: e.response?.data || e.message });
+  }
+});
+
 // ==================== START ====================
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log("✅ Server listening on", PORT));
