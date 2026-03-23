@@ -3386,6 +3386,21 @@ app.get('/test-wa', requireAdminKey, async (_req, res) => {
   }
 });
 
+app.get('/privacy', (_req, res) => {
+  res.type('html').send(`<!doctype html>
+<html><head><meta charset="utf-8"><title>Te Ta AI - Privacy</title></head>
+<body style="font-family:sans-serif;max-width:600px;margin:40px auto;padding:20px">
+<h1>Te Ta AI — Privacy Policy</h1>
+<p>Te Ta AI është platformë për menaxhimin e rezervimeve dhe klientëve për bizneset e hotelërisë.</p>
+<h2>Të dhënat që ruajmë</h2>
+<p>Emri, numri i telefonit, dhe historiku i rezervimeve të klientëve.</p>
+<h2>Si i përdorim</h2>
+<p>Vetëm për qëllime operacionale të biznesit. Nuk shpërndahen me palë të treta.</p>
+<h2>Kontakt</h2>
+<p>gerikurtina@gmail.com</p>
+</body></html>`);
+});
+
 // ==================== START ====================
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log("✅ Server listening on", PORT));
