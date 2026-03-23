@@ -3356,6 +3356,12 @@ app.get("/owner/reports/feedback/daily", requireOwnerKey, requireDbReady, async 
   }
 });
 
+const path = require('path');
+
+app.get('/dashboard', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dashboard.html'));
+});
+
 // ==================== START ====================
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log("✅ Server listening on", PORT));

@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(where python:*)",
+      "Bash(powershell -Command \"irm https://astral.sh/uv/install.ps1 | iex\" 2>&1)",
+      "Bash(cd:*)",
+      "Bash(explorer:*)",
+      "Bash(sleep:*)",
+      "Bash(node:*)",
+      "Bash(docker:*)"
+    ]
+  }
+}
