@@ -2354,7 +2354,8 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
 
     // CLICK LINKS only for Pending
     if (status === "Pending") {
-      const base = String(process.env.PUBLIC_BASE_URL || "https://teta-ai-backend-production.up.railway.app").replace(/\/$/, "");
+      const base = String(process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "");
+      if (!base) console.error("⚠️ PUBLIC_BASE_URL not set — confirm/decline links broken!");
 
       const confirmToken = crypto.randomBytes(18).toString("hex");
       const declineToken = crypto.randomBytes(18).toString("hex");
