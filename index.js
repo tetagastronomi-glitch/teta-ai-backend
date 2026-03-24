@@ -963,7 +963,6 @@ app.get("/webhook", (req, res) => {
 });
 
 app.post("/webhook", async (req, res) => {
-  // 1. Ky bllok lexon mesazhin që vjen nga WhatsApp
   const body = req.body;
 
   if (body.object === "whatsapp_business_account") {
@@ -972,39 +971,16 @@ app.post("/webhook", async (req, res) => {
     const value = changes?.value;
     const message = value?.messages?.[0];
 
-    // 2. Kontrollojmë nëse kemi marrë një mesazh teksti
     if (message && message.type === "text") {
-      const from = message.from; // Numri i telefonit të klientit
-      const customerText = message.text.body; // Teksti që shkroi klienti
-
+      const from = message.from;
+      const customerText = message.text.body;
+      // ✅ FIX #1: Vetëm log — auto-reply DISABLED deri në n8n integration
       console.log(`📩 Mesazh i ri nga ${from}: ${customerText}`);
-
-      // 3. Kjo është përgjigjja që do të dërgojë roboti
-      const aiResponse = "Përshëndetje! Ky është një mesazh automatik nga sistemi Te Ta AI. Sistemi yt është lidhur me sukses! 🚀";
-
-      try {
-        // 4. Dërgimi i përgjigjes mbrapsht te klienti duke përdorur Variablat e Railway
-        await axios({
-          method: "POST",
-          url: `https://graph.facebook.com/v21.0/${process.env.WA_PHONE_NUMBER_ID}/messages`,
-          data: {
-            messaging_product: "whatsapp",
-            to: from,
-            text: { body: aiResponse },
-          },
-          headers: { 
-            "Authorization": `Bearer ${process.env.WA_TOKEN}`,
-            "Content-Type": "application/json"
-          },
-        });
-        console.log("✅ Përgjigjja u dërgua me sukses!");
-      } catch (error) {
-        // Nëse ka gabim, do e shohim te Railway Logs
-        console.error("❌ Gabim gjatë dërgimit:", error.response?.data || error.message);
-      }
     }
+
     return res.sendStatus(200);
   }
+
   res.sendStatus(404);
 });
 // ==================== HEALTH ====================
