@@ -2370,8 +2370,13 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
         [req.restaurant_id, inserted.id, confirmToken, declineToken]
       );
 
-      payload.data.confirm_url = `${base}/o/confirm/${confirmToken}`;
-      payload.data.decline_url = `${base}/o/decline/${declineToken}`;
+      if (base) {
+        payload.data.confirm_url = `${base}/o/confirm/${confirmToken}`;
+        payload.data.decline_url = `${base}/o/decline/${declineToken}`;
+      } else {
+        payload.data.confirm_url = null;
+        payload.data.decline_url = null;
+      }
     }
 
     // Make events
