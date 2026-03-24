@@ -43,7 +43,7 @@ app.use("/webhook", (req, res, next) => next());
 const MAX_AUTO_CONFIRM_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 6);
 
 // ✅ version marker (ndryshoje kur bën deploy)
-const APP_VERSION = "v-2026-02-04-close-cycle-1";
+const APP_VERSION = "v-2026-03-24-ai-insights-1";
 
 // ==================== DB READY FLAG ====================
 let DB_READY = false;
