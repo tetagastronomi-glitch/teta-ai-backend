@@ -40,7 +40,7 @@ app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 app.use("/webhook", (req, res, next) => next());
 // ✅ MOD: default e bëmë 4 (më realist), por env e mbivendos
-const MAX_AUTO_CONFIRM_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 4);
+const MAX_AUTO_CONFIRM_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 6);
 
 // ✅ version marker (ndryshoje kur bën deploy)
 const APP_VERSION = "v-2026-02-04-close-cycle-1";
@@ -628,11 +628,6 @@ async function initDb() {
       ALTER TABLE public.restaurants
       ADD COLUMN IF NOT EXISTS feedback_template TEXT NOT NULL DEFAULT '';
     `);
-// ✅ Close-cycle fields (safe)
-await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ;`);
-await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS closed_reason TEXT DEFAULT '';`);
-await pool.query(`CREATE INDEX IF NOT EXISTS idx_res_rest_closed_at ON public.reservations (restaurant_id, closed_at);`);
-
     // api_keys
     await pool.query(`
       CREATE TABLE IF NOT EXISTS public.api_keys (
@@ -767,6 +762,11 @@ await pool.query(`CREATE INDEX IF NOT EXISTS idx_res_rest_closed_at ON public.re
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS special_requests TEXT DEFAULT '';`);
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS raw JSON;`);
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'Confirmed';`);
+
+    // ✅ FIX #3: closed_at/closed_reason PAS CREATE TABLE
+    await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ;`);
+    await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS closed_reason TEXT DEFAULT '';`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_res_rest_closed_at ON public.reservations (restaurant_id, closed_at);`);
 
     // ✅ feedback anti-spam flags (safe)
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS feedback_requested_at TIMESTAMP;`);
@@ -3381,6 +3381,135 @@ app.get('/privacy', (_req, res) => {
 <h2>Kontakt</h2>
 <p>gerikurtina@gmail.com</p>
 </body></html>`);
+});
+
+// ==================== AI INSIGHTS (OWNER) ====================
+app.get("/owner/ai/insights", requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const rid = req.restaurant_id;
+    const today = await getTodayAL();
+
+    // 1. Rezervimet e 30 ditëve të fundit
+    const resQ = await pool.query(`
+      SELECT date::text AS date, time, people, status, channel, area, created_at
+      FROM public.reservations
+      WHERE restaurant_id = $1
+        AND date::date >= ($2::date - INTERVAL '30 days')::date
+      ORDER BY date DESC, time DESC;
+    `, [rid, today]);
+
+    const reservations = resQ.rows;
+    const total = reservations.length;
+    const confirmed = reservations.filter(r => r.status === 'Confirmed' || r.status === 'Completed').length;
+    const pending = reservations.filter(r => r.status === 'Pending').length;
+    const noshow = reservations.filter(r => r.status === 'NoShow').length;
+    const declined = reservations.filter(r => r.status === 'Declined').length;
+
+    // 2. Dita me më shumë rezervime
+    const byDay = {};
+    for (const r of reservations) {
+      const day = new Date(r.date).toLocaleDateString('sq-AL', { weekday: 'long', timeZone: 'Europe/Tirane' });
+      byDay[day] = (byDay[day] || 0) + 1;
+    }
+    const busiestDay = Object.entries(byDay).sort((a, b) => b[1] - a[1])[0] || null;
+    const slowestDay = Object.entries(byDay).sort((a, b) => a[1] - b[1])[0] || null;
+
+    // 3. Ora peak
+    const byHour = {};
+    for (const r of reservations) {
+      const h = String(r.time || '').slice(0, 2);
+      if (h) byHour[h] = (byHour[h] || 0) + 1;
+    }
+    const peakHour = Object.entries(byHour).sort((a, b) => b[1] - a[1])[0] || null;
+
+    // 4. Feedback trend (30 ditë)
+    const fbQ = await pool.query(`
+      SELECT
+        ROUND(AVG((location_rating + hospitality_rating + food_rating + price_rating) / 4.0), 2) AS avg_rating,
+        COUNT(*)::int AS total_feedback,
+        ROUND(AVG(CASE WHEN created_at >= NOW() - INTERVAL '15 days'
+          THEN (location_rating + hospitality_rating + food_rating + price_rating) / 4.0 END), 2) AS recent_avg,
+        ROUND(AVG(CASE WHEN created_at < NOW() - INTERVAL '15 days'
+          THEN (location_rating + hospitality_rating + food_rating + price_rating) / 4.0 END), 2) AS older_avg
+      FROM public.feedback
+      WHERE restaurant_id = $1
+        AND created_at >= NOW() - INTERVAL '30 days';
+    `, [rid]);
+    const fb = fbQ.rows[0];
+    const feedbackTrend = fb.recent_avg && fb.older_avg
+      ? (Number(fb.recent_avg) > Number(fb.older_avg) ? 'rising' : Number(fb.recent_avg) < Number(fb.older_avg) ? 'falling' : 'stable')
+      : 'insufficient_data';
+
+    // 5. Klientët që po humbasin (>30 ditë pa ardhur)
+    const lostQ = await pool.query(`
+      SELECT COUNT(*)::int AS lost_count
+      FROM public.customers
+      WHERE restaurant_id = $1
+        AND last_seen_at IS NOT NULL
+        AND last_seen_at < NOW() - INTERVAL '30 days'
+        AND visits_count >= 2;
+    `, [rid]);
+    const lostCustomers = lostQ.rows[0]?.lost_count || 0;
+
+    // 6. Klientët VIP (3+ vizita)
+    const vipQ = await pool.query(`
+      SELECT COUNT(*)::int AS vip_count
+      FROM public.customers
+      WHERE restaurant_id = $1 AND visits_count >= 3;
+    `, [rid]);
+    const vipCount = vipQ.rows[0]?.vip_count || 0;
+
+    // 7. No-show rate
+    const noshowRate = total > 0 ? Math.round((noshow / total) * 100) : 0;
+
+    // 8. Grupi mesatar
+    const avgPeople = total > 0
+      ? Math.round(reservations.reduce((s, r) => s + Number(r.people || 0), 0) / total)
+      : 0;
+
+    // 9. Gjenero insights si tekst
+    const insights = [];
+
+    if (busiestDay) insights.push(`📅 Dita më e ngarkuar: ${busiestDay[0]} (${busiestDay[1]} rezervime)`);
+    if (slowestDay && slowestDay[0] !== busiestDay?.[0]) insights.push(`📉 Dita më e zbrazët: ${slowestDay[0]} (${slowestDay[1]} rezervime) — mundësi për promovim`);
+    if (peakHour) insights.push(`⏰ Ora peak: ${peakHour[0]}:00 — sigurohu që stafi të jetë i plotë`);
+    if (noshowRate >= 15) insights.push(`⚠️ No-show rate ${noshowRate}% — konsidero konfirmim manual 1 orë para`);
+    else if (noshowRate > 0) insights.push(`✅ No-show rate i ulët: ${noshowRate}%`);
+    if (feedbackTrend === 'rising') insights.push(`📈 Feedback po rritet — klientët janë gjithnjë e më të kënaqur`);
+    if (feedbackTrend === 'falling') insights.push(`📉 Feedback po bie — kontrollo ankesat e fundit`);
+    if (lostCustomers > 0) insights.push(`👋 ${lostCustomers} klientë të rregullt nuk kanë ardhur 30+ ditë — koha për ri-angazhim`);
+    if (vipCount > 0) insights.push(`⭐ ${vipCount} klientë VIP (3+ vizita) — trajto ata me prioritet`);
+    if (avgPeople >= 5) insights.push(`👥 Grupi mesatar: ${avgPeople} persona — kapaciteti i tavolinave të jetë i duhur`);
+
+    return res.json({
+      success: true,
+      version: APP_VERSION,
+      restaurant_id: rid,
+      generated_at: new Date().toISOString(),
+      period: "30 ditët e fundit",
+      summary: {
+        total_reservations: total,
+        confirmed,
+        pending,
+        noshow,
+        declined,
+        noshow_rate_pct: noshowRate,
+        avg_group_size: avgPeople,
+        vip_customers: vipCount,
+        at_risk_customers: lostCustomers,
+        feedback_avg: fb.avg_rating || null,
+        feedback_total: fb.total_feedback || 0,
+        feedback_trend: feedbackTrend,
+        busiest_day: busiestDay ? { day: busiestDay[0], count: busiestDay[1] } : null,
+        slowest_day: slowestDay ? { day: slowestDay[0], count: slowestDay[1] } : null,
+        peak_hour: peakHour ? `${peakHour[0]}:00` : null,
+      },
+      insights,
+    });
+  } catch (err) {
+    console.error("❌ GET /owner/ai/insights error:", err);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
+  }
 });
 
 // ==================== START ====================
