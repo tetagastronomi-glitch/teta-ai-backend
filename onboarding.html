@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="sq">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Te Ta AI — Onboarding Restorant</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #f8f5f0;
+      color: #1a1a1a;
+      min-height: 100vh;
+    }
+
+    header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      color: white;
+      padding: 40px 24px;
+      text-align: center;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    header p {
+      margin-top: 8px;
+      opacity: 0.75;
+      font-size: 1rem;
+    }
+
+    .badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 0.78rem;
+      margin-bottom: 16px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .container {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 32px 16px 80px;
+    }
+
+    .section {
+      background: white;
+      border-radius: 16px;
+      padding: 28px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      border: 1px solid #ede9e3;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 22px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #f0ebe3;
+    }
+
+    .section-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      flex-shrink: 0;
+    }
+
+    .icon-1 { background: #fef3e2; }
+    .icon-2 { background: #e8f5e9; }
+    .icon-3 { background: #e3f2fd; }
+    .icon-4 { background: #f3e5f5; }
+
+    .section-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #1a1a1a;
+    }
+
+    .section-sub {
+      font-size: 0.82rem;
+      color: #888;
+      margin-top: 2px;
+    }
+
+    .field-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .field-group.single { grid-template-columns: 1fr; }
+    .field-group.triple { grid-template-columns: 1fr 1fr 1fr; }
+
+    @media (max-width: 580px) {
+      .field-group, .field-group.triple { grid-template-columns: 1fr; }
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    label {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #444;
+      letter-spacing: 0.3px;
+    }
+
+    label span {
+      color: #c0392b;
+      margin-left: 2px;
+    }
+
+    input[type="text"],
+    input[type="time"],
+    input[type="number"],
+    select,
+    textarea {
+      border: 1.5px solid #e0d9d0;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 0.92rem;
+      color: #1a1a1a;
+      background: #fafaf8;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      width: 100%;
+      font-family: inherit;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #0f3460;
+      box-shadow: 0 0 0 3px rgba(15,52,96,0.08);
+      background: white;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 90px;
+    }
+
+    .hint {
+      font-size: 0.76rem;
+      color: #aaa;
+      margin-top: 2px;
+    }
+
+    /* Days checkboxes */
+    .days-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .day-chip {
+      display: flex;
+      align-items: center;
+      gap: 0;
+    }
+
+    .day-chip input[type="checkbox"] {
+      display: none;
+    }
+
+    .day-chip label {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 7px 14px;
+      border-radius: 20px;
+      border: 1.5px solid #e0d9d0;
+      background: #fafaf8;
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #666;
+      transition: all 0.15s;
+      user-select: none;
+    }
+
+    .day-chip input[type="checkbox"]:checked + label {
+      background: #0f3460;
+      border-color: #0f3460;
+      color: white;
+    }
+
+    /* Zones */
+    .zone-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+      align-items: center;
+    }
+
+    .zone-row input { flex: 1; }
+
+    .btn-remove {
+      background: none;
+      border: 1.5px solid #e0d9d0;
+      border-radius: 8px;
+      width: 34px;
+      height: 38px;
+      cursor: pointer;
+      color: #aaa;
+      font-size: 1.1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+
+    .btn-remove:hover { border-color: #e74c3c; color: #e74c3c; }
+
+    .btn-add {
+      background: none;
+      border: 1.5px dashed #c0b8ae;
+      border-radius: 10px;
+      padding: 8px 16px;
+      cursor: pointer;
+      color: #888;
+      font-size: 0.85rem;
+      font-weight: 600;
+      transition: all 0.15s;
+      width: 100%;
+      margin-top: 4px;
+    }
+
+    .btn-add:hover { border-color: #0f3460; color: #0f3460; background: #f0f4fa; }
+
+    /* Radio group */
+    .radio-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .radio-chip input[type="radio"] { display: none; }
+
+    .radio-chip label {
+      display: inline-flex;
+      align-items: center;
+      padding: 7px 16px;
+      border-radius: 20px;
+      border: 1.5px solid #e0d9d0;
+      background: #fafaf8;
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #666;
+      transition: all 0.15s;
+    }
+
+    .radio-chip input[type="radio"]:checked + label {
+      background: #0f3460;
+      border-color: #0f3460;
+      color: white;
+    }
+
+    /* Toggle */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: #fafaf8;
+      border-radius: 10px;
+      border: 1.5px solid #e0d9d0;
+    }
+
+    .toggle-label {
+      font-size: 0.9rem;
+      color: #333;
+      font-weight: 500;
+    }
+
+    .toggle {
+      position: relative;
+      width: 44px;
+      height: 24px;
+    }
+
+    .toggle input { display: none; }
+
+    .toggle-slider {
+      position: absolute;
+      inset: 0;
+      background: #ddd;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: white;
+      top: 3px;
+      left: 3px;
+      transition: 0.2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+
+    .toggle input:checked + .toggle-slider { background: #0f3460; }
+    .toggle input:checked + .toggle-slider::before { transform: translateX(20px); }
+
+    /* Generate button */
+    .btn-generate {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, #1a1a2e, #0f3460);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      letter-spacing: 0.3px;
+      margin-top: 8px;
+    }
+
+    .btn-generate:hover { opacity: 0.92; }
+    .btn-generate:active { transform: scale(0.99); }
+
+    /* Output */
+    .output-section {
+      display: none;
+      background: white;
+      border-radius: 16px;
+      padding: 28px;
+      margin-top: 20px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      border: 2px solid #0f3460;
+    }
+
+    .output-section.visible { display: block; }
+
+    .output-section h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #0f3460;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .output-section textarea {
+      font-family: 'Courier New', monospace;
+      font-size: 0.82rem;
+      line-height: 1.5;
+      min-height: 300px;
+      background: #f8f9fc;
+      border-color: #dde3ee;
+    }
+
+    .btn-copy {
+      margin-top: 12px;
+      padding: 10px 20px;
+      background: #0f3460;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.88rem;
+      font-weight: 600;
+      transition: opacity 0.15s;
+    }
+
+    .btn-copy:hover { opacity: 0.85; }
+
+    .success-msg {
+      display: none;
+      color: #27ae60;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-top: 8px;
+    }
+
+    .step-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #0f3460;
+      color: white;
+      font-size: 0.72rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="badge">Te Ta AI</div>
+  <h1>🍽️ Konfiguro Restorantin</h1>
+  <p>Plotëso formularin dhe gjenero automatikisht system prompt-in për asistentin tënd AI</p>
+</header>
+
+<div class="container">
+
+  <!-- SECTION 1: Informacion bazë -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon icon-1">🏪</div>
+      <div>
+        <div class="section-title">Informacion Bazë</div>
+        <div class="section-sub">Të dhënat kryesore të restorantit</div>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <div class="field">
+        <label>Emri i restorantit <span>*</span></label>
+        <input type="text" id="restaurant_name" placeholder="p.sh. Te Ta Gastronomi" />
+      </div>
+      <div class="field">
+        <label>Emri i asistentit (boti) <span>*</span></label>
+        <input type="text" id="bot_name" placeholder="p.sh. Arta, Genti, Mira..." />
+      </div>
+    </div>
+
+    <div class="field-group" style="margin-top:16px">
+      <div class="field">
+        <label>Numri i telefonit të restorantit</label>
+        <input type="text" id="phone" placeholder="+355 69 XXX XXXX" />
+      </div>
+      <div class="field">
+        <label>Stili i komunikimit</label>
+        <div class="radio-group" style="margin-top:4px">
+          <div class="radio-chip">
+            <input type="radio" name="style" id="s_formal" value="formal" />
+            <label for="s_formal">Formal</label>
+          </div>
+          <div class="radio-chip">
+            <input type="radio" name="style" id="s_casual" value="casual" checked />
+            <label for="s_casual">Casual</label>
+          </div>
+          <div class="radio-chip">
+            <input type="radio" name="style" id="s_elegant" value="elegant" />
+            <label for="s_elegant">Elegant</label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 2: Oraret -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon icon-2">🕐</div>
+      <div>
+        <div class="section-title">Oraret e Hapjes</div>
+        <div class="section-sub">Kur është i hapur restoranti?</div>
+      </div>
+    </div>
+
+    <div class="field-group triple">
+      <div class="field">
+        <label>Hapet në orën</label>
+        <input type="time" id="open_time" value="12:00" />
+      </div>
+      <div class="field">
+        <label>Mbyllet në orën</label>
+        <input type="time" id="close_time" value="23:00" />
+      </div>
+      <div class="field">
+        <label>Rezervimi i fundit pranohet</label>
+        <input type="time" id="last_reservation" value="21:30" />
+        <div class="hint">Cutoff për rezervime</div>
+      </div>
+    </div>
+
+    <div class="field" style="margin-top:20px">
+      <label>Ditët e hapura</label>
+      <div class="days-grid">
+        <div class="day-chip">
+          <input type="checkbox" id="d_mon" value="E Hënë" checked />
+          <label for="d_mon">E Hënë</label>
+        </div>
+        <div class="day-chip">
+          <input type="checkbox" id="d_tue" value="E Martë" checked />
+          <label for="d_tue">E Martë</label>
+        </div>
+        <div class="day-chip">
+          <input type="checkbox" id="d_wed" value="E Mërkurë" checked />
+          <label for="d_wed">E Mërkurë</label>
+        </div>
+        <div class="day-chip">
+          <input type="checkbox" id="d_thu" value="E Enjte" checked />
+          <label for="d_thu">E Enjte</label>
+        </div>
+        <div class="day-chip">
+          <input type="checkbox" id="d_fri" value="E Premte" checked />
+          <label for="d_fri">E Premte</label>
+        </div>
+        <div class="day-chip">
+          <input type="checkbox" id="d_sat" value="E Shtunë" checked />
+          <label for="d_sat">E Shtunë</label>
+        </div>
+        <div class="day-chip">
+          <input type="checkbox" id="d_sun" value="E Diel" checked />
+          <label for="d_sun">E Diel</label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 3: Rezervimet -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon icon-3">📋</div>
+      <div>
+        <div class="section-title">Rregullat e Rezervimeve</div>
+        <div class="section-sub">Si funksionojnë rezervimet?</div>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <div class="field">
+        <label>Max persona pa konfirmim manual</label>
+        <input type="number" id="max_people" value="6" min="1" max="50" />
+        <div class="hint">Mbi këtë numër kërkohet aprovim i pronarit</div>
+      </div>
+      <div class="field">
+        <label>Kapaciteti total i restorantit</label>
+        <input type="number" id="capacity" value="50" min="1" max="500" />
+        <div class="hint">Numri total i vendeve</div>
+      </div>
+    </div>
+
+    <div class="field" style="margin-top:20px">
+      <label>Zonat e disponueshme</label>
+      <div id="zones_container">
+        <div class="zone-row">
+          <input type="text" class="zone-input" placeholder="p.sh. Brendshme" value="Brendshme" />
+          <button class="btn-remove" onclick="removeZone(this)" title="Hiq">×</button>
+        </div>
+        <div class="zone-row">
+          <input type="text" class="zone-input" placeholder="p.sh. Ballkon" value="Ballkon" />
+          <button class="btn-remove" onclick="removeZone(this)" title="Hiq">×</button>
+        </div>
+      </div>
+      <button class="btn-add" onclick="addZone()">+ Shto zonë</button>
+    </div>
+
+    <div class="field" style="margin-top:20px">
+      <label>Politika anulimi</label>
+      <select id="cancel_policy">
+        <option value="flexible">Fleksibël — anulohet në çdo moment</option>
+        <option value="24h">24 orë — njoftim 24h para</option>
+        <option value="same_day">E njëjta ditë — njoftim deri në mesditë</option>
+        <option value="no_cancel">Pa anulim — rezervimi është përfundimtar</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- SECTION 4: Personaliteti -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon icon-4">🤖</div>
+      <div>
+        <div class="section-title">Personaliteti i Botit</div>
+        <div class="section-sub">Si të komunikojë asistenti AI?</div>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <div class="field">
+        <label>Gjuha kryesore</label>
+        <select id="language">
+          <option value="shqip" selected>🇦🇱 Shqip</option>
+          <option value="italian">🇮🇹 Italisht</option>
+          <option value="english">🇬🇧 Anglisht</option>
+          <option value="shqip+italian">🇦🇱🇮🇹 Shqip + Italisht</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Toni i komunikimit</label>
+        <select id="tone">
+          <option value="very_formal">Shumë formal</option>
+          <option value="professional" selected>Profesional</option>
+          <option value="friendly">Miqësor dhe i ngrohtë</option>
+          <option value="casual">Casual dhe relaksues</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="margin-top:16px">
+      <div class="toggle-row">
+        <span class="toggle-label">Përdor emoji në mesazhe</span>
+        <label class="toggle">
+          <input type="checkbox" id="use_emoji" checked />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div style="margin-top:12px">
+      <div class="toggle-row">
+        <span class="toggle-label">Ofro menu/speciale të ditës</span>
+        <label class="toggle">
+          <input type="checkbox" id="offer_menu" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="field" style="margin-top:20px">
+      <label>Çfarë NUK duhet të premtojë boti kurrë</label>
+      <textarea id="forbidden" placeholder="p.sh. Mos premto çmime specifike pa konfirmim nga pronari&#10;Mos premto disponueshmëri tavolinash pa kontrolluar&#10;Mos bëj zbritje pa autorizim"></textarea>
+      <div class="hint">Secila rresht = një rregull</div>
+    </div>
+
+    <div class="field" style="margin-top:16px">
+      <label>Informacione shtesë për botit (opsionale)</label>
+      <textarea id="extra_info" placeholder="p.sh. Restoranti është i specializuar në kuzhinë mesdhetare&#10;Ofrojmë parking falas&#10;Ka menu për vegjetarianë"></textarea>
+    </div>
+  </div>
+
+  <!-- GENERATE BUTTON -->
+  <button class="btn-generate" onclick="generatePrompt()">
+    ✨ Gjenero System Prompt
+  </button>
+
+  <!-- OUTPUT -->
+  <div class="output-section" id="output_section">
+    <h3><span class="step-num">✓</span> System Prompt i Gatshëm</h3>
+    <textarea id="output_prompt" readonly></textarea>
+    <button class="btn-copy" onclick="copyPrompt()">📋 Kopjo</button>
+    <div class="success-msg" id="copy_msg">✅ U kopjua!</div>
+    <p style="margin-top:16px;font-size:0.8rem;color:#888;">
+      Vendose këtë në <strong>SYSTEM_PROMPT</strong> te skedari <code>.env</code> i projektit <strong>teta-whatsapp</strong>.
+    </p>
+  </div>
+
+</div>
+
+<script>
+  function addZone() {
+    const container = document.getElementById('zones_container');
+    const row = document.createElement('div');
+    row.className = 'zone-row';
+    row.innerHTML = `
+      <input type="text" class="zone-input" placeholder="p.sh. Kopësht, Terraza..." />
+      <button class="btn-remove" onclick="removeZone(this)" title="Hiq">×</button>
+    `;
+    container.appendChild(row);
+    row.querySelector('input').focus();
+  }
+
+  function removeZone(btn) {
+    const rows = document.querySelectorAll('.zone-row');
+    if (rows.length <= 1) return;
+    btn.closest('.zone-row').remove();
+  }
+
+  function getCheckedDays() {
+    const days = [];
+    document.querySelectorAll('.day-chip input:checked').forEach(cb => days.push(cb.value));
+    return days;
+  }
+
+  function getZones() {
+    const zones = [];
+    document.querySelectorAll('.zone-input').forEach(inp => {
+      const v = inp.value.trim();
+      if (v) zones.push(v);
+    });
+    return zones;
+  }
+
+  function getStyle() {
+    const checked = document.querySelector('input[name="style"]:checked');
+    return checked ? checked.value : 'casual';
+  }
+
+  function generatePrompt() {
+    const name = document.getElementById('restaurant_name').value.trim() || 'Restoranti';
+    const botName = document.getElementById('bot_name').value.trim() || 'Asistenti';
+    const phone = document.getElementById('phone').value.trim();
+    const style = getStyle();
+    const openTime = document.getElementById('open_time').value || '12:00';
+    const closeTime = document.getElementById('close_time').value || '23:00';
+    const lastRes = document.getElementById('last_reservation').value || '21:30';
+    const days = getCheckedDays();
+    const maxPeople = document.getElementById('max_people').value || '6';
+    const capacity = document.getElementById('capacity').value || '50';
+    const zones = getZones();
+    const cancelPolicy = document.getElementById('cancel_policy').value;
+    const language = document.getElementById('language').value;
+    const tone = document.getElementById('tone').value;
+    const useEmoji = document.getElementById('use_emoji').checked;
+    const offerMenu = document.getElementById('offer_menu').checked;
+    const forbidden = document.getElementById('forbidden').value.trim();
+    const extraInfo = document.getElementById('extra_info').value.trim();
+
+    const toneMap = {
+      very_formal: 'shumë formal dhe i rezervuar, duke përdorur "Ju" gjithmonë',
+      professional: 'profesional dhe i qartë, por i ngrohtë',
+      friendly: 'miqësor dhe i ngrohtë, si një shok i vjetër',
+      casual: 'casual dhe relaksues, i natyrshëm dhe spontan'
+    };
+
+    const cancelMap = {
+      flexible: 'Klienti mund të anulojë rezervimin në çdo moment pa asnjë kufi kohor.',
+      '24h': 'Anulimi pranohet deri 24 orë para rezervimit. Pas kësaj, anulimi nuk është i mundur.',
+      same_day: 'Anulimi pranohet deri në mesditë të ditës së rezervimit.',
+      no_cancel: 'Rezervimet janë përfundimtare dhe nuk anulohen. Informo klientin me mirësjellje por qartë.'
+    };
+
+    const forbiddenLines = forbidden
+      ? forbidden.split('\n').filter(l => l.trim()).map(l => `- ${l.trim()}`).join('\n')
+      : '- Mos premto çmime specifike pa konfirmim\n- Mos premto disponueshmëri pa kontrolluar';
+
+    const zonesText = zones.length > 0
+      ? zones.map(z => `"${z}"`).join(', ')
+      : '"brendshme", "ballkon"';
+
+    const emoji = useEmoji ? 'Po, përdor emoji me moderim për ta bërë bisedën më të ngrohtë (p.sh. 😊 🍽️ ✅).' : 'Jo, mos përdor emoji — ruaj tonin profesional.';
+
+    const menuLine = offerMenu ? `\n- Nëse klienti pyet, mund të përmendësh se ka speciale të ditës — kërko detaje nga pronari.` : '';
+
+    const extraLines = extraInfo
+      ? '\n\nINFORMACIONE SHTESË:\n' + extraInfo.split('\n').filter(l => l.trim()).map(l => `- ${l.trim()}`).join('\n')
+      : '';
+
+    const prompt = `Ti je ${botName}, asistenti i rezervimeve për restorantin "${name}" në Shqipëri.
+Gjuha e komunikimit: ${language}.
+Toni: ${toneMap[tone] || 'profesional'}.
+Emoji: ${emoji}
+
+INFORMACION I RESTORANTIT:
+- Emri: ${name}
+- Telefon: ${phone || 'kontakto pronarin'}
+- Orari: ${openTime} - ${closeTime}
+- Ditët e hapura: ${days.length > 0 ? days.join(', ') : 'çdo ditë'}
+- Rezervimi i fundit pranohet: ${lastRes}
+- Kapaciteti total: ${capacity} vende
+- Zonat: ${zonesText}
+
+RREGULLAT E REZERVIMEVE:
+- Deri në ${maxPeople} persona: konfirmim automatik
+- Mbi ${maxPeople} persona: kërkohet aprovim i pronarit (thuaj se do të konfirmohet brenda pak orësh)
+- ${cancelMap[cancelPolicy] || cancelMap.flexible}${menuLine}
+
+PERSONALITETI — SI TË KOMUNIKOSH:
+- Fol si person i vërtetë, i qetë dhe profesional
+- Mos bëj shumë pyetje njëherësh — maksimum 1 pyetje për mesazh
+- Mesazhet e shkurtra: maksimum 2-3 fjali
+- Nëse klienti thotë "ok" ose "faleminderit", mos vazhdo — thuaj "Ju presim!" dhe ndalu
+- Lëre klientin të udhëheqë bisedën
+
+PËR REZERVIM, KE NEVOJË PËR:
+1. Emrin e plotë
+2. Datën
+3. Orën (brenda orarit të restorantit)
+4. Numrin e personave
+
+Kur ke të 4, shkruaj:
+[REZERVIM: emri=EMRI | data=YYYY-MM-DD | ora=HH:MM | persona=N]
+
+ÇKA NUK DUHET TË BËSH KURRË:
+${forbiddenLines}
+- Mos jep informacion për çmimet nëse nuk je i sigurt
+- Mos bëj premtime që pronari nuk i ka autorizuar${extraLines}`;
+
+    document.getElementById('output_prompt').value = prompt;
+    document.getElementById('output_section').classList.add('visible');
+    document.getElementById('output_section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function copyPrompt() {
+    const ta = document.getElementById('output_prompt');
+    ta.select();
+    ta.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(ta.value).then(() => {
+      const msg = document.getElementById('copy_msg');
+      msg.style.display = 'block';
+      setTimeout(() => msg.style.display = 'none', 2500);
+    }).catch(() => {
+      document.execCommand('copy');
+    });
+  }
+</script>
+</body>
+</html>

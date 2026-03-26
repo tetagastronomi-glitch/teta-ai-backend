@@ -3346,6 +3346,10 @@ app.get('/dashboard', (req, res) => {
   res.sendFile(path.join(__dirname, 'dashboard.html'));
 });
 
+app.get('/onboarding', (req, res) => {
+  res.sendFile(path.join(__dirname, 'onboarding.html'));
+});
+
 app.get('/test-wa', requireAdminKey, async (_req, res) => {
   try {
     const r = await axios({
