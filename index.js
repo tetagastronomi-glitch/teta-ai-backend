@@ -930,6 +930,12 @@ async function initDb() {
       `CREATE INDEX IF NOT EXISTS idx_owner_action_tokens_reservation ON public.owner_action_tokens(reservation_id);`
     );
 
+    // bot_active flag per restaurant
+    await pool.query(`
+      ALTER TABLE public.restaurants
+      ADD COLUMN IF NOT EXISTS bot_active BOOLEAN NOT NULL DEFAULT TRUE;
+    `);
+
     console.log("✅ DB ready (migrations applied)");
   } catch (err) {
     console.error("❌ initDb error:", err);
@@ -3512,6 +3518,50 @@ app.get("/owner/ai/insights", requireOwnerKey, requireDbReady, async (req, res) 
     });
   } catch (err) {
     console.error("❌ GET /owner/ai/insights error:", err);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
+  }
+});
+
+// ==================== BOT CONTROL ====================
+app.post('/owner/bot/start', requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const rid = req.restaurant_id;
+    await pool.query(
+      `UPDATE public.restaurants SET bot_active = TRUE WHERE id = $1`,
+      [rid]
+    );
+    return res.json({ success: true, version: APP_VERSION, bot_active: true });
+  } catch (err) {
+    console.error("❌ POST /owner/bot/start error:", err);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
+  }
+});
+
+app.post('/owner/bot/stop', requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const rid = req.restaurant_id;
+    await pool.query(
+      `UPDATE public.restaurants SET bot_active = FALSE WHERE id = $1`,
+      [rid]
+    );
+    return res.json({ success: true, version: APP_VERSION, bot_active: false });
+  } catch (err) {
+    console.error("❌ POST /owner/bot/stop error:", err);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
+  }
+});
+
+app.get('/owner/bot/status', requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const rid = req.restaurant_id;
+    const q = await pool.query(
+      `SELECT bot_active FROM public.restaurants WHERE id = $1`,
+      [rid]
+    );
+    const bot_active = q.rows[0]?.bot_active ?? true;
+    return res.json({ success: true, version: APP_VERSION, bot_active });
+  } catch (err) {
+    console.error("❌ GET /owner/bot/status error:", err);
     return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
   }
 });
