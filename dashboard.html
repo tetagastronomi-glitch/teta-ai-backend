@@ -202,6 +202,16 @@
     </div>
   </header>
 
+  <!-- BOT CONTROL -->
+  <div id="bot-control" style="display:flex;align-items:center;gap:12px;padding:12px 20px;background:#1a1d27;border-bottom:1px solid #2e3248;">
+    <span id="bot-status-dot" style="width:12px;height:12px;border-radius:50%;background:#ccc;display:inline-block;flex-shrink:0;"></span>
+    <span id="bot-status-text" style="font-size:14px;font-weight:500;color:#e2e8f0;">Duke kontrolluar...</span>
+    <button id="bot-toggle-btn" onclick="toggleBot()"
+      style="margin-left:auto;padding:8px 20px;border-radius:8px;border:none;cursor:pointer;font-weight:600;font-size:14px;background:#374151;color:#e2e8f0;">
+      ...
+    </button>
+  </div>
+
   <div class="tabs">
     <div class="tab active" onclick="switchTab('reservations', this)">Rezervimet</div>
     <div class="tab" onclick="switchTab('customers', this)">Klientët</div>
@@ -333,6 +343,7 @@
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('app').style.display = 'flex';
       loadAll();
+      checkBotStatus();
     } catch (e) {
       err.textContent = 'Nuk u lidh: ' + e.message;
     } finally {
@@ -597,6 +608,39 @@
     try { return new Date(d).toLocaleDateString('sq-AL', { day:'2-digit', month:'2-digit', year:'numeric' }); }
     catch { return String(d).slice(0,10); }
   }
+
+  // ===== BOT CONTROL =====
+  async function checkBotStatus() {
+    try {
+      const res = await fetch('/owner/bot/status', { headers: { 'x-owner-key': OWNER_KEY } });
+      const data = await res.json();
+      const active = data?.bot_active;
+
+      document.getElementById('bot-status-dot').style.background = active ? '#22c55e' : '#ef4444';
+      document.getElementById('bot-status-text').textContent = active ? '🟢 Bot Aktiv' : '🔴 Bot Ndalur';
+      document.getElementById('bot-toggle-btn').textContent = active ? 'Ndal Botin' : 'Ndiz Botin';
+      document.getElementById('bot-toggle-btn').style.background = active ? '#4c1515' : '#16532d';
+      document.getElementById('bot-toggle-btn').style.color = active ? '#ef4444' : '#22c55e';
+
+      window._botActive = active;
+    } catch(e) {
+      console.error('Bot status error:', e);
+    }
+  }
+
+  async function toggleBot() {
+    const action = window._botActive ? 'stop' : 'start';
+    const btn = document.getElementById('bot-toggle-btn');
+    btn.disabled = true;
+    await fetch(`/owner/bot/${action}`, {
+      method: 'POST',
+      headers: { 'x-owner-key': OWNER_KEY }
+    });
+    await checkBotStatus();
+    btn.disabled = false;
+  }
+
+  setInterval(checkBotStatus, 30000);
 </script>
 </body>
 </html>
