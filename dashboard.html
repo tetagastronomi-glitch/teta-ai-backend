@@ -1206,9 +1206,11 @@
         (r.customer_name || '').toLowerCase().includes(search) ||
         (r.phone || '').includes(search);
       const matchStatus = !statusFilter || (r.status || '').toLowerCase() === statusFilter;
-      const rDate = (r.date || '').slice(0, 10);
-      const matchDate = !dateFilter || rDate === dateFilter;
-      console.log('comparing:', rDate, '===', dateFilter, '→', rDate === dateFilter);
+      const rDateLocal = r.date
+        ? new Date(r.date).toLocaleDateString('en-CA', { timeZone: 'Europe/Tirane' })
+        : '';
+      const matchDate = !dateFilter || rDateLocal === dateFilter;
+      console.log('comparing:', rDateLocal, '===', dateFilter, '→', rDateLocal === dateFilter);
       return matchSearch && matchStatus && matchDate;
     });
 
@@ -1279,7 +1281,7 @@
         <td class="text-muted" style="font-size:12px;">${r.id}</td>
         <td><strong>${esc(r.customer_name || '—')}</strong></td>
         <td class="text-muted">${esc(r.phone || '—')}</td>
-        <td class="text-muted">${fmtDate(r.date)}</td>
+        <td class="text-muted">${r.date ? new Date(r.date).toLocaleDateString('sq-AL', { timeZone: 'Europe/Tirane', day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'}</td>
         <td>${esc(r.time || '—')}</td>
         <td>${r.people || '—'}</td>
         <td class="text-muted">${esc(r.area || '—')}</td>
