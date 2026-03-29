@@ -1201,6 +1201,7 @@
     console.log('filter date:', dateFilter, 'all dates:', allReservations.map(r => r.date?.slice(0,10)));
 
     let rows = allReservations.filter(r => {
+      console.log('r.date raw:', r.date, '| id:', r.id);
       const matchSearch = !search ||
         (r.customer_name || '').toLowerCase().includes(search) ||
         (r.phone || '').includes(search);
