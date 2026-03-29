@@ -225,6 +225,12 @@
       <div class="stats-row" id="res-stats"></div>
 
       <div class="toolbar">
+        <input class="search-input" type="date" id="res-date-filter" onchange="renderReservations()" style="cursor:pointer;" />
+        <button class="btn btn-ghost btn-sm" onclick="setResDate(-1)">Dje</button>
+        <button class="btn btn-ghost btn-sm" onclick="setResDate(0)">Sot</button>
+        <button class="btn btn-ghost btn-sm" onclick="setResDate(1)">Nesër</button>
+      </div>
+      <div class="toolbar">
         <input class="search-input" type="text" id="res-search" placeholder="Kërko emër / telefon..." oninput="renderReservations()" />
         <select class="search-input" id="res-status-filter" onchange="renderReservations()">
           <option value="">Të gjitha statuset</option>
@@ -385,7 +391,23 @@
     if (name === 'feedback') loadFeedback();
   }
 
-  function loadAll() { loadReservations(); }
+  function todayStr() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+
+  function setResDate(offset) {
+    const d = new Date();
+    d.setDate(d.getDate() + offset);
+    const s = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    document.getElementById('res-date-filter').value = s;
+    renderReservations();
+  }
+
+  function loadAll() {
+    document.getElementById('res-date-filter').value = todayStr();
+    loadReservations();
+  }
 
   // ===== TOAST =====
   let toastTimer;
@@ -411,18 +433,24 @@
   function renderReservations() {
     const search = document.getElementById('res-search').value.toLowerCase();
     const statusFilter = document.getElementById('res-status-filter').value;
+    const dateFilter = document.getElementById('res-date-filter').value;
 
     let rows = allReservations.filter(r => {
       const matchSearch = !search ||
         (r.customer_name || '').toLowerCase().includes(search) ||
         (r.phone || '').includes(search);
       const matchStatus = !statusFilter || r.status === statusFilter;
-      return matchSearch && matchStatus;
+      const matchDate = !dateFilter || (r.date || '').slice(0, 10) === dateFilter;
+      return matchSearch && matchStatus && matchDate;
     });
 
-    // Stats
+    // Sort by time ascending
+    rows.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+
+    // Stats (based on date-filtered subset if date is set)
+    const statsBase = dateFilter ? allReservations.filter(r => (r.date || '').slice(0,10) === dateFilter) : allReservations;
     const counts = { pending: 0, confirmed: 0, declined: 0, completed: 0, no_show: 0, cancelled: 0 };
-    (allReservations || []).forEach(r => {
+    statsBase.forEach(r => {
       const s = (r.status || '').toLowerCase();
       if (counts[s] !== undefined) counts[s]++;
     });
@@ -435,10 +463,14 @@
       <div class="stat-card"><div class="stat-label">Anuluar</div><div class="stat-value" style="color:var(--text-muted)">${counts.cancelled}</div></div>
     `;
 
-    document.getElementById('res-count').textContent = rows.length + ' rekorde';
+    const dateLabel = dateFilter ? fmtDate(dateFilter) : null;
+    document.getElementById('res-count').textContent = dateLabel
+      ? `${rows.length} rezervime për ${dateLabel}`
+      : `${rows.length} rekorde`;
 
     if (rows.length === 0) {
-      document.getElementById('res-tbody').innerHTML = '<tr><td colspan="10" class="empty">Asnjë rezervim</td></tr>';
+      const emptyMsg = dateFilter ? 'Nuk ka rezervime për këtë datë' : 'Asnjë rezervim';
+      document.getElementById('res-tbody').innerHTML = `<tr><td colspan="10" class="empty">${emptyMsg}</td></tr>`;
       return;
     }
 
