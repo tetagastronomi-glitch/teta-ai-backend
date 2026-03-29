@@ -1198,12 +1198,16 @@
     const statusFilter = document.getElementById('res-status-filter').value;
     const dateFilter   = document.getElementById('res-date-filter').value;
 
+    console.log('filter date:', dateFilter, 'all dates:', allReservations.map(r => r.date?.slice(0,10)));
+
     let rows = allReservations.filter(r => {
       const matchSearch = !search ||
         (r.customer_name || '').toLowerCase().includes(search) ||
         (r.phone || '').includes(search);
       const matchStatus = !statusFilter || (r.status || '').toLowerCase() === statusFilter;
-      const matchDate   = !dateFilter  || (r.date || '').slice(0, 10) === dateFilter;
+      const rDate = (r.date || '').slice(0, 10);
+      const matchDate = !dateFilter || rDate === dateFilter;
+      console.log('comparing:', rDate, '===', dateFilter, '→', rDate === dateFilter);
       return matchSearch && matchStatus && matchDate;
     });
 
