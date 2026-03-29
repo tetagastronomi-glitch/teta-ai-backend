@@ -1821,6 +1821,59 @@ app.get("/owner/customers", requireOwnerKey, requireDbReady, async (req, res) =>
   }
 });
 
+// ===== OWNER: CREATE RESERVATION MANUALLY =====
+app.post("/owner/reservations/create", requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const r = req.body || {};
+    if (!r.customer_name || !r.phone) {
+      return res.status(400).json({ success: false, version: APP_VERSION, error: "customer_name and phone are required" });
+    }
+
+    const dateStr  = r.date  || await getTodayAL();
+    const timeStr  = normalizeTimeHHMI(r.time || "00:00") || "00:00";
+    const people   = Number(r.people) > 0 ? Number(r.people) : 2;
+    const channel  = r.channel  || "telefon";
+    const area     = r.area     || null;
+    const special  = r.special_requests || "";
+
+    const decision = await decideReservationStatus(req.restaurant_id, dateStr, people);
+    const status   = decision.status;
+    const reservation_id = crypto.randomUUID();
+
+    const result = await pool.query(
+      `INSERT INTO public.reservations
+        (restaurant_id, reservation_id, restaurant_name, customer_name, phone, date, time, people, channel, area, special_requests, raw, status)
+       VALUES ($1,$2,$3,$4,$5,$6::date,$7,$8,$9,$10,$11,$12,$13)
+       RETURNING id, reservation_id, created_at, status`,
+      [
+        req.restaurant_id, reservation_id, r.restaurant_name || "Te Ta Gastronomi",
+        r.customer_name, r.phone, dateStr, timeStr, people,
+        channel, area, special, r, status,
+      ]
+    );
+
+    const inserted = result.rows[0];
+
+    // Sync to customers (non-blocking)
+    pool.query(
+      `INSERT INTO public.customers (restaurant_id, phone, full_name, first_seen_at, created_at, updated_at)
+       VALUES ($1,$2,NULLIF($3,''),NOW(),NOW(),NOW())
+       ON CONFLICT (restaurant_id, phone)
+       DO UPDATE SET full_name=COALESCE(NULLIF(EXCLUDED.full_name,''),public.customers.full_name), updated_at=NOW()`,
+      [req.restaurant_id, r.phone, r.customer_name]
+    ).catch(e => console.error("⚠️ customer sync failed:", e.message));
+
+    return res.status(201).json({
+      success: true,
+      version: APP_VERSION,
+      data: { ...inserted, created_at_local: formatALDate(inserted.created_at) },
+    });
+  } catch (err) {
+    console.error("❌ POST /owner/reservations/create error:", err);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
+  }
+});
+
 app.get("/owner/reservations", requireOwnerKey, requireDbReady, async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 20), 100);

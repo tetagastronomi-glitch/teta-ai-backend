@@ -592,6 +592,115 @@
   .badge-cancelled { background: var(--slate-bg);  color: var(--slate);  border-color: var(--slate-border);  }
   .badge-cancelled::before { background: var(--slate); }
 
+  /* ===== CHANNEL BADGES ===== */
+  .ch-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11.5px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .ch-whatsapp  { background: #DCFCE7; color: #15803D; }
+  .ch-telefon   { background: #DBEAFE; color: #1D4ED8; }
+  .ch-walkin    { background: #FEF9C3; color: #854D0E; }
+  .ch-manual    { background: #F3E8FF; color: #7E22CE; }
+  .ch-other     { background: var(--slate-bg); color: var(--slate); }
+
+  /* ===== MODAL ===== */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(15,23,42,0.45);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal-box {
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: modalIn 0.18s ease;
+  }
+  @keyframes modalIn {
+    from { opacity: 0; transform: translateY(-12px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .modal-header {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .modal-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .modal-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    padding: 4px;
+    border-radius: 6px;
+    font-size: 18px;
+    line-height: 1;
+    transition: color var(--transition), background var(--transition);
+  }
+  .modal-close:hover { color: var(--text); background: var(--bg); }
+
+  .modal-body { padding: 20px 24px; }
+  .modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+
+  .form-group {
+    margin-bottom: 14px;
+  }
+  .form-label {
+    display: block;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 5px;
+  }
+  .form-label .opt {
+    font-weight: 400;
+    color: var(--text-muted);
+    font-size: 11.5px;
+    margin-left: 4px;
+  }
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .modal-body .form-input {
+    width: 100%;
+    min-width: unset;
+  }
+  textarea.form-input {
+    resize: vertical;
+    min-height: 72px;
+  }
+
   /* ===== SKELETON ===== */
   @keyframes shimmer {
     0%   { background-position: -600px 0; }
@@ -819,6 +928,7 @@
           <div class="card-header">
             <span class="card-title">Rezervimet</span>
             <span class="count-label" id="res-count">—</span>
+            <button class="btn btn-primary btn-sm" onclick="openAddModal()" style="margin-left:auto;">➕ Shto Rezervim</button>
           </div>
           <div class="table-wrap">
             <table>
@@ -1170,7 +1280,7 @@
         <td>${r.people || '—'}</td>
         <td class="text-muted">${esc(r.area || '—')}</td>
         <td>${badge}</td>
-        <td class="text-muted" style="font-size:12px;">${esc(r.channel || '—')}</td>
+        <td>${channelBadge(r.channel)}</td>
         <td><div class="actions">${actions}</div></td>
       </tr>`;
     }).join('');
@@ -1449,6 +1559,145 @@
   const spinStyle = document.createElement('style');
   spinStyle.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
   document.head.appendChild(spinStyle);
+
+  // ===== ADD RESERVATION MODAL =====
+  function openAddModal() {
+    document.getElementById('add-date').value = todayStr();
+    document.getElementById('add-name').value = '';
+    document.getElementById('add-phone').value = '';
+    document.getElementById('add-time').value = '';
+    document.getElementById('add-people').value = '';
+    document.getElementById('add-channel').value = '';
+    document.getElementById('add-area').value = '';
+    document.getElementById('add-special').value = '';
+    document.getElementById('add-res-modal').classList.add('open');
+    document.getElementById('add-name').focus();
+  }
+
+  function closeAddModal() {
+    document.getElementById('add-res-modal').classList.remove('open');
+  }
+
+  function handleModalOverlayClick(e) {
+    if (e.target === document.getElementById('add-res-modal')) closeAddModal();
+  }
+
+  async function submitAddReservation() {
+    const name  = document.getElementById('add-name').value.trim();
+    const phone = document.getElementById('add-phone').value.trim();
+    if (!name)  { toast('Emri i klientit është i detyrueshëm!', 'error'); return; }
+    if (!phone) { toast('Numri i telefonit është i detyrueshëm!', 'error'); return; }
+
+    const body = { customer_name: name, phone };
+    const date    = document.getElementById('add-date').value;
+    const time    = document.getElementById('add-time').value;
+    const people  = document.getElementById('add-people').value;
+    const channel = document.getElementById('add-channel').value;
+    const area    = document.getElementById('add-area').value;
+    const special = document.getElementById('add-special').value.trim();
+
+    if (date)    body.date    = date;
+    if (time)    body.time    = time;
+    if (people)  body.people  = parseInt(people, 10);
+    if (channel) body.channel = channel;
+    if (area)    body.area    = area;
+    if (special) body.special_requests = special;
+
+    const btn = document.getElementById('add-res-submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Duke krijuar...';
+
+    try {
+      await apiJSON('/owner/reservations/create', { method: 'POST', body: JSON.stringify(body) });
+      toast('Rezervimi u krijua me sukses! ✅');
+      closeAddModal();
+      await loadReservations();
+    } catch (e) {
+      toast('Gabim: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Krijo Rezervimin';
+    }
+  }
+
+  function channelBadge(channel) {
+    const c = (channel || '').toLowerCase();
+    if (c === 'whatsapp' || c === 'whatsapp_manual') return `<span class="ch-badge ch-whatsapp">💬 WhatsApp</span>`;
+    if (c === 'telefon')  return `<span class="ch-badge ch-telefon">📞 Telefonik</span>`;
+    if (c === 'walk-in')  return `<span class="ch-badge ch-walkin">🚶 Walk-in</span>`;
+    if (c === 'manual')   return `<span class="ch-badge ch-manual">✍️ Manual</span>`;
+    if (c === 'other')    return `<span class="ch-badge ch-other">${esc(channel)}</span>`;
+    if (!channel || channel === '—') return `<span class="text-muted" style="font-size:12px;">—</span>`;
+    return `<span class="ch-badge ch-other">${esc(channel)}</span>`;
+  }
 </script>
+
+<!-- ===== ADD RESERVATION MODAL ===== -->
+<div class="modal-overlay" id="add-res-modal" onclick="handleModalOverlayClick(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">➕ Shto Rezervim Manual</span>
+      <button class="modal-close" onclick="closeAddModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Emri i klientit <span style="color:var(--red)">*</span></label>
+          <input class="form-input" id="add-name" type="text" placeholder="p.sh. Arta Kelmendi" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Numri i telefonit <span style="color:var(--red)">*</span></label>
+          <input class="form-input" id="add-phone" type="tel" placeholder="p.sh. 0681234567" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Data <span class="opt">(opsionale)</span></label>
+          <input class="form-input" id="add-date" type="date" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ora <span class="opt">(opsionale)</span></label>
+          <input class="form-input" id="add-time" type="time" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Numri i personave <span class="opt">(opsionale)</span></label>
+          <input class="form-input" id="add-people" type="number" min="1" max="500" placeholder="2" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Kanali <span class="opt">(opsionale)</span></label>
+          <select class="form-input" id="add-channel">
+            <option value="">— Zgjidhni —</option>
+            <option value="whatsapp">💬 WhatsApp</option>
+            <option value="telefon">📞 Telefonik</option>
+            <option value="walk-in">🚶 Walk-in</option>
+            <option value="other">Tjetër</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Zona <span class="opt">(opsionale)</span></label>
+          <select class="form-input" id="add-area">
+            <option value="">— Zgjidhni —</option>
+            <option value="brendshme">Brendshme</option>
+            <option value="ballkon">Ballkon</option>
+            <option value="kopësht">Kopësht</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Kërkesa speciale <span class="opt">(opsionale)</span></label>
+        <textarea class="form-input" id="add-special" placeholder="p.sh. tavolinë afër dritares, festë ditëlindjeje..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeAddModal()">Anulo</button>
+      <button class="btn btn-primary btn-sm" id="add-res-submit-btn" onclick="submitAddReservation()">Krijo Rezervimin</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
