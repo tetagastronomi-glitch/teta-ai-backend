@@ -936,6 +936,19 @@ async function initDb() {
       ADD COLUMN IF NOT EXISTS bot_active BOOLEAN NOT NULL DEFAULT TRUE;
     `);
 
+    // ==================== MISSED MESSAGES ====================
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS public.missed_messages (
+        id SERIAL PRIMARY KEY,
+        restaurant_id INT NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
+        phone TEXT NOT NULL,
+        message TEXT DEFAULT '',
+        received_at TIMESTAMPTZ,
+        handled_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
     console.log("✅ DB ready (migrations applied)");
   } catch (err) {
     console.error("❌ initDb error:", err);
@@ -3616,6 +3629,25 @@ app.get('/owner/bot/status', requireOwnerKey, requireDbReady, async (req, res) =
   } catch (err) {
     console.error("❌ GET /owner/bot/status error:", err);
     return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
+  }
+});
+
+// ==================== MISSED MESSAGES ====================
+app.post("/owner/missed-message", requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const { phone, message, received_at } = req.body || {};
+    if (!phone) return res.status(400).json({ success: false, error: "Missing phone" });
+
+    await pool.query(`
+      INSERT INTO public.missed_messages
+        (restaurant_id, phone, message, received_at, created_at)
+      VALUES ($1, $2, $3, COALESCE($4::timestamptz, NOW()), NOW())
+    `, [req.restaurant_id, phone, message || '', received_at || null]);
+
+    return res.json({ success: true, version: APP_VERSION });
+  } catch (err) {
+    console.error("❌ missed-message error:", err);
+    return res.status(500).json({ success: false, error: err.message });
   }
 });
 
