@@ -1121,11 +1121,7 @@
   }
 
   function loadAll() {
-    document.getElementById('res-date-filter').value = todayStr();
-    // set "Sot" button active
-    document.querySelectorAll('.date-shortcut').forEach((btn, i) => {
-      btn.classList.toggle('active', i === 1); // index 1 = Sot
-    });
+    setResDate(0); // vendos sot (timezone-aware) dhe thirr renderReservations pas fetch
     loadReservations();
   }
 
@@ -1210,6 +1206,8 @@
       const matchDate   = !dateFilter  || (r.date || '').slice(0, 10) === dateFilter;
       return matchSearch && matchStatus && matchDate;
     });
+
+    console.log('dateFilter:', dateFilter, 'rows:', rows.length);
 
     // sort by time ascending
     rows.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
