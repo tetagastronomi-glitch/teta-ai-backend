@@ -1104,14 +1104,15 @@
   }
 
   function setResDate(offset) {
-    const d = new Date();
-    d.setDate(d.getDate() + offset);
-    const s = d.getFullYear() + '-' +
-      String(d.getMonth() + 1).padStart(2, '0') + '-' +
-      String(d.getDate()).padStart(2, '0');
+    // Përdor UTC+1 (Europe/Tirane) për të shmangur timezone bugs
+    const now = new Date();
+    const tirane = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Tirane' }));
+    tirane.setDate(tirane.getDate() + offset);
+    const s = tirane.getFullYear() + '-' +
+      String(tirane.getMonth() + 1).padStart(2, '0') + '-' +
+      String(tirane.getDate()).padStart(2, '0');
     document.getElementById('res-date-filter').value = s;
 
-    // update active class on .date-shortcut buttons
     document.querySelectorAll('.date-shortcut').forEach((btn, i) => {
       btn.classList.toggle('active', i - 1 === offset);
     });
