@@ -3633,6 +3633,24 @@ app.get('/owner/bot/status', requireOwnerKey, requireDbReady, async (req, res) =
 });
 
 // ==================== MISSED MESSAGES ====================
+app.get("/owner/missed-messages", requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const limit = Math.min(Number(req.query.limit || 50), 200);
+    const result = await pool.query(
+      `SELECT id, phone, message, received_at, handled_at, created_at
+       FROM public.missed_messages
+       WHERE restaurant_id = $1
+       ORDER BY created_at DESC
+       LIMIT $2`,
+      [req.restaurant_id, limit]
+    );
+    return res.json({ success: true, version: APP_VERSION, data: result.rows });
+  } catch (err) {
+    console.error("❌ GET missed-messages error:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.post("/owner/missed-message", requireOwnerKey, requireDbReady, async (req, res) => {
   try {
     const { phone, message, received_at } = req.body || {};

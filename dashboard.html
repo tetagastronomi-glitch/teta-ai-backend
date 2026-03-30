@@ -761,6 +761,11 @@
           <path fill-rule="evenodd" d="M18 13V5a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2h3l3 3 3-3h3a2 2 0 002-2zM5 7a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zm1 3a1 1 0 100 2h3a1 1 0 100-2H6z" clip-rule="evenodd"/>
         </svg>
       </div>
+      <div class="nav-item" id="nav-missed" data-tooltip="Mesazhe të Humbura" onclick="switchTab('missed')">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"/>
+        </svg>
+      </div>
     </div>
 
     <div class="sidebar-footer">
@@ -837,6 +842,7 @@
           <div class="card-header">
             <span class="card-title">Rezervimet</span>
             <span class="count-label" id="res-count">—</span>
+            <button class="btn btn-ghost btn-sm" onclick="exportCSV()" title="Eksporto si CSV">⬇ CSV</button>
             <button class="btn btn-primary btn-sm" onclick="openAddModal()">➕ Shto Rezervim</button>
           </div>
           <div class="table-wrap">
@@ -898,6 +904,37 @@
           </div>
         </div>
       </div><!-- /panel-customers -->
+
+      <!-- MISSED MESSAGES PANEL -->
+      <div id="panel-missed" class="panel">
+        <div class="toolbar">
+          <button class="btn btn-ghost btn-sm" onclick="loadMissedMessages()">
+            <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/>
+            </svg>
+            Rifresko
+          </button>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">📵 Mesazhe të Humbura</span>
+            <span class="count-label" id="missed-count">—</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Telefon</th>
+                  <th>Mesazhi</th>
+                  <th>Marrë</th>
+                </tr>
+              </thead>
+              <tbody id="missed-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div><!-- /panel-missed -->
 
       <!-- FEEDBACK PANEL -->
       <div id="panel-feedback" class="panel">
@@ -992,12 +1029,13 @@
     const panel = document.getElementById('panel-' + name);
     if (panel) panel.classList.add('active');
 
-    const nameMap = { reservations: 'Rezervimet', customers: 'Klientët', feedback: 'Feedback' };
+    const nameMap = { reservations: 'Rezervimet', customers: 'Klientët', feedback: 'Feedback', missed: 'Mesazhe të Humbura' };
     document.getElementById('header-panel-name').textContent = nameMap[name] || name;
 
     if (name === 'reservations' && allReservations.length === 0) loadReservations();
     if (name === 'customers' && allCustomers.length === 0) loadCustomers();
     if (name === 'feedback') loadFeedback();
+    if (name === 'missed') loadMissedMessages();
 
     closeSidebar();
   }
@@ -1105,10 +1143,7 @@
     const statusFilter = document.getElementById('res-status-filter').value;
     const dateFilter   = document.getElementById('res-date-filter').value;
 
-    console.log('filter date:', dateFilter, 'all dates:', allReservations.map(r => r.date?.slice(0,10)));
-
     let rows = allReservations.filter(r => {
-      console.log('r.date raw:', r.date, '| id:', r.id);
       const matchSearch = !search ||
         (r.customer_name || '').toLowerCase().includes(search) ||
         (r.phone || '').includes(search);
@@ -1117,11 +1152,8 @@
         ? new Date(r.date).toLocaleDateString('en-CA', { timeZone: 'Europe/Tirane' })
         : '';
       const matchDate = !dateFilter || rDateLocal === dateFilter;
-      console.log('comparing:', rDateLocal, '===', dateFilter, '→', rDateLocal === dateFilter);
       return matchSearch && matchStatus && matchDate;
     });
-
-    console.log('dateFilter:', dateFilter, 'rows:', rows.length);
 
     rows.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
 
@@ -1191,7 +1223,7 @@
       return `<tr>
         <td class="text-muted" style="font-size:12px;">${r.id}</td>
         <td><strong>${esc(r.customer_name || '—')}</strong></td>
-        <td class="text-muted">${esc(r.phone || '—')}</td>
+        <td class="text-muted">${esc(cleanPhone(r.phone))}</td>
         <td class="text-muted">${r.date ? new Date(r.date).toLocaleDateString('sq-AL', { timeZone: 'Europe/Tirane', day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'}</td>
         <td>${esc(r.time || '—')}</td>
         <td>${r.people || '—'}</td>
@@ -1306,7 +1338,7 @@
       const star = (c.visits_count || 0) >= 3 ? ' ⭐' : '';
       return `<tr>
         <td><strong>${esc(c.full_name || '—')}${star}</strong></td>
-        <td class="text-muted">${esc(c.phone || '—')}</td>
+        <td class="text-muted">${esc(cleanPhone(c.phone))}</td>
         <td><strong>${c.visits_count || 0}</strong></td>
         <td class="text-muted" style="font-size:12px;">${fmtDate(c.first_seen_at)}</td>
         <td class="text-muted" style="font-size:12px;">${fmtDate(c.last_seen_at)}</td>
@@ -1533,6 +1565,86 @@
       btn.textContent = 'Krijo Rezervimin';
     }
   }
+
+  // ===== CLEAN PHONE =====
+  function cleanPhone(phone) {
+    if (!phone) return '—';
+    return phone.replace('@s.whatsapp.net', '').replace('@lid', '').split(':')[0];
+  }
+
+  // ===== MISSED MESSAGES =====
+  async function loadMissedMessages() {
+    document.getElementById('missed-tbody').innerHTML = `
+      <tr><td colspan="4"><div class="empty-state"><div style="display:inline-block;width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;"></div></div></td></tr>`;
+    try {
+      const j = await apiJSON('/owner/missed-messages?limit=100');
+      const rows = j.data || [];
+      document.getElementById('missed-count').textContent = rows.length + ' mesazhe';
+      if (rows.length === 0) {
+        document.getElementById('missed-tbody').innerHTML = `
+          <tr><td colspan="4"><div class="empty-state">
+            <div class="empty-state-icon">📵</div>
+            <div class="empty-state-title">Asnjë mesazh i humbur</div>
+            <div class="empty-state-sub">Klientët shkruan vetëm kur boti është aktiv</div>
+          </div></td></tr>`;
+        return;
+      }
+      document.getElementById('missed-tbody').innerHTML = rows.map(m => `<tr>
+        <td class="text-muted" style="font-size:12px;">${m.id}</td>
+        <td><strong>${esc(cleanPhone(m.phone))}</strong></td>
+        <td>${esc(m.message || '—')}</td>
+        <td class="text-muted" style="font-size:12px;">${fmtDate(m.received_at || m.created_at)}</td>
+      </tr>`).join('');
+    } catch (e) {
+      document.getElementById('missed-tbody').innerHTML = `
+        <tr><td colspan="4"><div class="empty-state">
+          <div class="empty-state-icon">⚠️</div>
+          <div class="empty-state-title">Gabim</div>
+          <div class="empty-state-sub">${esc(e.message)}</div>
+        </div></td></tr>`;
+    }
+  }
+
+  // ===== EXPORT CSV =====
+  function exportCSV() {
+    const dateFilter = document.getElementById('res-date-filter').value;
+    const rows = dateFilter
+      ? allReservations.filter(r => {
+          const d = r.date ? new Date(r.date).toLocaleDateString('en-CA', { timeZone: 'Europe/Tirane' }) : '';
+          return d === dateFilter;
+        })
+      : allReservations;
+
+    const headers = ['ID', 'Emri', 'Telefon', 'Data', 'Ora', 'Persona', 'Zona', 'Statusi', 'Kanali'];
+    const q = s => `"${String(s || '').replace(/"/g, '""')}"`;
+    const lines = [headers.join(','), ...rows.map(r => [
+      r.id, q(r.customer_name), q(cleanPhone(r.phone)),
+      r.date || '', r.time || '', r.people || '',
+      q(r.area), q(r.status), q(r.channel)
+    ].join(','))];
+
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `rezervimet-${dateFilter || 'te-gjitha'}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('CSV u eksportua!');
+  }
+
+  // ===== AUTO-REFRESH (silent, çdo 30s) =====
+  async function silentRefresh() {
+    if (!OWNER_KEY) return;
+    const activePanel = document.querySelector('.panel.active');
+    if (!activePanel || activePanel.id !== 'panel-reservations') return;
+    try {
+      const j = await apiJSON('/owner/reservations?limit=100');
+      allReservations = j.data || [];
+      renderReservations();
+    } catch { /* silent */ }
+  }
+  setInterval(silentRefresh, 30000);
 
   function channelBadge(channel) {
     const c = (channel || '').toLowerCase();
