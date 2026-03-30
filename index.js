@@ -3633,6 +3633,27 @@ app.get('/owner/bot/status', requireOwnerKey, requireDbReady, async (req, res) =
 });
 
 // ==================== MISSED MESSAGES ====================
+app.get("/owner/reservations/active-by-phone", requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const { phone } = req.query;
+    if (!phone) return res.status(400).json({ success: false, error: "Missing phone" });
+    const result = await pool.query(
+      `SELECT id, customer_name, phone, date, time, people, status
+       FROM public.reservations
+       WHERE restaurant_id = $1
+         AND phone = $2
+         AND status IN ('Confirmed','Pending')
+         AND date >= CURRENT_DATE
+       ORDER BY date ASC, time ASC
+       LIMIT 1`,
+      [req.restaurant_id, phone]
+    );
+    return res.json({ success: true, data: result.rows[0] || null });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.get("/owner/missed-messages", requireOwnerKey, requireDbReady, async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 50), 200);
