@@ -3797,6 +3797,65 @@ app.get('/admin-panel', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
+app.get('/command', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'command.html'));
+});
+
+app.post('/admin/jerry/chat', requireAdminKey, requireDbReady, async (req, res) => {
+  const { message, history } = req.body;
+  try {
+    const [statsRes, resRes] = await Promise.all([
+      pool.query(`
+        SELECT
+          COUNT(DISTINCT id) as total_restaurants,
+          COUNT(DISTINCT CASE WHEN is_active THEN id END) as active_restaurants
+        FROM restaurants`),
+      pool.query(`
+        SELECT COUNT(*) as total,
+          COUNT(CASE WHEN DATE(created_at AT TIME ZONE 'Europe/Tirane') =
+            CURRENT_DATE AT TIME ZONE 'Europe/Tirane' THEN 1 END) as today
+        FROM reservations`),
+    ]);
+
+    const context = `Ti je Jerry — agjenti inteligjent i Te Ta AI, platformë rezervimesh për restorante shqiptare.
+Të dhënat live:
+- Restorantet: ${statsRes.rows[0].total_restaurants} (${statsRes.rows[0].active_restaurants} aktive)
+- Rezervime sot: ${resRes.rows[0].today}
+- Total rezervime: ${resRes.rows[0].total}
+Përgjigju në shqip, drejtpërdrejt si partner biznesi. Ji i shkurtër dhe preciz.`;
+
+    const Anthropic = require('@anthropic-ai/sdk');
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+    const response = await client.messages.create({
+      model: 'claude-opus-4-5',
+      max_tokens: 1024,
+      system: context,
+      messages: [...(history || []), { role: 'user', content: message }],
+    });
+
+    res.json({ reply: response.content[0].text });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/admin/reservations', requireAdminKey, requireDbReady, async (req, res) => {
+  try {
+    const limit = Math.min(Number(req.query.limit) || 200, 1000);
+    const result = await pool.query(`
+      SELECT r.*, res.name as restaurant_name
+      FROM reservations r
+      LEFT JOIN restaurants res ON r.restaurant_id = res.id
+      ORDER BY r.created_at DESC
+      LIMIT $1
+    `, [limit]);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/dashboard', (req, res) => {
   res.sendFile(path.join(__dirname, 'dashboard.html'));
 });
