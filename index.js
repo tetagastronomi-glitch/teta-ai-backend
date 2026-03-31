@@ -1017,11 +1017,40 @@ async function initDb() {
       );
     `);
 
+    // ==================== JERRY MEMORY ====================
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS jerry_memory (
+        id SERIAL PRIMARY KEY,
+        type VARCHAR(50) NOT NULL,
+        category VARCHAR(50),
+        content TEXT NOT NULL,
+        metadata JSONB DEFAULT '{}',
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS jerry_incidents (
+        id SERIAL PRIMARY KEY,
+        type VARCHAR(50) NOT NULL,
+        severity INTEGER DEFAULT 1,
+        description TEXT,
+        cause TEXT,
+        action_taken TEXT,
+        resolved BOOLEAN DEFAULT false,
+        resolved_at TIMESTAMP,
+        duration_seconds INTEGER,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
     console.log("✅ DB ready (migrations applied)");
   } catch (err) {
     console.error("❌ initDb error:", err);
   }
 }
+
+const { startJerry } = require('./jerry/jerry');
 
 // Boot DB (safe: server can still run even if DB down)
 (async () => {
@@ -1033,6 +1062,9 @@ async function initDb() {
   }
   await initDb();
   DB_READY = true;
+
+  // Start Jerry — Guardian Agent
+  startJerry(pool).catch(err => console.error('Jerry error:', err));
 })();
 // ✅ KËTU VENDOSET KODI I RI PËR WHATSAPP
 app.get("/webhook", (req, res) => {

@@ -7,7 +7,9 @@
       "Bash(explorer:*)",
       "Bash(sleep:*)",
       "Bash(node:*)",
-      "Bash(docker:*)"
+      "Bash(docker:*)",
+      "Bash(git add:*)",
+      "Bash(railway variables:*)"
     ]
   }
 }
