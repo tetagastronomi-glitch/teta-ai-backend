@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="sq">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Teta AI — Admin Panel</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d0f14;
+    --surface: #161920;
+    --surface2: #1e2330;
+    --border: #2a2f3d;
+    --accent: #4f8ef7;
+    --accent2: #7c5af7;
+    --green: #22c97a;
+    --red: #f75a5a;
+    --orange: #f7a45a;
+    --yellow: #f7d55a;
+    --text: #e8ecf5;
+    --muted: #7a8099;
+    --radius: 10px;
+    --font: 'Inter', system-ui, sans-serif;
+  }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ===== TOP BAR ===== */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    height: 56px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .topbar-logo { font-size: 18px; font-weight: 700; letter-spacing: -.5px; color: var(--text); }
+  .topbar-logo span { color: var(--accent); }
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+  .version-badge {
+    font-size: 11px; padding: 3px 9px; border-radius: 20px;
+    background: var(--surface2); color: var(--muted); border: 1px solid var(--border);
+  }
+  #auth-status { font-size: 13px; color: var(--muted); }
+
+  /* ===== LAYOUT ===== */
+  .layout { display: flex; flex: 1; }
+
+  /* ===== SIDEBAR ===== */
+  .sidebar {
+    width: 220px; min-height: calc(100vh - 56px);
+    background: var(--surface); border-right: 1px solid var(--border);
+    padding: 20px 12px;
+    display: flex; flex-direction: column; gap: 4px;
+    position: sticky; top: 56px; height: calc(100vh - 56px); overflow-y: auto;
+  }
+  .nav-section { font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 1px; padding: 12px 10px 6px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; border-radius: 8px; cursor: pointer;
+    font-size: 13.5px; color: var(--muted); transition: all .15s;
+    border: none; background: none; width: 100%; text-align: left;
+  }
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active { background: rgba(79,142,247,.12); color: var(--accent); font-weight: 600; }
+  .nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+
+  /* ===== MAIN ===== */
+  .main { flex: 1; padding: 28px 32px; max-width: 1200px; }
+
+  /* ===== PANELS ===== */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* ===== LOGIN ===== */
+  #login-screen {
+    position: fixed; inset: 0; background: var(--bg);
+    display: flex; align-items: center; justify-content: center; z-index: 999;
+  }
+  .login-box {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 40px 36px; width: 380px; text-align: center;
+  }
+  .login-box h2 { font-size: 22px; margin-bottom: 6px; }
+  .login-box p { color: var(--muted); font-size: 13px; margin-bottom: 28px; }
+  .login-box input {
+    width: 100%; padding: 11px 14px; border-radius: 8px; font-size: 14px;
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    margin-bottom: 14px;
+  }
+  .login-box input:focus { outline: none; border-color: var(--accent); }
+
+  /* ===== HEADINGS ===== */
+  .page-title { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .page-sub { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+
+  /* ===== STAT CARDS ===== */
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px,1fr)); gap: 16px; margin-bottom: 28px; }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 20px 22px;
+  }
+  .stat-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin-bottom: 8px; }
+  .stat-card .value { font-size: 30px; font-weight: 700; line-height: 1; }
+  .stat-card .sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .stat-card.green .value { color: var(--green); }
+  .stat-card.blue .value { color: var(--accent); }
+  .stat-card.purple .value { color: var(--accent2); }
+  .stat-card.orange .value { color: var(--orange); }
+  .stat-card.red .value { color: var(--red); }
+
+  /* ===== TABLES ===== */
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  thead { background: var(--surface2); }
+  th { padding: 11px 14px; text-align: left; font-size: 11px; text-transform: uppercase;
+       letter-spacing: .6px; color: var(--muted); font-weight: 600; }
+  td { padding: 12px 14px; border-top: 1px solid var(--border); vertical-align: middle; }
+  tr:hover td { background: rgba(255,255,255,.02); }
+
+  /* ===== BADGES ===== */
+  .badge {
+    display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600;
+  }
+  .badge-green { background: rgba(34,201,122,.12); color: var(--green); }
+  .badge-blue { background: rgba(79,142,247,.12); color: var(--accent); }
+  .badge-purple { background: rgba(124,90,247,.12); color: var(--accent2); }
+  .badge-orange { background: rgba(247,164,90,.12); color: var(--orange); }
+  .badge-red { background: rgba(247,90,90,.12); color: var(--red); }
+  .badge-gray { background: var(--surface2); color: var(--muted); }
+
+  /* ===== BUTTONS ===== */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600;
+    cursor: pointer; border: none; transition: opacity .15s;
+  }
+  .btn:hover { opacity: .85; }
+  .btn:active { opacity: .7; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-success { background: var(--green); color: #fff; }
+  .btn-danger { background: var(--red); color: #fff; }
+  .btn-outline {
+    background: transparent; color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-sm { padding: 5px 11px; font-size: 12px; border-radius: 6px; }
+  .btn-icon { padding: 6px 10px; }
+
+  /* ===== FORMS ===== */
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 24px 26px; margin-bottom: 20px;
+  }
+  .card-title { font-size: 15px; font-weight: 700; margin-bottom: 18px; display: flex; align-items: center; gap: 8px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-grid.cols3 { grid-template-columns: 1fr 1fr 1fr; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group.full { grid-column: 1 / -1; }
+  label { font-size: 12px; color: var(--muted); font-weight: 500; }
+  input, select, textarea {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    border-radius: 7px; padding: 9px 12px; font-size: 13.5px; width: 100%;
+    font-family: var(--font);
+  }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 80px; }
+  .form-actions { display: flex; gap: 10px; margin-top: 18px; }
+
+  /* ===== ALERT ===== */
+  .alert {
+    padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 16px;
+    display: none;
+  }
+  .alert.show { display: block; }
+  .alert-success { background: rgba(34,201,122,.1); border: 1px solid rgba(34,201,122,.3); color: var(--green); }
+  .alert-error { background: rgba(247,90,90,.1); border: 1px solid rgba(247,90,90,.3); color: var(--red); }
+  .alert-info { background: rgba(79,142,247,.1); border: 1px solid rgba(79,142,247,.3); color: var(--accent); }
+
+  /* ===== KEY REVEAL ===== */
+  .key-box {
+    background: #0a0c10; border: 1px solid var(--border); border-radius: 8px;
+    padding: 14px 16px; font-family: monospace; font-size: 13px;
+    word-break: break-all; position: relative; margin-bottom: 12px;
+  }
+  .key-label { font-size: 11px; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .5px; }
+  .copy-btn {
+    position: absolute; top: 10px; right: 10px;
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--muted); border-radius: 5px; padding: 3px 8px; font-size: 11px;
+    cursor: pointer;
+  }
+  .copy-btn:hover { color: var(--text); }
+
+  /* ===== DETAIL DRAWER ===== */
+  .drawer-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 200; display: none;
+  }
+  .drawer-overlay.open { display: flex; justify-content: flex-end; }
+  .drawer {
+    width: 520px; max-width: 95vw; background: var(--surface);
+    border-left: 1px solid var(--border); height: 100vh; overflow-y: auto;
+    padding: 28px 26px;
+  }
+  .drawer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+  .drawer-title { font-size: 18px; font-weight: 700; }
+  .drawer-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 22px; }
+
+  /* ===== MODAL ===== */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 300; display: none;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 28px; width: 460px; max-width: 95vw;
+  }
+  .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 20px; }
+
+  /* ===== MISC ===== */
+  .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .empty-state { text-align: center; padding: 48px; color: var(--muted); font-size: 14px; }
+  .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.2);
+    border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .tag { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 4px;
+    background: var(--surface2); color: var(--muted); margin: 2px; }
+  hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+  .text-muted { color: var(--muted); }
+  .text-green { color: var(--green); }
+  .text-red { color: var(--red); }
+  .mt-4 { margin-top: 16px; }
+  .flex-between { display: flex; justify-content: space-between; align-items: center; }
+  .gap-8 { gap: 8px; }
+  .inline-flex { display: inline-flex; }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+    .main { padding: 16px; }
+    .form-grid { grid-template-columns: 1fr; }
+    .stat-grid { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== LOGIN ===== -->
+<div id="login-screen">
+  <div class="login-box">
+    <div style="font-size:36px;margin-bottom:12px">🔐</div>
+    <h2>Teta AI Admin</h2>
+    <p>Fut Admin Key për të hyrë në panel</p>
+    <input type="password" id="admin-key-input" placeholder="admin-key-xxxxxxxx" autocomplete="off" />
+    <button class="btn btn-primary" style="width:100%" onclick="doLogin()">Hyr</button>
+    <div id="login-err" style="color:var(--red);font-size:13px;margin-top:12px;display:none">❌ Key i gabuar ose backend jo aktiv</div>
+  </div>
+</div>
+
+<!-- ===== TOP BAR ===== -->
+<div class="topbar">
+  <div class="topbar-logo">Teta <span>AI</span> <span style="font-size:11px;font-weight:400;color:var(--muted);margin-left:4px">Admin</span></div>
+  <div class="topbar-right">
+    <span class="version-badge" id="ver-badge">—</span>
+    <span id="auth-status">Duke u ngarkuar...</span>
+    <button class="btn btn-outline btn-sm" onclick="doLogout()">Dil</button>
+  </div>
+</div>
+
+<!-- ===== LAYOUT ===== -->
+<div class="layout">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="nav-section">Overview</div>
+    <button class="nav-item active" onclick="showPanel('panel-overview',this)">
+      <span class="icon">📊</span> Dashboard
+    </button>
+
+    <div class="nav-section">Restorantet</div>
+    <button class="nav-item" onclick="showPanel('panel-restaurants',this);loadRestaurants()">
+      <span class="icon">🍽️</span> Të gjitha
+    </button>
+    <button class="nav-item" onclick="showPanel('panel-create',this)">
+      <span class="icon">➕</span> Krijo të ri
+    </button>
+
+    <div class="nav-section">Sistem</div>
+    <button class="nav-item" onclick="showPanel('panel-cron',this)">
+      <span class="icon">⏰</span> Cron Jobs
+    </button>
+    <button class="nav-item" onclick="showPanel('panel-env',this);loadEnv()">
+      <span class="icon">🔧</span> Environment
+    </button>
+    <button class="nav-item" onclick="showPanel('panel-logs',this)">
+      <span class="icon">📋</span> Activity Log
+    </button>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- ======== OVERVIEW ======== -->
+    <div id="panel-overview" class="panel active">
+      <div class="page-title">📊 Dashboard Overview</div>
+      <div class="page-sub">Statistika globale të platformës Teta AI</div>
+
+      <div class="stat-grid" id="stat-grid">
+        <div class="stat-card blue"><div class="label">Restorantet</div><div class="value" id="st-rests">—</div></div>
+        <div class="stat-card green"><div class="label">Rezervime Sot</div><div class="value" id="st-today">—</div></div>
+        <div class="stat-card purple"><div class="label">Total Rezervime</div><div class="value" id="st-total">—</div></div>
+        <div class="stat-card orange"><div class="label">Klientë</div><div class="value" id="st-custs">—</div></div>
+        <div class="stat-card red"><div class="label">Missed Msgs</div><div class="value" id="st-missed">—</div><div class="sub">të patrajtuar</div></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div class="card">
+          <div class="card-title">📈 Rezervime sipas statusit</div>
+          <div id="by-status-list"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">💳 Restorantet sipas planit</div>
+          <div id="by-plan-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======== RESTAURANTS LIST ======== -->
+    <div id="panel-restaurants" class="panel">
+      <div class="section-header">
+        <div>
+          <div class="page-title">🍽️ Të gjitha restorantet</div>
+          <div class="page-sub">Menaxho, shiko detaje dhe ndrysho settings</div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <input type="text" id="rest-search" placeholder="Kërko restorant..." style="width:220px" oninput="filterRestaurants()" />
+          <button class="btn btn-primary" onclick="showPanel('panel-create', document.querySelector('.nav-item:nth-child(7)'))">+ Krijo të ri</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th><th>Emri</th><th>Plan</th><th>Rezervime</th>
+              <th>Klientë</th><th>Orari</th><th>Kapaciteti</th><th>Krijuar</th><th>Veprime</th>
+            </tr>
+          </thead>
+          <tbody id="restaurants-tbody"></tbody>
+        </table>
+        <div id="restaurants-empty" class="empty-state" style="display:none">Asnjë restorant ende</div>
+      </div>
+    </div>
+
+    <!-- ======== CREATE RESTAURANT ======== -->
+    <div id="panel-create" class="panel">
+      <div class="page-title">➕ Krijo Restorant të Ri</div>
+      <div class="page-sub">Plotëso të dhënat — API key dhe Owner key gjenerohen automatikisht</div>
+
+      <div id="create-alert" class="alert"></div>
+
+      <div class="card">
+        <div class="card-title">🏢 Informacion bazë</div>
+        <div class="form-grid">
+          <div class="form-group full">
+            <label>Emri i Restorantit *</label>
+            <input id="c-name" type="text" placeholder="p.sh. Te Ta Gastronomi" />
+          </div>
+          <div class="form-group">
+            <label>Numri i Pronarit (WhatsApp)</label>
+            <input id="c-phone" type="text" placeholder="355697818181" />
+          </div>
+          <div class="form-group">
+            <label>Plani</label>
+            <select id="c-plan">
+              <option value="FREE">FREE</option>
+              <option value="PRO">PRO</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">⏰ Orari dhe Kapaciteti</div>
+        <div class="form-grid cols3">
+          <div class="form-group">
+            <label>Hap ora</label>
+            <input id="c-open-start" type="time" value="11:00" />
+          </div>
+          <div class="form-group">
+            <label>Mbyll ora</label>
+            <input id="c-open-end" type="time" value="21:00" />
+          </div>
+          <div class="form-group">
+            <label>Kapaciteti max / slot</label>
+            <input id="c-capacity" type="number" value="50" min="1" max="500" />
+          </div>
+          <div class="form-group">
+            <label>Auto-konfirmo deri në (persona)</label>
+            <input id="c-max-auto" type="number" value="6" min="1" max="50" />
+          </div>
+          <div class="form-group">
+            <label>Cutoff sot (orë)</label>
+            <input id="c-cutoff" type="time" value="11:00" />
+          </div>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn btn-success" onclick="createRestaurant()">✅ Krijo Restorant</button>
+        <button class="btn btn-outline" onclick="clearCreateForm()">Pastro</button>
+      </div>
+
+      <!-- KEYS OUTPUT -->
+      <div id="new-keys-box" style="display:none" class="card mt-4">
+        <div class="card-title" style="color:var(--green)">🎉 Restorant u krijua! Ruaji këto keys:</div>
+        <div class="key-label">API KEY (për bot WhatsApp)</div>
+        <div class="key-box" id="out-api-key"><button class="copy-btn" onclick="copyKey('out-api-key')">Kopjo</button><span id="api-key-text"></span></div>
+        <div class="key-label">OWNER KEY (për dashboard)</div>
+        <div class="key-box" id="out-owner-key"><button class="copy-btn" onclick="copyKey('out-owner-key')">Kopjo</button><span id="owner-key-text"></span></div>
+        <div style="font-size:12px;color:var(--red);margin-top:8px">⚠️ Këto keys shfaqen vetëm 1 herë. Nuk ruhen raw në DB.</div>
+      </div>
+    </div>
+
+    <!-- ======== CRON JOBS ======== -->
+    <div id="panel-cron" class="panel">
+      <div class="page-title">⏰ Cron Jobs</div>
+      <div class="page-sub">Ekzekuto manualisht cron jobs ose kontrollo statusin</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+        <div class="card">
+          <div class="card-title">🔔 Reminders</div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Dërgo kujtesa 18h para rezervimit për të gjitha restorantet.</p>
+          <div id="cron-remind-res" class="alert"></div>
+          <button class="btn btn-primary" onclick="runCron('reminders')">▶ Ekzekuto</button>
+        </div>
+        <div class="card">
+          <div class="card-title">⭐ Feedback Auto</div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Dërgo kërkesë feedback 24h pas vizitës.</p>
+          <div id="cron-feed-res" class="alert"></div>
+          <button class="btn btn-primary" onclick="runCron('feedback-auto')">▶ Ekzekuto</button>
+        </div>
+        <div class="card">
+          <div class="card-title">🔒 Auto-Close</div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Mbyll rezervimet e kaluara (Completed/NoShow).</p>
+          <div id="cron-close-res" class="alert"></div>
+          <button class="btn btn-outline" onclick="runCronClose()">▶ Ekzekuto</button>
+        </div>
+      </div>
+
+      <div class="card mt-4">
+        <div class="card-title">📋 Cron Schedule Suggestion</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Konfiguro Railway Cron ose cron.job.io me këto URL:</p>
+        <div class="key-box">
+          <div class="key-label">POST (çdo 15 min)</div>
+          <span id="cron-url-remind"></span>
+        </div>
+        <div class="key-box">
+          <div class="key-label">POST (çdo 15 min)</div>
+          <span id="cron-url-feed"></span>
+        </div>
+        <div class="key-box">
+          <div class="key-label">POST (çdo 30 min)</div>
+          <span id="cron-url-close"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======== ENV ======== -->
+    <div id="panel-env" class="panel">
+      <div class="page-title">🔧 Environment</div>
+      <div class="page-sub">Variablat e konfigurimit të serverit</div>
+      <div class="card" id="env-card">
+        <div style="text-align:center;color:var(--muted);padding:24px">Duke ngarkuar...</div>
+      </div>
+    </div>
+
+    <!-- ======== ACTIVITY LOG ======== -->
+    <div id="panel-logs" class="panel">
+      <div class="page-title">📋 Activity Log</div>
+      <div class="page-sub">Veprimet e fundit në admin panel (sesioni aktual)</div>
+      <div class="card">
+        <div id="log-list" style="font-size:13px;display:flex;flex-direction:column;gap:6px">
+          <div style="color:var(--muted)">Asnjë veprim ende.</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+<!-- ======== RESTAURANT DETAIL DRAWER ======== -->
+<div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer(event)">
+  <div class="drawer" id="drawer">
+    <div class="drawer-header">
+      <div class="drawer-title" id="drawer-title">Restorant</div>
+      <button class="drawer-close" onclick="closeDrawerDirect()">✕</button>
+    </div>
+    <div id="drawer-body"></div>
+  </div>
+</div>
+
+<!-- ======== ROTATE KEYS MODAL ======== -->
+<div class="modal-overlay" id="rotate-modal">
+  <div class="modal">
+    <div class="modal-title">🔄 Roto Keys</div>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:20px">
+      Keys aktuale do deaktivizohen. Keys të reja do gjenerohen. Duhet t'i ruash menjëherë.
+    </p>
+    <div id="rotate-alert" class="alert"></div>
+    <div id="rotate-keys-out" style="display:none">
+      <div class="key-label">API KEY i ri</div>
+      <div class="key-box"><button class="copy-btn" onclick="copyKey('rk-api')">Kopjo</button><span id="rk-api"></span></div>
+      <div class="key-label">OWNER KEY i ri</div>
+      <div class="key-box"><button class="copy-btn" onclick="copyKey('rk-owner')">Kopjo</button><span id="rk-owner"></span></div>
+      <div style="font-size:12px;color:var(--red);margin-top:8px">⚠️ Shfaqen vetëm 1 herë!</div>
+    </div>
+    <div class="form-actions" id="rotate-actions">
+      <button class="btn btn-danger" id="rotate-confirm-btn">🔄 Konfirmo Rotacionin</button>
+      <button class="btn btn-outline" onclick="closeRotateModal()">Anulo</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== STATE =====
+let ADMIN_KEY = '';
+let BASE_URL = window.location.origin;
+let currentRestaurantId = null;
+let activityLog = [];
+let allRestaurants = [];
+
+// ===== AUTH =====
+function doLogin() {
+  const key = document.getElementById('admin-key-input').value.trim();
+  if (!key) return;
+  ADMIN_KEY = key;
+  document.getElementById('login-err').style.display = 'none';
+  loadOverview().then(ok => {
+    if (ok) {
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('auth-status').textContent = '🟢 Autentikuar';
+      localStorage.setItem('teta_admin_key', key);
+      logActivity('✅ Hyrje e suksesshme');
+      fillCronUrls();
+    } else {
+      document.getElementById('login-err').style.display = 'block';
+      ADMIN_KEY = '';
+    }
+  });
+}
+
+function doLogout() {
+  ADMIN_KEY = '';
+  localStorage.removeItem('teta_admin_key');
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('auth-status').textContent = 'Jo i autentikuar';
+}
+
+document.getElementById('admin-key-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+// ===== API =====
+async function api(method, path, body) {
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json', 'x-admin-key': ADMIN_KEY },
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(BASE_URL + path, opts);
+  const json = await r.json().catch(() => ({}));
+  return { ok: r.ok, status: r.status, data: json };
+}
+
+// ===== NAVIGATION =====
+function showPanel(id, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (id === 'panel-overview') loadOverview();
+}
+
+// ===== OVERVIEW =====
+async function loadOverview() {
+  const r = await api('GET', '/admin/stats');
+  if (!r.ok) return false;
+  const d = r.data.data;
+  document.getElementById('ver-badge').textContent = r.data.version || '—';
+  document.getElementById('st-rests').textContent = d.restaurants;
+  document.getElementById('st-today').textContent = d.reservations_today;
+  document.getElementById('st-total').textContent = d.reservations_total;
+  document.getElementById('st-custs').textContent = d.customers_total;
+  document.getElementById('st-missed').textContent = d.missed_messages_unhandled;
+
+  // By status
+  const colorMap = { Confirmed:'badge-green', Pending:'badge-orange', Completed:'badge-blue', Cancelled:'badge-gray', NoShow:'badge-red' };
+  document.getElementById('by-status-list').innerHTML = d.reservations_by_status.map(s =>
+    `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+      <span class="badge ${colorMap[s.status]||'badge-gray'}">${s.status}</span>
+      <strong>${s.cnt}</strong>
+    </div>`
+  ).join('') || '<div class="text-muted">Nuk ka të dhëna</div>';
+
+  // By plan
+  document.getElementById('by-plan-list').innerHTML = d.restaurants_by_plan.map(p =>
+    `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+      <span class="badge ${p.plan==='PRO'?'badge-purple':'badge-gray'}">${p.plan}</span>
+      <strong>${p.cnt} restorant${p.cnt!=1?'e':''}</strong>
+    </div>`
+  ).join('') || '<div class="text-muted">Nuk ka të dhëna</div>';
+
+  return true;
+}
+
+// ===== RESTAURANTS =====
+async function loadRestaurants() {
+  const tbody = document.getElementById('restaurants-tbody');
+  tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted)"><div class="spinner"></div></td></tr>';
+
+  const r = await api('GET', '/admin/restaurants');
+  if (!r.ok) { tbody.innerHTML = `<tr><td colspan="9" style="color:var(--red);padding:16px">Gabim: ${r.data.error}</td></tr>`; return; }
+
+  allRestaurants = r.data.data || [];
+  renderRestaurants(allRestaurants);
+}
+
+function renderRestaurants(list) {
+  const tbody = document.getElementById('restaurants-tbody');
+  const empty = document.getElementById('restaurants-empty');
+  if (!list.length) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = list.map(r => `
+    <tr>
+      <td><span style="font-family:monospace;color:var(--muted)">#${r.id}</span></td>
+      <td><strong>${esc(r.name)}</strong><br><span style="font-size:11px;color:var(--muted)">${r.owner_phone||'—'}</span></td>
+      <td><span class="badge ${r.plan==='PRO'?'badge-purple':'badge-gray'}">${r.plan}</span></td>
+      <td>${r.total_reservations||0}</td>
+      <td>${r.total_customers||0}</td>
+      <td style="font-size:12px">${r.opening_hours_start||'11:00'}–${r.opening_hours_end||'21:00'}</td>
+      <td>${r.max_capacity||50}</td>
+      <td style="font-size:12px;color:var(--muted)">${fmtDate(r.created_at)}</td>
+      <td>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-outline btn-sm" onclick="openDrawer(${r.id})">Detaje</button>
+          <button class="btn btn-outline btn-sm" onclick="openRotateModal(${r.id})">🔄</button>
+          <button class="btn btn-sm ${r.plan==='PRO'?'btn-outline':'btn-primary'}" onclick="togglePlan(${r.id},'${r.plan}',this)">${r.plan==='PRO'?'→ FREE':'→ PRO'}</button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+function filterRestaurants() {
+  const q = document.getElementById('rest-search').value.toLowerCase();
+  renderRestaurants(q ? allRestaurants.filter(r => r.name.toLowerCase().includes(q) || String(r.id).includes(q)) : allRestaurants);
+}
+
+async function togglePlan(id, currentPlan, btn) {
+  const newPlan = currentPlan === 'PRO' ? 'FREE' : 'PRO';
+  btn.disabled = true;
+  const r = await api('POST', `/admin/restaurants/${id}/plan`, { plan: newPlan });
+  btn.disabled = false;
+  if (r.ok) { logActivity(`Plan ndryshuar: #${id} → ${newPlan}`); loadRestaurants(); }
+  else alert('Gabim: ' + r.data.error);
+}
+
+// ===== DRAWER (RESTAURANT DETAIL) =====
+async function openDrawer(id) {
+  currentRestaurantId = id;
+  document.getElementById('drawer-title').textContent = 'Duke ngarkuar...';
+  document.getElementById('drawer-body').innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)"><div class="spinner"></div></div>';
+  document.getElementById('drawer-overlay').classList.add('open');
+
+  const r = await api('GET', `/admin/restaurants/${id}`);
+  if (!r.ok) { document.getElementById('drawer-body').innerHTML = `<div class="text-red">Gabim: ${r.data.error}</div>`; return; }
+
+  const d = r.data.data;
+  document.getElementById('drawer-title').textContent = d.name;
+
+  const s = d.stats || {};
+  const apiKeys = (d.api_keys || []).filter(k => k.is_active);
+  const ownerKeys = (d.owner_keys || []).filter(k => k.is_active);
+
+  document.getElementById('drawer-body').innerHTML = `
+    <!-- Stats row -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px">
+      <div class="stat-card" style="padding:14px"><div class="label">Total</div><div class="value" style="font-size:22px">${s.total_reservations||0}</div></div>
+      <div class="stat-card green" style="padding:14px"><div class="label">Upcoming</div><div class="value" style="font-size:22px">${s.upcoming||0}</div></div>
+      <div class="stat-card orange" style="padding:14px"><div class="label">Klientë</div><div class="value" style="font-size:22px">${s.customers_total||0}</div></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:20px;font-size:12px;text-align:center">
+      <div><span class="badge badge-green">Confirmed</span><br>${s.confirmed||0}</div>
+      <div><span class="badge badge-orange">Pending</span><br>${s.pending||0}</div>
+      <div><span class="badge badge-blue">Completed</span><br>${s.completed||0}</div>
+      <div><span class="badge badge-gray">Cancelled</span><br>${s.cancelled||0}</div>
+      <div><span class="badge badge-red">NoShow</span><br>${s.noshow||0}</div>
+    </div>
+
+    <hr>
+
+    <!-- Settings form -->
+    <div style="font-size:14px;font-weight:700;margin-bottom:14px">⚙️ Settings</div>
+    <div id="drawer-alert" class="alert"></div>
+    <div class="form-grid" style="margin-bottom:14px">
+      <div class="form-group">
+        <label>Emri</label>
+        <input id="dr-name" value="${esc(d.name)}" />
+      </div>
+      <div class="form-group">
+        <label>Owner Phone</label>
+        <input id="dr-phone" value="${esc(d.owner_phone||'')}" placeholder="355xxxxxxxxx" />
+      </div>
+      <div class="form-group">
+        <label>Hap ora</label>
+        <input id="dr-open-start" type="time" value="${d.opening_hours_start||'11:00'}" />
+      </div>
+      <div class="form-group">
+        <label>Mbyll ora</label>
+        <input id="dr-open-end" type="time" value="${d.opening_hours_end||'21:00'}" />
+      </div>
+      <div class="form-group">
+        <label>Kapaciteti max / slot</label>
+        <input id="dr-capacity" type="number" value="${d.max_capacity||50}" />
+      </div>
+      <div class="form-group">
+        <label>Auto-konfirmo (max persona)</label>
+        <input id="dr-max-auto" type="number" value="${d.max_auto_confirm_people||6}" />
+      </div>
+      <div class="form-group">
+        <label>Cutoff sot (orë)</label>
+        <input id="dr-cutoff" type="time" value="${d.same_day_cutoff_hhmi||'11:00'}" />
+      </div>
+      <div class="form-group">
+        <label>Plan</label>
+        <select id="dr-plan">
+          <option value="FREE" ${d.plan==='FREE'?'selected':''}>FREE</option>
+          <option value="PRO" ${d.plan==='PRO'?'selected':''}>PRO</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="saveDrawerSettings(${id})">💾 Ruaj Ndryshimet</button>
+
+    <hr>
+
+    <!-- Keys -->
+    <div style="font-size:14px;font-weight:700;margin-bottom:14px">🔑 Keys Aktive</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">API Keys (${apiKeys.length})</div>
+    ${apiKeys.map(k=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--surface2);border-radius:6px;margin-bottom:6px;font-size:12px">
+      <div><span class="badge badge-green">aktive</span> <span style="color:var(--muted)">${k.label||'—'}</span></div>
+      <div style="color:var(--muted)">${fmtDate(k.created_at)}</div>
+    </div>`).join('') || '<div style="color:var(--muted);font-size:12px">Asnjë key aktive</div>'}
+
+    <div style="font-size:12px;color:var(--muted);margin:12px 0 8px">Owner Keys (${ownerKeys.length})</div>
+    ${ownerKeys.map(k=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--surface2);border-radius:6px;margin-bottom:6px;font-size:12px">
+      <div><span class="badge badge-blue">aktive</span> <span style="color:var(--muted)">${k.label||'—'}</span></div>
+      <div style="color:var(--muted)">${fmtDate(k.created_at)}</div>
+    </div>`).join('') || '<div style="color:var(--muted);font-size:12px">Asnjë key aktive</div>'}
+
+    <div style="margin-top:14px">
+      <button class="btn btn-danger btn-sm" onclick="openRotateModal(${id})">🔄 Roto të gjitha Keys</button>
+    </div>
+  `;
+}
+
+async function saveDrawerSettings(id) {
+  const alertEl = document.getElementById('drawer-alert');
+  const payload = {
+    name: document.getElementById('dr-name').value,
+    owner_phone: document.getElementById('dr-phone').value,
+    opening_hours_start: document.getElementById('dr-open-start').value,
+    opening_hours_end: document.getElementById('dr-open-end').value,
+    max_capacity: document.getElementById('dr-capacity').value,
+    max_auto_confirm_people: document.getElementById('dr-max-auto').value,
+    same_day_cutoff_hhmi: document.getElementById('dr-cutoff').value,
+  };
+
+  const r = await api('PATCH', `/admin/restaurants/${id}/settings`, payload);
+
+  const plan = document.getElementById('dr-plan').value;
+  const currPlan = allRestaurants.find(x=>x.id===id)?.plan;
+  if (plan !== currPlan) await api('POST', `/admin/restaurants/${id}/plan`, { plan });
+
+  showAlert(alertEl, r.ok ? 'success' : 'error', r.ok ? '✅ Settings u ruajtën!' : '❌ ' + r.data.error);
+  if (r.ok) { logActivity(`Settings ndryshuar: #${id}`); loadRestaurants(); }
+}
+
+function closeDrawer(e) {
+  if (e.target === document.getElementById('drawer-overlay')) closeDrawerDirect();
+}
+function closeDrawerDirect() {
+  document.getElementById('drawer-overlay').classList.remove('open');
+}
+
+// ===== ROTATE MODAL =====
+function openRotateModal(id) {
+  currentRestaurantId = id;
+  document.getElementById('rotate-alert').className = 'alert';
+  document.getElementById('rotate-keys-out').style.display = 'none';
+  document.getElementById('rotate-actions').style.display = 'flex';
+  document.getElementById('rotate-confirm-btn').onclick = () => doRotate(id);
+  document.getElementById('rotate-modal').classList.add('open');
+}
+function closeRotateModal() {
+  document.getElementById('rotate-modal').classList.remove('open');
+}
+async function doRotate(id) {
+  const btn = document.getElementById('rotate-confirm-btn');
+  btn.disabled = true; btn.textContent = 'Duke rotuar...';
+  const r = await api('POST', `/admin/restaurants/${id}/rotate-keys`);
+  btn.disabled = false;
+
+  if (!r.ok) {
+    showAlert(document.getElementById('rotate-alert'), 'error', '❌ ' + r.data.error);
+    btn.textContent = '🔄 Konfirmo Rotacionin';
+    return;
+  }
+
+  document.getElementById('rk-api').textContent = r.data.data.api_key;
+  document.getElementById('rk-owner').textContent = r.data.data.owner_key;
+  document.getElementById('rotate-keys-out').style.display = 'block';
+  document.getElementById('rotate-actions').style.display = 'none';
+  showAlert(document.getElementById('rotate-alert'), 'success', '✅ Keys u rotuan! Ruaji tani.');
+  logActivity(`Keys rotuar: #${id}`);
+}
+
+// ===== CREATE RESTAURANT =====
+async function createRestaurant() {
+  const alert = document.getElementById('create-alert');
+  const name = document.getElementById('c-name').value.trim();
+  if (!name) { showAlert(alert, 'error', '❌ Emri është i detyrueshëm.'); return; }
+
+  const payload = {
+    name,
+    owner_phone: document.getElementById('c-phone').value.trim(),
+  };
+
+  const r = await api('POST', '/admin/restaurants', payload);
+  if (!r.ok) { showAlert(alert, 'error', '❌ ' + r.data.error); return; }
+
+  const d = r.data.data;
+
+  // Set plan if PRO
+  const plan = document.getElementById('c-plan').value;
+  if (plan === 'PRO') await api('POST', `/admin/restaurants/${d.restaurant.id}/plan`, { plan: 'PRO' });
+
+  // Set settings
+  await api('PATCH', `/admin/restaurants/${d.restaurant.id}/settings`, {
+    opening_hours_start: document.getElementById('c-open-start').value,
+    opening_hours_end: document.getElementById('c-open-end').value,
+    max_capacity: document.getElementById('c-capacity').value,
+    max_auto_confirm_people: document.getElementById('c-max-auto').value,
+    same_day_cutoff_hhmi: document.getElementById('c-cutoff').value,
+  });
+
+  // Show keys
+  document.getElementById('api-key-text').textContent = d.api_key;
+  document.getElementById('owner-key-text').textContent = d.owner_key;
+  document.getElementById('new-keys-box').style.display = 'block';
+  showAlert(alert, 'success', `✅ Restorant "${d.restaurant.name}" u krijua (ID: #${d.restaurant.id})`);
+  logActivity(`Restorant i ri krijuar: "${d.restaurant.name}" #${d.restaurant.id}`);
+}
+
+function clearCreateForm() {
+  ['c-name','c-phone'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('c-open-start').value = '11:00';
+  document.getElementById('c-open-end').value = '21:00';
+  document.getElementById('c-capacity').value = '50';
+  document.getElementById('c-max-auto').value = '6';
+  document.getElementById('c-cutoff').value = '11:00';
+  document.getElementById('c-plan').value = 'FREE';
+  document.getElementById('new-keys-box').style.display = 'none';
+  document.getElementById('create-alert').className = 'alert';
+}
+
+// ===== CRON =====
+function fillCronUrls() {
+  document.getElementById('cron-url-remind').textContent = `POST ${BASE_URL}/cron/reminders`;
+  document.getElementById('cron-url-feed').textContent = `POST ${BASE_URL}/cron/feedback-auto`;
+  document.getElementById('cron-url-close').textContent = `POST ${BASE_URL}/cron/auto-close`;
+}
+
+async function runCron(type) {
+  const alertMap = { 'reminders': 'cron-remind-res', 'feedback-auto': 'cron-feed-res' };
+  const alertEl = document.getElementById(alertMap[type]);
+  showAlert(alertEl, 'info', '⏳ Duke ekzekutuar...');
+
+  // Run for all restaurants
+  const rList = await api('GET', '/admin/restaurants');
+  if (!rList.ok) { showAlert(alertEl, 'error', '❌ S\'mund të marrë listën e restoranteve'); return; }
+
+  let total = 0;
+  for (const rest of rList.data.data) {
+    // Need owner key — but admin panel uses admin key, so we call the cron endpoint for each restaurant
+    // The cron endpoint uses requireOwnerKey — we'll note this limitation
+  }
+
+  // Actually the cron endpoints need owner key — show info
+  showAlert(alertEl, 'info', `ℹ️ Cron endpoints kërkojnë x-owner-key per restorant. Thirrni manualisht ose konfiguro me owner key.`);
+  logActivity(`Cron ${type} — inicializuar`);
+}
+
+async function runCronClose() {
+  const alertEl = document.getElementById('cron-close-res');
+  showAlert(alertEl, 'info', '⏳ Duke ekzekutuar...');
+  const r = await api('POST', '/cron/auto-close');
+  if (r.ok) {
+    const d = r.data.data;
+    showAlert(alertEl, 'success', `✅ U mbyllën: ${d.completed} Completed, ${d.noshow} NoShow (nga ${d.scanned} të skanuara)`);
+    logActivity(`Auto-close: ${d.completed} completed, ${d.noshow} noshow`);
+  } else {
+    showAlert(alertEl, 'error', '❌ ' + (r.data.error || 'Gabim'));
+  }
+}
+
+// ===== ENV =====
+async function loadEnv() {
+  const r = await api('GET', '/admin/debug-env');
+  if (!r.ok) { document.getElementById('env-card').innerHTML = '<div class="text-red">Gabim gjatë ngarkimit</div>'; return; }
+  const d = r.data;
+  const rows = Object.entries(d).filter(([k]) => k !== 'success' && k !== 'version').map(([k,v]) =>
+    `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px">
+      <span style="color:var(--muted);font-family:monospace">${k}</span>
+      <span class="badge ${v===true?'badge-green':v===false?'badge-red':'badge-gray'}">${String(v)}</span>
+    </div>`
+  ).join('');
+  document.getElementById('env-card').innerHTML = rows;
+}
+
+// ===== ACTIVITY LOG =====
+function logActivity(msg) {
+  const now = new Date().toLocaleTimeString('sq-AL');
+  activityLog.unshift({ msg, time: now });
+  if (activityLog.length > 50) activityLog.pop();
+  const el = document.getElementById('log-list');
+  el.innerHTML = activityLog.map(l =>
+    `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+      <span>${l.msg}</span><span style="color:var(--muted);font-size:11px">${l.time}</span>
+    </div>`
+  ).join('');
+}
+
+// ===== UTILS =====
+function showAlert(el, type, msg) {
+  el.className = `alert alert-${type} show`;
+  el.textContent = msg;
+  if (type === 'success') setTimeout(() => el.classList.remove('show'), 4000);
+}
+
+function copyKey(containerId) {
+  const text = document.getElementById(containerId).querySelector('span')?.textContent
+    || document.getElementById(containerId).textContent;
+  navigator.clipboard.writeText(text.trim());
+  const btn = document.getElementById(containerId).querySelector('.copy-btn');
+  if (btn) { btn.textContent = '✓'; setTimeout(() => btn.textContent = 'Kopjo', 1500); }
+}
+
+function esc(s) { return String(s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('sq-AL', { day:'2-digit', month:'2-digit', year:'numeric' });
+}
+
+// ===== AUTO-LOGIN FROM STORAGE =====
+window.addEventListener('load', () => {
+  const saved = localStorage.getItem('teta_admin_key');
+  if (saved) {
+    ADMIN_KEY = saved;
+    loadOverview().then(ok => {
+      if (ok) {
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('auth-status').textContent = '🟢 Autentikuar';
+        fillCronUrls();
+      } else {
+        ADMIN_KEY = '';
+        localStorage.removeItem('teta_admin_key');
+      }
+    });
+  }
+  // Close modals with Escape
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { closeDrawerDirect(); closeRotateModal(); }
+  });
+});
+</script>
+</body>
+</html>

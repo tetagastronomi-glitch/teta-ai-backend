@@ -1188,10 +1188,120 @@ app.get("/admin/debug-env", requireAdminKey, (req, res) => {
 
 app.get("/admin/restaurants", requireAdminKey, requireDbReady, async (req, res) => {
   const q = await pool.query(
-    `SELECT id, name, owner_phone, plan, feedback_enabled, feedback_cooldown_days, feedback_batch_limit, feedback_exclude_frequent_over_visits, created_at
-     FROM public.restaurants ORDER BY id ASC;`
+    `SELECT r.id, r.name, r.owner_phone, r.plan, r.feedback_enabled,
+            r.opening_hours_start, r.opening_hours_end, r.max_capacity,
+            r.max_auto_confirm_people, r.same_day_cutoff_hhmi,
+            r.created_at,
+            COUNT(DISTINCT res.id) AS total_reservations,
+            COUNT(DISTINCT c.id)   AS total_customers
+     FROM public.restaurants r
+     LEFT JOIN public.reservations res ON res.restaurant_id = r.id
+     LEFT JOIN public.customers c ON c.restaurant_id = r.id
+     GROUP BY r.id
+     ORDER BY r.id ASC;`
   );
   res.json({ success: true, version: APP_VERSION, count: q.rows.length, data: q.rows });
+});
+
+// GET /admin/stats — global platform stats
+app.get("/admin/stats", requireAdminKey, requireDbReady, async (req, res) => {
+  try {
+    const [rests, resTotal, resToday, custs, missed, byStatus, byPlan] = await Promise.all([
+      pool.query(`SELECT COUNT(*) AS cnt FROM public.restaurants`),
+      pool.query(`SELECT COUNT(*) AS cnt FROM public.reservations`),
+      pool.query(`SELECT COUNT(*) AS cnt FROM public.reservations WHERE date = (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date`),
+      pool.query(`SELECT COUNT(*) AS cnt FROM public.customers`),
+      pool.query(`SELECT COUNT(*) AS cnt FROM public.missed_messages WHERE handled_at IS NULL`),
+      pool.query(`SELECT status, COUNT(*) AS cnt FROM public.reservations GROUP BY status ORDER BY cnt DESC`),
+      pool.query(`SELECT plan, COUNT(*) AS cnt FROM public.restaurants GROUP BY plan`),
+    ]);
+    return res.json({
+      success: true, version: APP_VERSION,
+      data: {
+        restaurants: Number(rests.rows[0].cnt),
+        reservations_total: Number(resTotal.rows[0].cnt),
+        reservations_today: Number(resToday.rows[0].cnt),
+        customers_total: Number(custs.rows[0].cnt),
+        missed_messages_unhandled: Number(missed.rows[0].cnt),
+        reservations_by_status: byStatus.rows,
+        restaurants_by_plan: byPlan.rows,
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /admin/restaurants/:id — restaurant detail + keys + stats
+app.get("/admin/restaurants/:id", requireAdminKey, requireDbReady, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ success: false, error: "Invalid id" });
+
+    const r = await pool.query(`SELECT * FROM public.restaurants WHERE id = $1`, [id]);
+    if (!r.rows.length) return res.status(404).json({ success: false, error: "Not found" });
+
+    const [stats, custs, apiKeys, ownerKeys] = await Promise.all([
+      pool.query(`
+        SELECT
+          COUNT(*) AS total_reservations,
+          COUNT(*) FILTER (WHERE date >= (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AND status IN ('Confirmed','Pending')) AS upcoming,
+          COUNT(*) FILTER (WHERE status = 'Confirmed') AS confirmed,
+          COUNT(*) FILTER (WHERE status = 'Pending') AS pending,
+          COUNT(*) FILTER (WHERE status = 'Completed') AS completed,
+          COUNT(*) FILTER (WHERE status = 'Cancelled') AS cancelled,
+          COUNT(*) FILTER (WHERE status = 'NoShow') AS noshow
+        FROM public.reservations WHERE restaurant_id = $1`, [id]),
+      pool.query(`SELECT COUNT(*) AS cnt FROM public.customers WHERE restaurant_id = $1`, [id]),
+      pool.query(`SELECT id, label, is_active, created_at, last_used_at FROM public.api_keys WHERE restaurant_id = $1 ORDER BY id DESC`, [id]),
+      pool.query(`SELECT id, label, is_active, created_at, last_used_at FROM public.owner_keys WHERE restaurant_id = $1 ORDER BY id DESC`, [id]),
+    ]);
+
+    return res.json({
+      success: true, version: APP_VERSION,
+      data: {
+        ...r.rows[0],
+        stats: { ...stats.rows[0], customers_total: Number(custs.rows[0].cnt) },
+        api_keys: apiKeys.rows,
+        owner_keys: ownerKeys.rows,
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// PATCH /admin/restaurants/:id/settings — update general settings
+app.patch("/admin/restaurants/:id/settings", requireAdminKey, requireDbReady, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ success: false, error: "Invalid id" });
+
+    const b = req.body || {};
+    const q = await pool.query(`
+      UPDATE public.restaurants SET
+        name = COALESCE(NULLIF($1,''), name),
+        owner_phone = COALESCE(NULLIF($2,''), owner_phone),
+        opening_hours_start = COALESCE(NULLIF($3,''), opening_hours_start),
+        opening_hours_end = COALESCE(NULLIF($4,''), opening_hours_end),
+        max_capacity = COALESCE(NULLIF($5::text,'')::int, max_capacity),
+        max_auto_confirm_people = COALESCE(NULLIF($6::text,'')::int, max_auto_confirm_people),
+        same_day_cutoff_hhmi = COALESCE(NULLIF($7,''), same_day_cutoff_hhmi)
+      WHERE id = $8
+      RETURNING *
+    `, [
+      b.name || '', b.owner_phone || '',
+      b.opening_hours_start || '', b.opening_hours_end || '',
+      b.max_capacity != null ? String(b.max_capacity) : '',
+      b.max_auto_confirm_people != null ? String(b.max_auto_confirm_people) : '',
+      b.same_day_cutoff_hhmi || '', id
+    ]);
+
+    if (!q.rows.length) return res.status(404).json({ success: false, error: "Not found" });
+    return res.json({ success: true, version: APP_VERSION, data: q.rows[0] });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 app.post("/admin/restaurants", requireAdminKey, requireDbReady, async (req, res) => {
@@ -3523,6 +3633,10 @@ app.get('/dashboard', (req, res) => {
 
 app.get('/onboarding', (req, res) => {
   res.sendFile(path.join(__dirname, 'onboarding.html'));
+});
+
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'admin.html'));
 });
 
 app.get('/test-wa', requireAdminKey, async (_req, res) => {
