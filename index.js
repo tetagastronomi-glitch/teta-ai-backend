@@ -34,11 +34,45 @@ const cors = require("cors");
 const crypto = require("crypto");
 const axios = require("axios");
 const pool = require("./db");
+const rateLimit = require("express-rate-limit");
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 app.use("/webhook", (req, res, next) => next());
+
+// ==================== RATE LIMITING ====================
+// Public reservation endpoint — 20 rezervime / 15 min per IP
+const reservationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: "Shumë kërkesa. Provo pas 15 minutash." },
+});
+
+// AI/webhook endpoints — 60 req / 1 min per IP
+const generalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: "Shumë kërkesa. Provo pas pak sekondash." },
+});
+
+// Owner/admin — 200 req / 1 min (dashboard polling)
+const ownerLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: "Shumë kërkesa nga paneli." },
+});
+
+app.use("/reservations", reservationLimiter);
+app.use("/owner/", ownerLimiter);
+app.use("/admin/", ownerLimiter);
+app.use("/webhook", generalLimiter);
 // ✅ MOD: default e bëmë 4 (më realist), por env e mbivendos
 const MAX_AUTO_CONFIRM_PEOPLE = Number(process.env.MAX_AUTO_CONFIRM_PEOPLE || 6);
 
@@ -139,7 +173,8 @@ async function getRestaurantRules(restaurant_id) {
   try {
     const q = await pool.query(
       `
-      SELECT max_auto_confirm_people, same_day_cutoff_hhmi
+      SELECT max_auto_confirm_people, same_day_cutoff_hhmi,
+             opening_hours_start, opening_hours_end, max_capacity
       FROM public.restaurants
       WHERE id = $1
       LIMIT 1;
@@ -155,12 +190,19 @@ async function getRestaurantRules(restaurant_id) {
       Number.isFinite(maxPeopleRaw) && maxPeopleRaw > 0 ? maxPeopleRaw : DEFAULT_MAX_PEOPLE;
 
     const cutoffHHMI = normalizeTimeHHMI(cutoffRaw) || normalizeTimeHHMI(DEFAULT_CUTOFF) || "11:00";
+    const openingStart = normalizeTimeHHMI(String(row.opening_hours_start ?? "11:00")) || "11:00";
+    const openingEnd   = normalizeTimeHHMI(String(row.opening_hours_end   ?? "21:00")) || "21:00";
+    const maxCapacity  = Number.isFinite(Number(row.max_capacity)) && Number(row.max_capacity) > 0
+      ? Number(row.max_capacity) : 50;
 
-    return { maxPeople, cutoffHHMI };
+    return { maxPeople, cutoffHHMI, openingStart, openingEnd, maxCapacity };
   } catch (e) {
     return {
       maxPeople: Number.isFinite(DEFAULT_MAX_PEOPLE) && DEFAULT_MAX_PEOPLE > 0 ? DEFAULT_MAX_PEOPLE : 6,
       cutoffHHMI: normalizeTimeHHMI(DEFAULT_CUTOFF) || "11:00",
+      openingStart: "11:00",
+      openingEnd: "21:00",
+      maxCapacity: 50,
     };
   }
 }
@@ -628,6 +670,22 @@ async function initDb() {
       ALTER TABLE public.restaurants
       ADD COLUMN IF NOT EXISTS feedback_template TEXT NOT NULL DEFAULT '';
     `);
+
+    // ✅ OPENING HOURS (per-business)
+    await pool.query(`ALTER TABLE public.restaurants ADD COLUMN IF NOT EXISTS opening_hours_start TEXT NOT NULL DEFAULT '11:00';`);
+    await pool.query(`ALTER TABLE public.restaurants ADD COLUMN IF NOT EXISTS opening_hours_end TEXT NOT NULL DEFAULT '21:00';`);
+
+    // ✅ MAX CAPACITY per timeslot (per-business)
+    await pool.query(`ALTER TABLE public.restaurants ADD COLUMN IF NOT EXISTS max_capacity INT NOT NULL DEFAULT 50;`);
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_restaurants_max_capacity') THEN
+          ALTER TABLE public.restaurants ADD CONSTRAINT ck_restaurants_max_capacity CHECK (max_capacity BETWEEN 1 AND 500);
+        END IF;
+      END $$;
+    `);
+
     // api_keys
     await pool.query(`
       CREATE TABLE IF NOT EXISTS public.api_keys (
@@ -771,6 +829,9 @@ async function initDb() {
     // ✅ feedback anti-spam flags (safe)
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS feedback_requested_at TIMESTAMP;`);
     await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS feedback_received_at TIMESTAMP;`);
+
+    // ✅ reminder tracking
+    await pool.query(`ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS reminder_sent_at TIMESTAMPTZ;`);
 
     // FK (safe)
     await pool.query(`
@@ -1849,6 +1910,27 @@ app.post("/owner/reservations/create", requireOwnerKey, requireDbReady, async (r
     const area     = r.area     || null;
     const special  = r.special_requests || "";
 
+    // ✅ Opening hours + capacity validation
+    const rules = await getRestaurantRules(req.restaurant_id);
+    if (timeStr !== "00:00" && (timeStr < rules.openingStart || timeStr >= rules.openingEnd)) {
+      return res.status(400).json({
+        success: false, version: APP_VERSION, error_code: "OPENING_HOURS",
+        error: `Restoranti është i hapur ${rules.openingStart}–${rules.openingEnd}. Ju lutemi zgjidhni një orë brenda orarit të punës.`,
+      });
+    }
+    const capacityRow = await pool.query(
+      `SELECT COUNT(*) AS cnt FROM public.reservations
+       WHERE restaurant_id=$1 AND date=$2::date AND time=$3
+         AND status IN ('Confirmed','Pending')`,
+      [req.restaurant_id, dateStr, timeStr]
+    );
+    if (Number(capacityRow.rows[0].cnt) >= rules.maxCapacity) {
+      return res.status(409).json({
+        success: false, version: APP_VERSION, error_code: "CAPACITY_FULL",
+        error: `Nuk ka vende të lira për orën ${timeStr}. Ju lutemi zgjidhni një orë tjetër.`,
+      });
+    }
+
     const decision = await decideReservationStatus(req.restaurant_id, dateStr, people);
     const status   = decision.status;
     const reservation_id = crypto.randomUUID();
@@ -2354,6 +2436,27 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
         error:
           guard.message ||
           "Ora që ke zgjedhur ka kaluar.\nTë lutem zgjidh një orë tjetër sot ose një ditë tjetër.",
+      });
+    }
+
+    // ✅ Opening hours + capacity validation
+    const rules = await getRestaurantRules(req.restaurant_id);
+    if (timeStr < rules.openingStart || timeStr >= rules.openingEnd) {
+      return res.status(400).json({
+        success: false, version: APP_VERSION, error_code: "OPENING_HOURS",
+        error: `Restoranti është i hapur ${rules.openingStart}–${rules.openingEnd}. Ju lutemi zgjidhni një orë brenda orarit të punës.`,
+      });
+    }
+    const capacityRow = await pool.query(
+      `SELECT COUNT(*) AS cnt FROM public.reservations
+       WHERE restaurant_id=$1 AND date=$2::date AND time=$3
+         AND status IN ('Confirmed','Pending')`,
+      [req.restaurant_id, dateStr, timeStr]
+    );
+    if (Number(capacityRow.rows[0].cnt) >= rules.maxCapacity) {
+      return res.status(409).json({
+        success: false, version: APP_VERSION, error_code: "CAPACITY_FULL",
+        error: `Nuk ka vende të lira për orën ${timeStr}. Ju lutemi zgjidhni një orë tjetër.`,
       });
     }
 
@@ -3686,6 +3789,64 @@ app.post("/owner/missed-message", requireOwnerKey, requireDbReady, async (req, r
     return res.json({ success: true, version: APP_VERSION });
   } catch (err) {
     console.error("❌ missed-message error:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==================== CRON ENDPOINTS (called by WhatsApp bot) ====================
+
+// POST /cron/reminders — find reservations ~18h away that haven't been reminded yet
+app.post("/cron/reminders", requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, customer_name, phone, date::text AS date, time, people
+       FROM public.reservations
+       WHERE restaurant_id = $1
+         AND status IN ('Confirmed', 'Pending')
+         AND reminder_sent_at IS NULL
+         AND (date::text || ' ' || time)::timestamp AT TIME ZONE 'Europe/Tirane'
+             BETWEEN NOW() + INTERVAL '17 hours 30 minutes'
+             AND     NOW() + INTERVAL '18 hours 30 minutes'`,
+      [req.restaurant_id]
+    );
+    for (const row of result.rows) {
+      await pool.query(
+        `UPDATE public.reservations SET reminder_sent_at = NOW() WHERE id = $1`,
+        [row.id]
+      );
+    }
+    console.log(`🔔 Cron reminders: ${result.rows.length} rezervime`);
+    return res.json({ success: true, data: result.rows });
+  } catch (err) {
+    console.error("❌ /cron/reminders error:", err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /cron/feedback-auto — find reservations ~24h ago that haven't received feedback request
+app.post("/cron/feedback-auto", requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, customer_name, phone, date::text AS date, time, people
+       FROM public.reservations
+       WHERE restaurant_id = $1
+         AND status IN ('Confirmed', 'Completed')
+         AND feedback_requested_at IS NULL
+         AND (date::text || ' ' || time)::timestamp AT TIME ZONE 'Europe/Tirane'
+             BETWEEN NOW() - INTERVAL '25 hours'
+             AND     NOW() - INTERVAL '23 hours'`,
+      [req.restaurant_id]
+    );
+    for (const row of result.rows) {
+      await pool.query(
+        `UPDATE public.reservations SET feedback_requested_at = NOW() WHERE id = $1`,
+        [row.id]
+      );
+    }
+    console.log(`⭐ Cron feedback: ${result.rows.length} rezervime`);
+    return res.json({ success: true, data: result.rows });
+  } catch (err) {
+    console.error("❌ /cron/feedback-auto error:", err.message);
     return res.status(500).json({ success: false, error: err.message });
   }
 });
