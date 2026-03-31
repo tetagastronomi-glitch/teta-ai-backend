@@ -827,6 +827,7 @@ async function loadRestaurants(){
   try{
     const r=await fetch(BASE+'/admin/restaurants',{headers:{'x-admin-key':adminKey}});
     allRestaurants=await r.json();
+    console.log('Restaurants loaded:', allRestaurants.length, allRestaurants);
     renderRestGrid(allRestaurants);
     renderQuickRestTable(allRestaurants);
     renderPlanBars(allRestaurants);
@@ -844,6 +845,7 @@ function renderPlanBars(data){
 }
 
 function renderRestGrid(data){
+  console.log('renderRestGrid called with:', data);
   const el=document.getElementById('restGrid');
   if(!data.length){el.innerHTML='<div class="empty" style="grid-column:1/-1"><div class="empty-icon">🏠</div><div class="empty-text">Nuk ka restorante</div></div>';return;}
   el.innerHTML=data.map(r=>`
