@@ -671,6 +671,13 @@ async function initDb() {
       ADD COLUMN IF NOT EXISTS feedback_template TEXT NOT NULL DEFAULT '';
     `);
 
+    // ✅ is_active (per-business enable/disable)
+    await pool.query(`ALTER TABLE public.restaurants ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;`);
+    await pool.query(`UPDATE public.restaurants SET is_active = true WHERE is_active IS NULL;`);
+
+    // ✅ plan as VARCHAR(20) default 'free' (lowercase, backward compat)
+    await pool.query(`ALTER TABLE public.restaurants ADD COLUMN IF NOT EXISTS plan VARCHAR(20) DEFAULT 'free';`);
+
     // ✅ OPENING HOURS (per-business)
     await pool.query(`ALTER TABLE public.restaurants ADD COLUMN IF NOT EXISTS opening_hours_start TEXT NOT NULL DEFAULT '11:00';`);
     await pool.query(`ALTER TABLE public.restaurants ADD COLUMN IF NOT EXISTS opening_hours_end TEXT NOT NULL DEFAULT '21:00';`);
@@ -1186,45 +1193,30 @@ app.get("/admin/debug-env", requireAdminKey, (req, res) => {
   });
 });
 
-app.get("/admin/restaurants", requireAdminKey, requireDbReady, async (req, res) => {
-  const q = await pool.query(
-    `SELECT r.id, r.name, r.owner_phone, r.plan, r.feedback_enabled,
-            r.opening_hours_start, r.opening_hours_end, r.max_capacity,
-            r.max_auto_confirm_people, r.same_day_cutoff_hhmi,
-            r.created_at,
-            COUNT(DISTINCT res.id) AS total_reservations,
-            COUNT(DISTINCT c.id)   AS total_customers
-     FROM public.restaurants r
-     LEFT JOIN public.reservations res ON res.restaurant_id = r.id
-     LEFT JOIN public.customers c ON c.restaurant_id = r.id
-     GROUP BY r.id
-     ORDER BY r.id ASC;`
-  );
-  res.json({ success: true, version: APP_VERSION, count: q.rows.length, data: q.rows });
-});
+// ==================== ADMIN ENDPOINTS ====================
 
-// GET /admin/stats — global platform stats
+// GET /admin/stats
 app.get("/admin/stats", requireAdminKey, requireDbReady, async (req, res) => {
   try {
-    const [rests, resTotal, resToday, custs, missed, byStatus, byPlan] = await Promise.all([
+    const [rests, active, resTotal, resToday, uniCusts, missed, byStatus] = await Promise.all([
       pool.query(`SELECT COUNT(*) AS cnt FROM public.restaurants`),
+      pool.query(`SELECT COUNT(*) AS cnt FROM public.restaurants WHERE is_active = true`),
       pool.query(`SELECT COUNT(*) AS cnt FROM public.reservations`),
       pool.query(`SELECT COUNT(*) AS cnt FROM public.reservations WHERE date = (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date`),
-      pool.query(`SELECT COUNT(*) AS cnt FROM public.customers`),
-      pool.query(`SELECT COUNT(*) AS cnt FROM public.missed_messages WHERE handled_at IS NULL`),
+      pool.query(`SELECT COUNT(DISTINCT phone) AS cnt FROM public.reservations`),
+      pool.query(`SELECT COUNT(*) AS cnt FROM public.missed_messages`),
       pool.query(`SELECT status, COUNT(*) AS cnt FROM public.reservations GROUP BY status ORDER BY cnt DESC`),
-      pool.query(`SELECT plan, COUNT(*) AS cnt FROM public.restaurants GROUP BY plan`),
     ]);
     return res.json({
       success: true, version: APP_VERSION,
       data: {
-        restaurants: Number(rests.rows[0].cnt),
-        reservations_total: Number(resTotal.rows[0].cnt),
-        reservations_today: Number(resToday.rows[0].cnt),
-        customers_total: Number(custs.rows[0].cnt),
-        missed_messages_unhandled: Number(missed.rows[0].cnt),
-        reservations_by_status: byStatus.rows,
-        restaurants_by_plan: byPlan.rows,
+        total_restaurants:       Number(rests.rows[0].cnt),
+        active_restaurants:      Number(active.rows[0].cnt),
+        reservations_today:      Number(resToday.rows[0].cnt),
+        reservations_total:      Number(resTotal.rows[0].cnt),
+        unique_customers_total:  Number(uniCusts.rows[0].cnt),
+        missed_messages_total:   Number(missed.rows[0].cnt),
+        reservations_by_status:  byStatus.rows,
       }
     });
   } catch (err) {
@@ -1232,7 +1224,29 @@ app.get("/admin/stats", requireAdminKey, requireDbReady, async (req, res) => {
   }
 });
 
-// GET /admin/restaurants/:id — restaurant detail + keys + stats
+// GET /admin/restaurants
+app.get("/admin/restaurants", requireAdminKey, requireDbReady, async (req, res) => {
+  try {
+    const q = await pool.query(`
+      SELECT
+        r.id, r.name, r.owner_phone, r.plan, r.is_active,
+        r.opening_hours_start, r.opening_hours_end,
+        r.max_capacity, r.max_auto_confirm_people, r.same_day_cutoff_hhmi,
+        r.created_at,
+        COUNT(DISTINCT res.id)    AS reservation_count,
+        COUNT(DISTINCT res.phone) AS unique_customers
+      FROM public.restaurants r
+      LEFT JOIN public.reservations res ON res.restaurant_id = r.id
+      GROUP BY r.id
+      ORDER BY r.id ASC
+    `);
+    return res.json({ success: true, version: APP_VERSION, count: q.rows.length, data: q.rows });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /admin/restaurants/:id
 app.get("/admin/restaurants/:id", requireAdminKey, requireDbReady, async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -1241,28 +1255,35 @@ app.get("/admin/restaurants/:id", requireAdminKey, requireDbReady, async (req, r
     const r = await pool.query(`SELECT * FROM public.restaurants WHERE id = $1`, [id]);
     if (!r.rows.length) return res.status(404).json({ success: false, error: "Not found" });
 
-    const [stats, custs, apiKeys, ownerKeys] = await Promise.all([
+    const [stats, apiKeys, ownerKeys] = await Promise.all([
       pool.query(`
         SELECT
-          COUNT(*) AS total_reservations,
-          COUNT(*) FILTER (WHERE date >= (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Tirane')::date AND status IN ('Confirmed','Pending')) AS upcoming,
-          COUNT(*) FILTER (WHERE status = 'Confirmed') AS confirmed,
-          COUNT(*) FILTER (WHERE status = 'Pending') AS pending,
-          COUNT(*) FILTER (WHERE status = 'Completed') AS completed,
-          COUNT(*) FILTER (WHERE status = 'Cancelled') AS cancelled,
-          COUNT(*) FILTER (WHERE status = 'NoShow') AS noshow
+          COUNT(*)                                   AS reservation_count,
+          COUNT(DISTINCT phone)                      AS unique_customers,
+          MAX(created_at)                            AS last_reservation_at,
+          COUNT(*) FILTER (WHERE status='Confirmed') AS confirmed,
+          COUNT(*) FILTER (WHERE status='Pending')   AS pending,
+          COUNT(*) FILTER (WHERE status='Completed') AS completed,
+          COUNT(*) FILTER (WHERE status='Cancelled') AS cancelled,
+          COUNT(*) FILTER (WHERE status='NoShow')    AS noshow
         FROM public.reservations WHERE restaurant_id = $1`, [id]),
-      pool.query(`SELECT COUNT(*) AS cnt FROM public.customers WHERE restaurant_id = $1`, [id]),
-      pool.query(`SELECT id, label, is_active, created_at, last_used_at FROM public.api_keys WHERE restaurant_id = $1 ORDER BY id DESC`, [id]),
-      pool.query(`SELECT id, label, is_active, created_at, last_used_at FROM public.owner_keys WHERE restaurant_id = $1 ORDER BY id DESC`, [id]),
+      pool.query(`SELECT id, label, is_active, created_at, last_used_at FROM public.api_keys   WHERE restaurant_id=$1 AND is_active=TRUE ORDER BY id DESC`, [id]),
+      pool.query(`SELECT id, label, is_active, created_at, last_used_at FROM public.owner_keys WHERE restaurant_id=$1 AND is_active=TRUE ORDER BY id DESC`, [id]),
     ]);
 
+    const s = stats.rows[0];
     return res.json({
       success: true, version: APP_VERSION,
       data: {
         ...r.rows[0],
-        stats: { ...stats.rows[0], customers_total: Number(custs.rows[0].cnt) },
-        api_keys: apiKeys.rows,
+        reservation_count:    Number(s.reservation_count),
+        unique_customers:     Number(s.unique_customers),
+        last_reservation_at:  s.last_reservation_at || null,
+        reservations_by_status: {
+          confirmed: Number(s.confirmed), pending: Number(s.pending),
+          completed: Number(s.completed), cancelled: Number(s.cancelled), noshow: Number(s.noshow),
+        },
+        api_keys:   apiKeys.rows,
         owner_keys: ownerKeys.rows,
       }
     });
@@ -1271,32 +1292,39 @@ app.get("/admin/restaurants/:id", requireAdminKey, requireDbReady, async (req, r
   }
 });
 
-// PATCH /admin/restaurants/:id/settings — update general settings
+// PATCH /admin/restaurants/:id/settings — partial update
 app.patch("/admin/restaurants/:id/settings", requireAdminKey, requireDbReady, async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id)) return res.status(400).json({ success: false, error: "Invalid id" });
 
     const b = req.body || {};
-    const q = await pool.query(`
-      UPDATE public.restaurants SET
-        name = COALESCE(NULLIF($1,''), name),
-        owner_phone = COALESCE(NULLIF($2,''), owner_phone),
-        opening_hours_start = COALESCE(NULLIF($3,''), opening_hours_start),
-        opening_hours_end = COALESCE(NULLIF($4,''), opening_hours_end),
-        max_capacity = COALESCE(NULLIF($5::text,'')::int, max_capacity),
-        max_auto_confirm_people = COALESCE(NULLIF($6::text,'')::int, max_auto_confirm_people),
-        same_day_cutoff_hhmi = COALESCE(NULLIF($7,''), same_day_cutoff_hhmi)
-      WHERE id = $8
-      RETURNING *
-    `, [
-      b.name || '', b.owner_phone || '',
-      b.opening_hours_start || '', b.opening_hours_end || '',
-      b.max_capacity != null ? String(b.max_capacity) : '',
-      b.max_auto_confirm_people != null ? String(b.max_auto_confirm_people) : '',
-      b.same_day_cutoff_hhmi || '', id
-    ]);
+    // Build SET clauses only for provided fields
+    const sets = [];
+    const vals = [];
+    let i = 1;
 
+    const addField = (col, val) => { sets.push(`${col} = $${i++}`); vals.push(val); };
+
+    if (b.name        !== undefined) addField('name',                b.name);
+    if (b.is_active   !== undefined) addField('is_active',           b.is_active === true || b.is_active === 'true' || b.is_active === 1);
+    if (b.plan        !== undefined) addField('plan',                String(b.plan).toLowerCase());
+    if (b.max_capacity!== undefined) addField('max_capacity',        Number(b.max_capacity));
+    if (b.opening_time!== undefined) addField('opening_hours_start', b.opening_time);
+    if (b.closing_time!== undefined) addField('opening_hours_end',   b.closing_time);
+    if (b.opening_hours_start !== undefined) addField('opening_hours_start', b.opening_hours_start);
+    if (b.opening_hours_end   !== undefined) addField('opening_hours_end',   b.opening_hours_end);
+    if (b.owner_phone !== undefined) addField('owner_phone', b.owner_phone);
+    if (b.max_auto_confirm_people !== undefined) addField('max_auto_confirm_people', Number(b.max_auto_confirm_people));
+    if (b.same_day_cutoff_hhmi    !== undefined) addField('same_day_cutoff_hhmi',    b.same_day_cutoff_hhmi);
+
+    if (!sets.length) return res.status(400).json({ success: false, error: "No fields to update" });
+
+    vals.push(id);
+    const q = await pool.query(
+      `UPDATE public.restaurants SET ${sets.join(', ')} WHERE id = $${i} RETURNING *`,
+      vals
+    );
     if (!q.rows.length) return res.status(404).json({ success: false, error: "Not found" });
     return res.json({ success: true, version: APP_VERSION, data: q.rows[0] });
   } catch (err) {
@@ -1304,49 +1332,63 @@ app.patch("/admin/restaurants/:id/settings", requireAdminKey, requireDbReady, as
   }
 });
 
+// POST /admin/restaurants — create new restaurant
 app.post("/admin/restaurants", requireAdminKey, requireDbReady, async (req, res) => {
   try {
-    const name = String(req.body?.name || "").trim();
-    const owner_phone = String(req.body?.owner_phone || "").trim(); // opsionale
-    if (!name) {
-      return res.status(400).json({ success: false, version: APP_VERSION, error: "Missing field: name" });
-    }
+    const b = req.body || {};
+    const name = String(b.name || "").trim();
+    if (!name) return res.status(400).json({ success: false, error: "Missing field: name" });
+
+    const owner_phone  = String(b.owner_phone  || "").trim();
+    const plan         = String(b.plan         || "free").toLowerCase();
+    const max_capacity = Number(b.max_capacity || 50);
 
     const r = await pool.query(
-      `INSERT INTO public.restaurants (name, owner_phone) VALUES ($1, $2) RETURNING id, name, owner_phone, plan, created_at;`,
-      [name, owner_phone || ""]
+      `INSERT INTO public.restaurants (name, owner_phone, plan, max_capacity, is_active)
+       VALUES ($1,$2,$3,$4,true)
+       RETURNING id, name, owner_phone, plan, max_capacity, is_active, created_at`,
+      [name, owner_phone, plan, max_capacity]
     );
     const restaurant = r.rows[0];
 
-    const api_key = genApiKey();
-    const owner_key = genOwnerKey();
-
-    const api_hash = hashKey(api_key);
-    const owner_hash = hashKey(owner_key);
+    // Keys: tta_ prefix for API, own_ for owner
+    const api_key   = 'tta_' + crypto.randomBytes(16).toString('hex');
+    const owner_key = 'own_' + crypto.randomBytes(8).toString('hex');
 
     await pool.query(
-      `INSERT INTO public.api_keys (restaurant_id, key_hash, label, is_active) VALUES ($1,$2,$3,TRUE);`,
-      [restaurant.id, api_hash, "auto-created"]
+      `INSERT INTO public.api_keys   (restaurant_id, key_hash, label, is_active) VALUES ($1,$2,'auto-created',TRUE)`,
+      [restaurant.id, hashKey(api_key)]
     );
     await pool.query(
-      `INSERT INTO public.owner_keys (restaurant_id, key_hash, label, is_active) VALUES ($1,$2,$3,TRUE);`,
-      [restaurant.id, owner_hash, "auto-created"]
+      `INSERT INTO public.owner_keys (restaurant_id, key_hash, label, is_active) VALUES ($1,$2,'auto-created',TRUE)`,
+      [restaurant.id, hashKey(owner_key)]
     );
 
-    return res.json({
-      success: true,
-      version: APP_VERSION,
-      data: {
-        restaurant,
-        api_key,
-        owner_key,
-        note: "Ruaji këto keys tani. Në DB ruhet vetëm hash; s’mund t’i shohësh raw më vonë.",
-      },
+    console.log(`✅ Admin created restaurant #${restaurant.id}: ${name}`);
+    return res.status(201).json({
+      success: true, version: APP_VERSION,
+      data: { restaurant, api_key, owner_key, note: "Ruaji këto keys tani — shfaqen vetëm 1 herë." }
     });
   } catch (err) {
-    console.error("❌ POST /admin/restaurants error:", err);
-    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
+    console.error("❌ POST /admin/restaurants:", err.message);
+    return res.status(500).json({ success: false, error: err.message });
   }
+});
+
+// GET /admin/env-check
+app.get("/admin/env-check", requireAdminKey, (req, res) => {
+  return res.json({
+    success: true, version: APP_VERSION,
+    data: {
+      DATABASE_URL:        !!process.env.DATABASE_URL,
+      ANTHROPIC_API_KEY:   !!process.env.ANTHROPIC_API_KEY,
+      ADMIN_KEY:           !!process.env.ADMIN_KEY,
+      RESEND_API_KEY:      !!process.env.RESEND_API_KEY,
+      WA_PLATFORM_TOKEN:   !!process.env.WA_PLATFORM_TOKEN,
+      WA_PHONE_ID:         !!process.env.WA_PHONE_ID,
+      WA_BUSINESS_ID:      !!process.env.WA_BUSINESS_ID,
+    }
+  });
 });
 
 app.post("/admin/restaurants/:id/plan", requireAdminKey, requireDbReady, async (req, res) => {
@@ -1550,7 +1592,7 @@ app.post("/admin/restaurants/:id/rotate-keys", requireAdminKey, requireDbReady, 
         restaurant_id: id,
         api_key,
         owner_key,
-        note: "Ruaji këto keys tani. Në DB ruhet vetëm hash; s’mund t’i shohësh raw më vonë.",
+        note: "Ruaji këto keys tani. Në DB ruhet vetëm hash; s'mund t'i shohësh raw më vonë.",
       },
     });
   } catch (err) {
@@ -3626,6 +3668,12 @@ app.get("/owner/reports/feedback/daily", requireOwnerKey, requireDbReady, async 
 });
 
 const path = require('path');
+
+app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/admin-panel', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
 
 app.get('/dashboard', (req, res) => {
   res.sendFile(path.join(__dirname, 'dashboard.html'));
