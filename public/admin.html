@@ -200,6 +200,30 @@ hr{border:none;border-top:0.5px solid var(--border);margin:18px 0}
   .sidebar{display:none}
   .kpi-grid,.two-col,.form-grid,.env-grid{grid-template-columns:1fr}
 }
+/* ===== MARKETING ===== */
+.tab-bar{display:flex;gap:2px;border-bottom:0.5px solid var(--border);margin-bottom:24px}
+.tab-btn{padding:8px 16px;font-size:13px;font-weight:500;color:var(--muted);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;font-family:var(--font);transition:all .15s;margin-bottom:-0.5px}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-panel{display:none}.tab-panel.active{display:block}
+.audience-preview{background:var(--surface);border:0.5px solid var(--border);border-radius:8px;padding:16px;margin:12px 0}
+.audience-preview .aud-count{font-size:22px;font-weight:600;margin-bottom:6px}
+.audience-preview .aud-segs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.aud-seg-pill{padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500}
+.seg-vip{background:#fef3c7;color:#92400e}
+.seg-active{background:#f0fdf4;color:#15803d}
+.seg-warm{background:#fffbeb;color:#b45309}
+.seg-cold{background:#f5f5f5;color:var(--muted)}
+.seg-auto{background:#eff6ff;color:#1d4ed8}
+.tpl-btns{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.tpl-btn{padding:5px 12px;border-radius:20px;border:0.5px solid var(--border);background:var(--bg);font-size:12px;cursor:pointer;font-family:var(--font);transition:all .1s}
+.tpl-btn:hover{background:var(--surface);border-color:var(--accent)}
+.char-counter{font-size:11px;color:var(--faint);text-align:right;margin-top:3px}
+.mkt-send-btn{width:100%;padding:12px;font-size:14px;font-weight:600;margin-top:16px;justify-content:center}
+.campaign-result{background:var(--green-bg);border:0.5px solid #bbf7d0;border-radius:8px;padding:16px;margin-top:16px;display:none}
+.b-vip{background:#fef3c7;color:#92400e}
+.b-warm{background:#fffbeb;color:#b45309}
+.b-auto-trigger{background:#eff6ff;color:#1d4ed8}
 </style>
 </head>
 <body>
@@ -231,6 +255,9 @@ hr{border:none;border-top:0.5px solid var(--border);margin:18px 0}
     </button>
     <button class="sb-item" onclick="nav('p-restaurants',this);loadRestaurants()">
       <span class="sb-icon">≡</span>Restorantet<span class="dot"></span>
+    </button>
+    <button class="sb-item" onclick="nav('p-marketing',this);loadMarketing()">
+      <span class="sb-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg></span>Marketing<span class="dot"></span>
     </button>
 
     <div class="sb-section">Sistem</div>
@@ -433,6 +460,149 @@ hr{border:none;border-top:0.5px solid var(--border);margin:18px 0}
         </div>
       </div>
 
+      <!-- MARKETING -->
+      <div id="p-marketing" class="panel">
+        <div class="page-header"><h1>Marketing</h1><p>Kampanja, RFV Scoring dhe Smart Triggers automatikë</p></div>
+
+        <div class="tab-bar">
+          <button class="tab-btn active" onclick="mktTab('mkt-new',this)">Kampanjë e Re</button>
+          <button class="tab-btn" onclick="mktTab('mkt-history',this);loadCampaigns()">Historia</button>
+          <button class="tab-btn" onclick="mktTab('mkt-triggers',this)">Triggers Automatikë</button>
+        </div>
+
+        <!-- TAB 1: KAMPANJË E RE -->
+        <div id="mkt-new" class="tab-panel active">
+          <div class="card">
+            <div class="card-title">Konfiguro Kampanjën</div>
+            <div class="form-grid">
+              <div class="fg">
+                <label>Restoranti</label>
+                <select id="mkt-restaurant" onchange="loadAudience()">
+                  <option value="">— Zgjidh restorantin —</option>
+                </select>
+              </div>
+              <div class="fg">
+                <label>Segmenti</label>
+                <select id="mkt-segment" onchange="loadAudience()">
+                  <option value="all">Të gjithë klientët</option>
+                  <option value="vip">VIP — 3+ vizita</option>
+                  <option value="active">Aktiv — 14 ditë</option>
+                  <option value="warm">Warm — 15-30 ditë</option>
+                  <option value="cold">I ftohtë — 30+ ditë</option>
+                </select>
+              </div>
+            </div>
+
+            <div id="mkt-audience-preview" style="display:none" class="audience-preview">
+              <div class="aud-count" id="aud-count">—</div>
+              <div class="aud-segs" id="aud-segs"></div>
+              <div id="aud-list"></div>
+            </div>
+
+            <div class="form-grid" style="margin-top:14px">
+              <div class="fg">
+                <label>Kanali</label>
+                <select id="mkt-channel">
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="email">Email</option>
+                  <option value="both">Të dyja</option>
+                </select>
+              </div>
+              <div class="fg">
+                <label>Template (opsionale)</label>
+                <input id="mkt-template-name" placeholder="p.sh. oferte_mars_2026"/>
+              </div>
+            </div>
+
+            <div class="fg full" style="margin-top:12px">
+              <label>Templates të shpejta</label>
+              <div class="tpl-btns">
+                <button class="tpl-btn" onclick="setTemplate('offer')">🎁 Ofertë</button>
+                <button class="tpl-btn" onclick="setTemplate('thanks')">🙏 Faleminderit</button>
+                <button class="tpl-btn" onclick="setTemplate('miss')">💭 Na mungon</button>
+                <button class="tpl-btn" onclick="setTemplate('vip')">⭐ VIP Special</button>
+              </div>
+              <textarea id="mkt-message" rows="5" placeholder="Shkruani mesazhin këtu..." maxlength="1000" oninput="updateCharCount()" style="font-family:ui-monospace,monospace;font-size:13px;resize:vertical"></textarea>
+              <div class="char-counter"><span id="char-count">0</span>/1000 karaktere</div>
+            </div>
+
+            <button class="btn btn-primary mkt-send-btn" onclick="sendCampaign()">DËRGO KAMPANJËN →</button>
+
+            <div class="campaign-result" id="campaign-result">
+              <div style="font-size:15px;font-weight:600;color:var(--green);margin-bottom:8px">✅ Kampanja u dërgua!</div>
+              <div id="campaign-result-body"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: HISTORIA -->
+        <div id="mkt-history" class="tab-panel">
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Data</th><th>Restoranti</th><th>Segmenti</th><th>Kanali</th><th>Dërguar</th><th>Dështuan</th><th>Trigger</th><th></th></tr></thead>
+              <tbody id="campaigns-tbody"><tr><td colspan="8" class="empty-cell">Ngarko historinë nga tabi</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB 3: TRIGGERS -->
+        <div id="mkt-triggers" class="tab-panel">
+          <div class="card">
+            <div class="card-title">Krijo Trigger të Ri</div>
+            <p style="font-size:12px;color:var(--muted);margin-bottom:16px">Triggers ekzekutohen automatikisht nga Jerry çdo natë ora 02:00. Variablat: <code>{name}</code>, <code>{restaurant}</code></p>
+            <div class="form-grid">
+              <div class="fg">
+                <label>Restoranti (PRO)</label>
+                <select id="trg-restaurant">
+                  <option value="">— Zgjidh —</option>
+                </select>
+              </div>
+              <div class="fg">
+                <label>Tipi i Trigger</label>
+                <select id="trg-type">
+                  <option value="inactive_45days">Klientë pa vizitë 45+ ditë</option>
+                  <option value="post_feedback_negative">Pas feedback negativ (&lt;3★)</option>
+                  <option value="vip_reward">Kur klienti arrin 5 vizita</option>
+                </select>
+              </div>
+              <div class="fg">
+                <label>Kanali</label>
+                <select id="trg-channel">
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="email">Email</option>
+                </select>
+              </div>
+              <div class="fg">
+                <label>Segmenti (opsional)</label>
+                <input id="trg-segment" placeholder="p.sh. cold"/>
+              </div>
+              <div class="fg full">
+                <label>Template Mesazhi</label>
+                <textarea id="trg-message" rows="3" placeholder="Mirëdita {name}! Restoranti {restaurant} ju pret..." style="font-family:ui-monospace,monospace;font-size:13px"></textarea>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="createTrigger()">AKTIVIZO TRIGGER</button>
+            </div>
+          </div>
+
+          <div style="margin-top:8px">
+            <div class="sec-header" style="margin-bottom:12px">
+              <div style="font-size:14px;font-weight:600">Triggers Aktive</div>
+              <select id="trg-filter-rest" onchange="loadTriggers(this.value)" style="padding:6px 10px;border:0.5px solid var(--border);border-radius:6px;font-size:13px;font-family:var(--font)">
+                <option value="">— Zgjidh restorantin —</option>
+              </select>
+            </div>
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr><th>Restoranti</th><th>Tipi</th><th>Kanali</th><th>Ekzekutuar herën e fundit</th><th>Statusi</th></tr></thead>
+                <tbody id="triggers-tbody"><tr><td colspan="5" class="empty-cell">Zgjidh restorantin</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div><!-- /content -->
   </div><!-- /main-wrap -->
 </div><!-- /app -->
@@ -474,6 +644,27 @@ hr{border:none;border-top:0.5px solid var(--border);margin:18px 0}
       <button class="btn btn-danger" id="rot-btn" onclick="confirmRotate()">Konfirmo Rotacionin</button>
       <button class="btn" onclick="closeRotModal()">Anulo</button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL: Confirm Campaign -->
+<div class="modal-overlay" id="mkt-confirm-modal">
+  <div class="modal">
+    <div class="modal-title">⚠️ Konfirmo dërgimin</div>
+    <div id="mkt-confirm-body" style="font-size:13px;color:var(--muted);line-height:1.8;margin-bottom:4px"></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" id="mkt-confirm-btn" onclick="confirmSend()">KONFIRMO &amp; DËRGO</button>
+      <button class="btn" onclick="document.getElementById('mkt-confirm-modal').classList.remove('open')">Anulo</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Campaign Stats -->
+<div class="modal-overlay" id="mkt-stats-modal">
+  <div class="modal">
+    <div class="modal-title">Stats Kampanje</div>
+    <div id="mkt-stats-body" style="font-size:13px;line-height:1.9"></div>
+    <div class="modal-footer"><button class="btn" onclick="document.getElementById('mkt-stats-modal').classList.remove('open')">Mbyll</button></div>
   </div>
 </div>
 
@@ -527,7 +718,7 @@ function nav(id,btn){
     const idx=map[id];
     if(idx>=0)document.querySelectorAll('.sb-item')[idx]?.classList.add('active');
   }
-  const titles={'p-overview':'Overview','p-restaurants':'Restorantet','p-create':'Restorant i Ri','p-cron':'Cron Jobs','p-env':'Environment','p-log':'Activity Log','p-danger':'Danger Zone'};
+  const titles={'p-overview':'Overview','p-restaurants':'Restorantet','p-marketing':'Marketing','p-create':'Restorant i Ri','p-cron':'Cron Jobs','p-env':'Environment','p-log':'Activity Log','p-danger':'Danger Zone'};
   document.getElementById('page-title').textContent=titles[id]||id;
   if(id==='p-overview')loadStats();
 }
@@ -708,11 +899,205 @@ function ab(v){return v!==false?`<span class="badge b-active">Aktiv</span>`:`<sp
 function setKBox(id,val){const b=document.getElementById(id);const btn=b.querySelector('.key-copy');b.textContent=val;if(btn)b.appendChild(btn);}
 function copyKey(id){const b=document.getElementById(id);const t=b.textContent.replace('Kopjo','').trim();navigator.clipboard.writeText(t);const btn=b.querySelector('.key-copy');if(btn){btn.textContent='✓';setTimeout(()=>btn.textContent='Kopjo',1400);}toast('U kopjua','info');}
 
+// MARKETING
+let _mktAudience=null;
+
+function mktTab(id,btn){
+  document.querySelectorAll('#p-marketing .tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('#p-marketing .tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+}
+
+async function loadMarketing(){
+  const r=await api('GET','/admin/restaurants');
+  if(!r.ok)return;
+  const pros=(r.data.data||[]);
+  const mktSel=document.getElementById('mkt-restaurant');
+  const trgSel=document.getElementById('trg-restaurant');
+  const trgFilter=document.getElementById('trg-filter-rest');
+  [mktSel,trgSel,trgFilter].forEach(sel=>{
+    const base=sel===mktSel?'<option value="">— Zgjidh restorantin —</option>':'<option value="">— Zgjidh —</option>';
+    sel.innerHTML=base+pros.map(r=>{
+      const isPro=(r.plan||'').toLowerCase()==='pro';
+      return sel===mktSel
+        ?`<option value="${r.id}" ${!isPro?'disabled':''} >${esc(r.name)} ${isPro?'✓ PRO':'(Kërkon PRO)'}</option>`
+        :`<option value="${r.id}" ${!isPro?'disabled':''} >${esc(r.name)}</option>`;
+    }).join('');
+  });
+}
+
+async function loadAudience(){
+  const restId=document.getElementById('mkt-restaurant').value;
+  const seg=document.getElementById('mkt-segment').value;
+  const preview=document.getElementById('mkt-audience-preview');
+  if(!restId){preview.style.display='none';return;}
+  preview.style.display='block';
+  document.getElementById('aud-count').textContent='Duke ngarkuar...';
+  const r=await api('GET',`/admin/marketing/audience/${restId}?segment=${seg}`);
+  if(!r.ok){preview.style.display='none';toast('Gabim audience: '+r.data.error,'err');return;}
+  _mktAudience=r.data;
+  const s=r.data.segments||{};
+  document.getElementById('aud-count').textContent=`👥 Audienca: ${s.total||0} klientë`;
+  document.getElementById('aud-segs').innerHTML=
+    `<span class="aud-seg-pill seg-vip">VIP: ${s.vip||0}</span>`+
+    `<span class="aud-seg-pill seg-active">Aktiv: ${s.active||0}</span>`+
+    `<span class="aud-seg-pill seg-warm">Warm: ${s.warm||0}</span>`+
+    `<span class="aud-seg-pill seg-cold">I ftohtë: ${s.cold||0}</span>`;
+  const top5=(r.data.customers||[]).slice(0,5);
+  document.getElementById('aud-list').innerHTML=top5.length
+    ?`<div style="font-size:12px;color:var(--muted);margin-bottom:6px">5 klientët e parë (sipas RFV):</div>`+
+      `<div style="display:flex;flex-direction:column;gap:4px">`+
+      top5.map(c=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 8px;background:var(--bg);border:0.5px solid var(--border);border-radius:5px"><span>${esc(c.customer_name||c.phone)}</span><span style="color:var(--faint)">${c.total_visits||0} vizita · RFV: <strong>${c.rfv_total||0}</strong></span></div>`).join('')+`</div>`
+    :'<div style="font-size:12px;color:var(--faint)">Asnjë klient në këtë segment.</div>';
+}
+
+function setTemplate(type){
+  const tpls={
+    offer:'Mirëdita {name}! Restoranti {restaurant} ju ofron 15% zbritje për rezervimin tuaj të ardhshëm. Rezervoni sot!',
+    thanks:'Faleminderit {name} që vizituat {restaurant}! Shpresojmë ju pëlqeu. Na vizitoni sërish së shpejti! 🍽️',
+    miss:'Mirëdita {name}! Ka kaluar pak kohë që nuk ju kemi parë në {restaurant}. Na vini të mungoni — ju presim me kënaqësi! 🤗',
+    vip:'Urime {name}! Jeni bërë klient VIP i {restaurant}. Nga sot gëzoni përfitime ekskluzive. Rezervoni dhe tregoni kodit: VIP2026 🌟',
+  };
+  const ta=document.getElementById('mkt-message');
+  ta.value=tpls[type]||'';
+  updateCharCount();
+}
+
+function updateCharCount(){
+  const len=document.getElementById('mkt-message').value.length;
+  document.getElementById('char-count').textContent=len;
+}
+
+function sendCampaign(){
+  const restId=document.getElementById('mkt-restaurant').value;
+  const seg=document.getElementById('mkt-segment').value;
+  const ch=document.getElementById('mkt-channel').value;
+  const msg=document.getElementById('mkt-message').value.trim();
+  if(!restId){toast('Zgjidh restorantin','err');return;}
+  if(!msg){toast('Shkruaj mesazhin','err');return;}
+  const restName=document.getElementById('mkt-restaurant').selectedOptions[0]?.text||'—';
+  const segName=document.getElementById('mkt-segment').selectedOptions[0]?.text||'—';
+  const chName=document.getElementById('mkt-channel').selectedOptions[0]?.text||'—';
+  const total=_mktAudience?.segments?.total||'?';
+  document.getElementById('mkt-confirm-body').innerHTML=
+    `<strong>Restoranti:</strong> ${esc(restName)}<br>`+
+    `<strong>Segmenti:</strong> ${esc(segName)}<br>`+
+    `<strong>Audienca:</strong> ${total} klientë<br>`+
+    `<strong>Kanali:</strong> ${esc(chName)}<br><br>`+
+    `<em style="color:var(--text)">Mesazhi:</em><br><div style="margin-top:6px;padding:10px;background:var(--surface);border-radius:6px;font-size:12px;font-family:ui-monospace,monospace">${esc(msg)}</div>`;
+  document.getElementById('mkt-confirm-modal').classList.add('open');
+}
+
+async function confirmSend(){
+  const btn=document.getElementById('mkt-confirm-btn');
+  btn.disabled=true;btn.textContent='Duke dërguar...';
+  const restId=document.getElementById('mkt-restaurant').value;
+  const seg=document.getElementById('mkt-segment').value;
+  const ch=document.getElementById('mkt-channel').value;
+  const msg=document.getElementById('mkt-message').value.trim();
+  const tmpl=document.getElementById('mkt-template-name').value.trim()||null;
+  const r=await api('POST','/admin/marketing/send',{
+    restaurant_id:+restId,segment:seg,channel:ch,message:msg,template_name:tmpl
+  });
+  btn.disabled=false;btn.textContent='KONFIRMO & DËRGO';
+  document.getElementById('mkt-confirm-modal').classList.remove('open');
+  if(r.ok){
+    const d=r.data;
+    const res=document.getElementById('campaign-result');
+    document.getElementById('campaign-result-body').innerHTML=
+      `Dërguar: <strong>${d.sent}</strong> &nbsp;|&nbsp; Dështuan: <strong>${d.failed}</strong> &nbsp;|&nbsp; Campaign ID: <strong>#${d.campaign_id}</strong>`;
+    res.style.display='block';
+    toast(`Dërguar ${d.sent} mesazhe`,'ok');
+    addLog(`Kampanjë dërguar: ${d.sent} mesazhe (seg: ${seg})`,'ok');
+  } else {
+    toast('Gabim: '+r.data.error,'err');
+  }
+}
+
+async function loadCampaigns(){
+  document.getElementById('campaigns-tbody').innerHTML='<tr><td colspan="8" class="empty-cell"><div class="spinner"></div></td></tr>';
+  const r=await api('GET','/admin/marketing/campaigns');
+  if(!r.ok){toast('Gabim: '+r.data.error,'err');return;}
+  const rows=r.data||[];
+  document.getElementById('campaigns-tbody').innerHTML=rows.length
+    ?rows.map(c=>{
+      const segBadge={vip:'seg-vip',active:'seg-active',warm:'seg-warm',cold:'seg-cold',auto:'seg-auto'}[c.segment]||'b-free';
+      const trigBadge=c.triggered_by==='auto'
+        ?`<span class="badge seg-auto">🤖 AUTO</span>`
+        :`<span class="badge b-free">👤 MANUAL</span>`;
+      return`<tr>
+        <td style="font-size:12px;color:var(--faint)">${fd(c.created_at)}</td>
+        <td>${esc(c.restaurant_name||'—')}</td>
+        <td><span class="badge ${segBadge}">${esc(c.segment)}</span></td>
+        <td style="font-size:12px">${esc(c.channel)}</td>
+        <td style="font-weight:500">${c.sent_count}</td>
+        <td style="color:${c.failed_count>0?'var(--red)':'var(--muted)'}">${c.failed_count}</td>
+        <td>${trigBadge}</td>
+        <td><button class="btn btn-sm" onclick="viewCampaignStats(${c.id})">Stats</button></td>
+      </tr>`;
+    }).join('')
+    :'<tr><td colspan="8" class="empty-cell">Asnjë kampanjë ende</td></tr>';
+}
+
+async function viewCampaignStats(id){
+  document.getElementById('mkt-stats-body').innerHTML='<div class="spinner"></div>';
+  document.getElementById('mkt-stats-modal').classList.add('open');
+  const r=await api('GET',`/admin/marketing/campaigns/${id}/stats`);
+  if(!r.ok){document.getElementById('mkt-stats-body').innerHTML=`<span style="color:var(--red)">${esc(r.data.error)}</span>`;return;}
+  const d=r.data;
+  document.getElementById('mkt-stats-body').innerHTML=
+    `<strong>Campaign #${d.id}</strong><br><br>`+
+    `<strong>Restoranti:</strong> ${esc(d.restaurant_name||'—')}<br>`+
+    `<strong>Dërguar:</strong> ${d.sent_count} / ${d.recipients_count}<br>`+
+    `<strong>Dështuan:</strong> ${d.failed_count}<br>`+
+    `<strong>Konvertime (30 ditë):</strong> ${d.conversions}<br>`+
+    `<strong>Conversion Rate:</strong> ${d.conversion_rate}%<br><br>`+
+    `<em>Nga kjo kampanjë erdhën ${d.conversions} rezervime.</em>`;
+}
+
+async function loadTriggers(restId){
+  if(!restId){document.getElementById('triggers-tbody').innerHTML='<tr><td colspan="5" class="empty-cell">Zgjidh restorantin</td></tr>';return;}
+  const r=await api('GET',`/admin/marketing/triggers/${restId}`);
+  if(!r.ok)return;
+  const rows=r.data||[];
+  document.getElementById('triggers-tbody').innerHTML=rows.length
+    ?rows.map(t=>`<tr>
+        <td>${esc(t.restaurant_id)}</td>
+        <td style="font-weight:500">${esc(t.trigger_type)}</td>
+        <td>${esc(t.channel)}</td>
+        <td style="font-size:12px;color:var(--faint)">${t.last_run?fd(t.last_run):'Kurrë'}</td>
+        <td>${t.is_active?`<span class="badge b-active">Aktiv</span>`:`<span class="badge b-inactive">Joaktiv</span>`}</td>
+      </tr>`).join('')
+    :'<tr><td colspan="5" class="empty-cell">Asnjë trigger aktiv</td></tr>';
+}
+
+async function createTrigger(){
+  const restId=document.getElementById('trg-restaurant').value;
+  const type=document.getElementById('trg-type').value;
+  const ch=document.getElementById('trg-channel').value;
+  const seg=document.getElementById('trg-segment').value.trim()||null;
+  const msg=document.getElementById('trg-message').value.trim();
+  if(!restId){toast('Zgjidh restorantin','err');return;}
+  if(!msg){toast('Shkruaj template mesazhin','err');return;}
+  const r=await api('POST','/admin/marketing/triggers',{
+    restaurant_id:+restId,trigger_type:type,segment:seg,channel:ch,message_template:msg
+  });
+  if(r.ok){
+    toast('Trigger u aktivizua','ok');
+    addLog(`Trigger i ri: ${type} për restorant #${restId}`,'ok');
+    document.getElementById('trg-message').value='';
+    loadTriggers(restId);
+  } else {
+    toast('Gabim: '+r.data.error,'err');
+  }
+}
+
 // INIT
 window.addEventListener('load',()=>{
   const s=localStorage.getItem('tta_admin_key');
   if(s){KEY=s;api('GET','/admin/stats').then(r=>{if(r.ok){document.getElementById('login-screen').style.display='none';document.getElementById('status-pip').classList.add('on');document.getElementById('ver-span').textContent=r.data.version||'';renderStats(r.data.data);startAutoRefresh();fillUrls();addLog('Sesion i restauruar','info');}else{KEY='';localStorage.removeItem('tta_admin_key');}});}
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDrawer();closeRotModal();document.getElementById('keys-modal').classList.remove('open');}});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDrawer();closeRotModal();['keys-modal','rot-modal','mkt-confirm-modal','mkt-stats-modal'].forEach(id=>document.getElementById(id)?.classList.remove('open'));}});
   renderLog();
 });
 </script>

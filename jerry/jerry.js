@@ -126,6 +126,124 @@ async function startJerry(db) {
       console.error('[Jerry] daily report error:', err.message);
     }
   }, 60 * 60 * 1000);
+
+  // ==================== SMART TRIGGERS çdo orë, ekzekuto ora 02:00 ====================
+  setInterval(async () => {
+    try {
+      const hour = new Date().toLocaleString('en-CA', {
+        timeZone: 'Europe/Tirane',
+        hour: 'numeric',
+        hour12: false,
+      });
+
+      if (hour !== '2') return;
+
+      console.log('🎯 Jerry: Duke ekzekutuar Smart Triggers...');
+
+      const restaurants = await db.query(
+        "SELECT * FROM restaurants WHERE plan = 'pro' AND is_active = true"
+      );
+
+      for (const rest of restaurants.rows) {
+        const triggers = await db.query(
+          'SELECT * FROM marketing_triggers WHERE restaurant_id = $1 AND is_active = true',
+          [rest.id]
+        );
+
+        for (const trigger of triggers.rows) {
+          let shouldFire = false;
+          let customers = [];
+
+          if (trigger.trigger_type === 'inactive_45days') {
+            const result = await db.query(`
+              SELECT DISTINCT phone, name FROM reservations
+              WHERE restaurant_id = $1
+                AND phone NOT IN (
+                  SELECT phone FROM reservations
+                  WHERE restaurant_id = $1
+                    AND created_at > NOW() - INTERVAL '45 days'
+                )
+            `, [rest.id]);
+            customers = result.rows;
+            shouldFire = customers.length > 0;
+          }
+
+          if (trigger.trigger_type === 'post_feedback_negative') {
+            const result = await db.query(`
+              SELECT DISTINCT r.phone, r.name
+              FROM reservations r
+              JOIN feedback f ON r.id = f.reservation_id
+              WHERE r.restaurant_id = $1
+                AND f.average_score < 3
+                AND f.created_at > NOW() - INTERVAL '7 days'
+            `, [rest.id]);
+            customers = result.rows;
+            shouldFire = customers.length > 0;
+          }
+
+          if (trigger.trigger_type === 'vip_reward') {
+            const result = await db.query(`
+              SELECT phone, name, COUNT(*) as visits
+              FROM reservations
+              WHERE restaurant_id = $1
+                AND status IN ('confirmed', 'completed')
+              GROUP BY phone, name
+              HAVING COUNT(*) = 5
+            `, [rest.id]);
+            customers = result.rows;
+            shouldFire = customers.length > 0;
+          }
+
+          if (!shouldFire || customers.length === 0) continue;
+
+          let sent = 0;
+          for (const customer of customers) {
+            const message = trigger.message_template
+              .replace('{name}', customer.name || 'i dashur')
+              .replace('{restaurant}', rest.name);
+            try {
+              await fetch(
+                `https://graph.facebook.com/v18.0/${process.env.WA_PHONE_ID}/messages`,
+                {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${process.env.WA_PLATFORM_TOKEN}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    messaging_product: 'whatsapp',
+                    to: customer.phone.replace(/\D/g, ''),
+                    type: 'text',
+                    text: { body: message },
+                  }),
+                }
+              );
+              sent++;
+            } catch (e) {
+              console.error('Trigger send error:', e.message);
+            }
+          }
+
+          await db.query(`
+            INSERT INTO marketing_campaigns
+              (restaurant_id, segment, channel, message,
+               recipients_count, sent_count, triggered_by)
+            VALUES ($1, $2, $3, $4, $5, $6, 'auto')
+          `, [rest.id, trigger.segment || 'auto', trigger.channel,
+              trigger.message_template, customers.length, sent]);
+
+          await db.query(
+            'UPDATE marketing_triggers SET last_run = NOW() WHERE id = $1',
+            [trigger.id]
+          );
+
+          console.log(`✅ Trigger "${trigger.trigger_type}" — ${sent} mesazhe dërguar`);
+        }
+      }
+    } catch (err) {
+      console.error('Smart Triggers error:', err.message);
+    }
+  }, 60 * 60 * 1000);
 }
 
 module.exports = { startJerry };
