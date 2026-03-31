@@ -826,7 +826,8 @@ function renderStatusBars(s){
 async function loadRestaurants(){
   try{
     const r=await fetch(BASE+'/admin/restaurants',{headers:{'x-admin-key':adminKey}});
-    allRestaurants=await r.json();
+    const response=await r.json();
+    allRestaurants=response.data||response;
     console.log('Restaurants loaded:', allRestaurants.length, allRestaurants);
     renderRestGrid(allRestaurants);
     renderQuickRestTable(allRestaurants);
@@ -990,11 +991,15 @@ function statusBadge(s){
 // CUSTOMERS
 async function loadCustomers(){
   try{
-    const r=await fetch(BASE+'/admin/customers',{headers:{'x-admin-key':adminKey}});
-    if(r.ok){allCustomers=await r.json();}
+    const r=await fetch(BASE+'/admin/marketing/audience/all',{headers:{'x-admin-key':adminKey}});
+    if(!r.ok){
+      document.getElementById('custBody').innerHTML='<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text3)">Duke ardhur së shpejti</td></tr>';
+      return;
+    }
+    allCustomers=await r.json();
     renderCustomers(allCustomers);
   }catch(e){
-    document.getElementById('custBody').innerHTML='<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text3)">Duke ngarkuar...</td></tr>';
+    document.getElementById('custBody').innerHTML='<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text3)">Duke ardhur së shpejti</td></tr>';
   }
 }
 
