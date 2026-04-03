@@ -1,9 +1,9 @@
 // jerry/jerry.js
 // Jerry — Guardian Agent i Te Ta AI Backend
 
-const { runChecks }                          = require('./watcher');
+const { runChecks, checkExpiringPlans }       = require('./watcher');
 const { analyzeAnomaly }                     = require('./intelligence');
-const { sendAlert, sendResolved, sendDailyReport } = require('./reporter');
+const { sendAlert, sendResolved, sendDailyReport, sendPlanExpiryAlert } = require('./reporter');
 const memory = require('./memory');
 
 async function startJerry(db) {
@@ -121,6 +121,13 @@ async function startJerry(db) {
           date:  new Date().toISOString().split('T')[0],
           stats,
         });
+
+        // Check for expiring PRO plans → alert admin
+        const expiryCheck = await checkExpiringPlans(db);
+        if (expiryCheck) {
+          await sendPlanExpiryAlert(expiryCheck.value);
+          console.log(`[Jerry] Plan expiry alert sent for ${expiryCheck.value.length} restaurant(s)`);
+        }
       }
     } catch (err) {
       console.error('[Jerry] daily report error:', err.message);

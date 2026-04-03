@@ -855,7 +855,7 @@ function renderRestGrid(data){
         <div class="rest-card-name">${r.name}</div>
         <span class="badge ${r.plan==='pro'?'amber':'gray'}">${(r.plan||'free').toUpperCase()}</span>
       </div>
-      <div class="rest-card-meta">ID: ${r.id} · ${r.is_active?'Aktiv':'Pauzë'} · Krijuar ${r.created_at?.slice(0,10)||'—'}</div>
+      <div class="rest-card-meta">ID: ${r.id} · ${r.is_active?'Aktiv':'Pauzë'} · ${_billingLabel(r)}</div>
       <div class="rest-card-stats">
         <div class="rest-stat"><div class="rest-stat-val">${r.reservation_count||0}</div><div class="rest-stat-label">Rezervime</div></div>
         <div class="rest-stat"><div class="rest-stat-val">${r.unique_customers||0}</div><div class="rest-stat-label">Klientë</div></div>
@@ -902,6 +902,15 @@ async function openRestDetail(id){
         <div class="field"><label>Plan</label><select id="edit-plan"><option value="free" ${d.plan!=='pro'?'selected':''}>FREE</option><option value="pro" ${d.plan==='pro'?'selected':''}>PRO</option></select></div>
         <div class="field"><label>Aktiv</label><select id="edit-active"><option value="true" ${d.is_active?'selected':''}>Po — Aktiv</option><option value="false" ${!d.is_active?'selected':''}>Jo — Pauzë</option></select></div>
         <button class="btn primary" onclick="saveRestSettings(${d.id})">Ruaj ndryshimet</button>
+      </div>
+      <div class="card card-pad" style="max-width:480px;margin-top:16px">
+        <div style="font-weight:600;margin-bottom:12px">Faturimi Manual</div>
+        <div style="font-size:0.85rem;color:var(--muted);margin-bottom:12px">
+          Trial: <strong>${d.trial_ends?.slice(0,10)||'—'}</strong> &nbsp;·&nbsp;
+          Plan skadon: <strong>${d.plan_expires?.slice(0,10)||'Pa datë'}</strong>
+        </div>
+        <div class="field"><label>Zgjat planin deri më</label><input type="date" id="billing-expires" value="${d.plan_expires?.slice(0,10)||''}"></div>
+        <button class="btn primary" onclick="saveBilling(${d.id})">Konfirmo Pagesën</button>
       </div>`;
     goTo('rest-detail',null);
     document.getElementById('pageTitle').textContent=d.name;
@@ -939,6 +948,40 @@ async function saveRestSettings(id){
     toast('✓ U ruajt me sukses');loadAll();
     logAct('Ndryshoi settings të restorantit ID '+id,'var(--green-bg)','✓');
   }catch(e){toast('Gabim duke ruajtur')}
+}
+
+async function saveBilling(id){
+  const expires=document.getElementById('billing-expires')?.value;
+  if(!expires){toast('Zgjidh një datë skadon');return;}
+  try{
+    const r=await fetch(BASE+'/admin/restaurants/'+id+'/billing',{
+      method:'PATCH',headers:{'x-admin-key':adminKey,'Content-Type':'application/json'},
+      body:JSON.stringify({plan:'pro',plan_expires:expires})
+    });
+    const d=await r.json();
+    if(d.success){
+      toast('✓ Faturimi u konfirmua — Plan PRO deri '+expires);
+      loadAll();
+      logAct('Konfirmoi pagesën për restorantin ID '+id+' deri '+expires,'var(--green-bg)','💳');
+    } else {
+      toast('Gabim: '+(d.error||'unknown'));
+    }
+  }catch(e){toast('Gabim duke ruajtur faturimin')}
+}
+
+function _billingLabel(r){
+  const now=new Date();
+  if(r.trial_ends && new Date(r.trial_ends)>=now){
+    const days=Math.ceil((new Date(r.trial_ends)-now)/(1000*60*60*24));
+    return `Trial (${days}d)`;
+  }
+  if(r.plan_expires){
+    const exp=new Date(r.plan_expires);
+    if(exp<now) return '<span style="color:var(--red)">Skaduar</span>';
+    const days=Math.ceil((exp-now)/(1000*60*60*24));
+    return `Skadon ${days}d`;
+  }
+  return r.plan==='pro'?'PRO (pa datë)':'FREE';
 }
 
 function editCurrentRest(){switchTab('dt','settings',document.querySelectorAll('.tab')[3])}

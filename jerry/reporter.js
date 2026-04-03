@@ -66,4 +66,16 @@ async function sendDailyReport(stats) {
   await sendWhatsApp(body);
 }
 
-module.exports = { sendAlert, sendResolved, sendDailyReport };
+async function sendPlanExpiryAlert(restaurants) {
+  const lines = restaurants.map(r =>
+    `  • ${r.name} — skadon ${r.plan_expires?.toString().slice(0,10)}`
+  ).join('\n');
+  const body =
+    `💳 *JERRY — FATURIM*\n` +
+    `${restaurants.length} restorant(e) skadojnë brenda 7 ditëve:\n` +
+    `${lines}\n` +
+    `Dërgo faturën dhe zgjat planin nga Command Center.`;
+  await sendWhatsApp(body);
+}
+
+module.exports = { sendAlert, sendResolved, sendDailyReport, sendPlanExpiryAlert };

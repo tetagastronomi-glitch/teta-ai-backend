@@ -85,6 +85,30 @@ function checkMemoryUsage() {
   return null;
 }
 
+async function checkExpiringPlans(db) {
+  try {
+    const { rows } = await db.query(`
+      SELECT id, name, owner_phone, plan_expires
+      FROM public.restaurants
+      WHERE plan = 'pro'
+        AND plan_expires IS NOT NULL
+        AND plan_expires BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'
+    `);
+    if (rows.length > 0) {
+      return {
+        type: 'plan_expiring',
+        severity: 5,
+        description: `${rows.length} restorant(e) kanë planin PRO që skadon brenda 7 ditëve`,
+        value: rows,
+        timestamp: new Date(),
+      };
+    }
+    return null;
+  } catch (err) {
+    return null;
+  }
+}
+
 async function runChecks(db) {
   const [backend, database, stuck, memory] = await Promise.all([
     checkBackendHealth(),
@@ -96,4 +120,4 @@ async function runChecks(db) {
   return [backend, database, stuck, memory].filter(Boolean);
 }
 
-module.exports = { runChecks };
+module.exports = { runChecks, checkExpiringPlans };

@@ -518,10 +518,22 @@ async function requireAdminKey(req, res, next) {
 function requirePlan(requiredPlan) {
   return async (req, res, next) => {
     try {
-      const q = await pool.query(`SELECT plan FROM public.restaurants WHERE id=$1 LIMIT 1;`, [req.restaurant_id]);
-      const plan = String(q.rows[0]?.plan || "FREE").toUpperCase();
-      const need = String(requiredPlan || "FREE").toUpperCase();
+      const q = await pool.query(
+        `SELECT plan, trial_ends, plan_expires FROM public.restaurants WHERE id=$1 LIMIT 1;`,
+        [req.restaurant_id]
+      );
+      const row = q.rows[0] || {};
+      const now = new Date();
 
+      let plan = String(row.plan || 'FREE').toUpperCase();
+
+      // Trial period → PRO access
+      if (row.trial_ends && new Date(row.trial_ends) >= now) plan = 'PRO';
+
+      // Plan expired → degrade to FREE
+      if (row.plan_expires && new Date(row.plan_expires) < now) plan = 'FREE';
+
+      const need = String(requiredPlan || "FREE").toUpperCase();
       const rank = (p) => (p === "PRO" ? 2 : 1);
       if (rank(plan) < rank(need)) {
         return res.status(403).json({
@@ -678,6 +690,10 @@ async function initDb() {
 
     // ✅ plan as VARCHAR(20) default 'free' (lowercase, backward compat)
     await pool.query(`ALTER TABLE public.restaurants ADD COLUMN IF NOT EXISTS plan VARCHAR(20) DEFAULT 'free';`);
+
+    // ✅ BILLING: trial period + plan expiry (manual payments)
+    await pool.query(`ALTER TABLE public.restaurants ADD COLUMN IF NOT EXISTS trial_ends DATE DEFAULT (CURRENT_DATE + INTERVAL '14 days');`);
+    await pool.query(`ALTER TABLE public.restaurants ADD COLUMN IF NOT EXISTS plan_expires DATE;`);
 
     // ✅ OPENING HOURS (per-business)
     await pool.query(`ALTER TABLE public.restaurants ADD COLUMN IF NOT EXISTS opening_hours_start TEXT NOT NULL DEFAULT '11:00';`);
@@ -1354,6 +1370,7 @@ app.get("/admin/restaurants", requireAdminKey, requireDbReady, async (req, res) 
         r.id, r.name, r.owner_phone, r.plan, r.is_active,
         r.opening_hours_start, r.opening_hours_end,
         r.max_capacity, r.max_auto_confirm_people, r.same_day_cutoff_hhmi,
+        r.trial_ends, r.plan_expires,
         r.created_at,
         COUNT(DISTINCT res.id)    AS reservation_count,
         COUNT(DISTINCT res.phone) AS unique_customers
@@ -1466,9 +1483,9 @@ app.post("/admin/restaurants", requireAdminKey, requireDbReady, async (req, res)
     const max_capacity = Number(b.max_capacity || 50);
 
     const r = await pool.query(
-      `INSERT INTO public.restaurants (name, owner_phone, plan, max_capacity, is_active)
-       VALUES ($1,$2,$3,$4,true)
-       RETURNING id, name, owner_phone, plan, max_capacity, is_active, created_at`,
+      `INSERT INTO public.restaurants (name, owner_phone, plan, max_capacity, is_active, trial_ends)
+       VALUES ($1,$2,$3,$4,true, CURRENT_DATE + INTERVAL '14 days')
+       RETURNING id, name, owner_phone, plan, max_capacity, is_active, trial_ends, created_at`,
       [name, owner_phone, plan, max_capacity]
     );
     const restaurant = r.rows[0];
@@ -1522,13 +1539,36 @@ app.post("/admin/restaurants/:id/plan", requireAdminKey, requireDbReady, async (
     return res.status(400).json({ success: false, version: APP_VERSION, error: "plan must be FREE or PRO" });
   }
 
-  const q = await pool.query(`UPDATE public.restaurants SET plan=$1 WHERE id=$2 RETURNING id,name,owner_phone,plan;`, [
-    plan,
-    id,
+  const q = await pool.query(`UPDATE public.restaurants SET plan=$1 WHERE id=$2 RETURNING id,name,owner_phone,plan,trial_ends,plan_expires;`, [
+    plan, id,
   ]);
   if (q.rows.length === 0) return res.status(404).json({ success: false, version: APP_VERSION, error: "Not found" });
 
   res.json({ success: true, version: APP_VERSION, data: q.rows[0] });
+});
+
+// PATCH /admin/restaurants/:id/billing — set plan_expires after manual payment
+app.patch("/admin/restaurants/:id/billing", requireAdminKey, requireDbReady, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ success: false, error: "Invalid id" });
+
+    const { plan_expires, plan } = req.body || {};
+    if (!plan_expires) return res.status(400).json({ success: false, error: "Missing field: plan_expires (YYYY-MM-DD)" });
+
+    const newPlan = plan ? String(plan).toLowerCase() : 'pro';
+    const q = await pool.query(
+      `UPDATE public.restaurants SET plan=$1, plan_expires=$2 WHERE id=$3
+       RETURNING id, name, owner_phone, plan, trial_ends, plan_expires`,
+      [newPlan, plan_expires, id]
+    );
+    if (!q.rows.length) return res.status(404).json({ success: false, error: "Not found" });
+
+    console.log(`✅ Billing updated for restaurant #${id}: plan=${newPlan}, expires=${plan_expires}`);
+    res.json({ success: true, version: APP_VERSION, data: q.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 // =====================
 // CRON: AUTO CLOSE RESERVATIONS
