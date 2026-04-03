@@ -4084,25 +4084,27 @@ app.post('/auth/pin-login', requireDbReady, async (req, res) => {
   const { pin } = req.body || {};
   if (!pin) return res.status(400).json({ error: 'Kodi mungon' });
   try {
+    // Query restaurant directly by pin_code — no JOIN needed
     const result = await pool.query(
-      `SELECT r.id, r.name, ok.key_hash
-       FROM public.restaurants r
-       JOIN public.owner_keys ok ON ok.restaurant_id = r.id AND ok.is_active = TRUE
-       WHERE r.pin_code = $1 LIMIT 1`,
+      `SELECT id, name FROM public.restaurants WHERE pin_code = $1 AND is_active = TRUE LIMIT 1`,
       [String(pin).trim()]
     );
-    if (result.rows.length > 0) {
-      const row = result.rows[0];
-      // Return a raw owner_key — we stored hash, so generate a fresh one and store it
-      const owner_key = 'own_' + crypto.randomBytes(8).toString('hex');
-      await pool.query(
-        `INSERT INTO public.owner_keys (restaurant_id, key_hash, label, is_active)
-         VALUES ($1,$2,'pin-login',TRUE)`,
-        [row.id, hashKey(owner_key)]
-      );
-      return res.json({ success: true, owner_key, restaurant_id: row.id, restaurant_name: row.name });
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'Kodi nuk është i saktë' });
     }
-    return res.status(401).json({ error: 'Kodi nuk është i saktë' });
+    const row = result.rows[0];
+    // Generate fresh owner_key, deactivate old pin-login keys, insert new one
+    const owner_key = 'own_' + crypto.randomBytes(8).toString('hex');
+    await pool.query(
+      `UPDATE public.owner_keys SET is_active=FALSE WHERE restaurant_id=$1 AND label='pin-login'`,
+      [row.id]
+    );
+    await pool.query(
+      `INSERT INTO public.owner_keys (restaurant_id, key_hash, label, is_active)
+       VALUES ($1,$2,'pin-login',TRUE)`,
+      [row.id, hashKey(owner_key)]
+    );
+    return res.json({ success: true, owner_key, restaurant_id: row.id, restaurant_name: row.name });
   } catch (err) {
     console.error('PIN login error:', err.message);
     res.status(500).json({ error: 'Gabim serveri' });
