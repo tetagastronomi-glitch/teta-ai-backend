@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Te Ta AI — Hyrja</title>
+  <title>Te Ta AI — Dashboard Pronari</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -83,33 +83,21 @@
       letter-spacing: -0.3px;
     }
 
-    .nav-links {
+    .nav-back {
       display: flex;
       align-items: center;
-      gap: 24px;
-    }
-
-    .nav-links a {
+      gap: 6px;
       color: var(--text-secondary);
       text-decoration: none;
       font-size: 0.875rem;
       font-weight: 500;
-      transition: color 0.15s;
-    }
-
-    .nav-links a:hover { color: var(--text-primary); }
-
-    .nav-back {
-      background: var(--bg-secondary) !important;
-      color: var(--text-secondary) !important;
-      padding: 8px 16px;
+      padding: 8px 14px;
       border-radius: 8px;
-      font-weight: 600 !important;
       border: 1px solid var(--border-primary);
-      transition: border-color 0.15s !important;
+      transition: border-color 0.15s, color 0.15s;
     }
 
-    .nav-back:hover { border-color: var(--border-secondary) !important; color: var(--text-primary) !important; }
+    .nav-back:hover { border-color: var(--border-secondary); color: var(--text-primary); }
 
     /* MAIN */
     main {
@@ -134,7 +122,7 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      margin-bottom: 32px;
+      margin-bottom: 28px;
       justify-content: center;
     }
 
@@ -254,21 +242,15 @@
 
     .contact-note a:hover { text-decoration: underline; }
 
-    /* FOOTER */
     footer {
       padding: 20px 24px;
       text-align: center;
       border-top: 1px solid var(--border-primary);
     }
 
-    .footer-copy {
-      font-size: 0.8rem;
-      color: var(--text-tertiary);
-    }
+    .footer-copy { font-size: 0.8rem; color: var(--text-tertiary); }
 
-    /* MOBILE */
     @media (max-width: 480px) {
-      .nav-links a:not(.nav-back) { display: none; }
       .login-card { padding: 32px 24px; }
     }
   </style>
@@ -281,11 +263,7 @@
       <div class="nav-logo-icon">TT</div>
       <span class="nav-logo-text">Te Ta AI</span>
     </a>
-    <div class="nav-links">
-      <a href="/platform#si-funksionon">Si funksionon</a>
-      <a href="/platform#cmimi">Çmimet</a>
-      <a href="/platform" class="nav-back">← Kthehu</a>
-    </div>
+    <a href="/platform" class="nav-back">← Faqja kryesore</a>
   </div>
 </nav>
 
@@ -296,8 +274,8 @@
       <span class="card-logo-text">Te Ta AI</span>
     </div>
 
-    <h2>Hyni në platformë</h2>
-    <p class="subtitle">Futni kodin tuaj për të hyrë</p>
+    <h2>Dashboard Pronari</h2>
+    <p class="subtitle">Futni kodin e restorantit tuaj</p>
 
     <div class="field">
       <input
@@ -331,38 +309,28 @@
     if (!key) return;
 
     const btn = document.querySelector('.login-btn');
-    const err = document.getElementById('loginErr');
+    const errEl = document.getElementById('loginErr');
+    errEl.style.display = 'none';
     btn.disabled = true;
     btn.textContent = 'Duke hyrë...';
-    err.style.display = 'none';
 
     try {
-      const res = await fetch('/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key })
+      const res = await fetch('/owner/reservations?limit=1', {
+        headers: { 'x-owner-key': key }
       });
 
-      const data = await res.json();
-
       if (res.ok) {
-        if (data.role === 'admin') {
-          localStorage.setItem('tta_admin_key', key);
-          window.location.href = data.redirect;
-        } else if (data.role === 'owner') {
-          localStorage.setItem('tta_owner_key', key);
-          localStorage.setItem('tta_restaurant_id', data.restaurant_id);
-          window.location.href = data.redirect;
-        }
+        localStorage.setItem('tta_owner_key', key);
+        window.location.href = '/dashboard';
       } else {
-        err.textContent = data.error || 'Kodi nuk ekziston';
-        err.style.display = 'block';
+        errEl.textContent = 'Kodi nuk është i saktë';
+        errEl.style.display = 'block';
         btn.disabled = false;
         btn.textContent = 'Hyr →';
       }
-    } catch (e) {
-      err.textContent = 'Gabim lidhjeje. Provoni përsëri.';
-      err.style.display = 'block';
+    } catch (err) {
+      errEl.textContent = 'Gabim lidhjeje. Provoni përsëri.';
+      errEl.style.display = 'block';
       btn.disabled = false;
       btn.textContent = 'Hyr →';
     }

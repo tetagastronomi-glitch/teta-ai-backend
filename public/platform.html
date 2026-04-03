@@ -95,16 +95,25 @@
     .nav-links a:hover { color: var(--text); }
 
     .nav-cta {
-      background: var(--amber) !important;
-      color: #fff !important;
       padding: 8px 18px;
       border-radius: 8px;
       font-weight: 600;
       font-size: 0.875rem !important;
-      transition: background 0.15s !important;
+      transition: all 0.15s !important;
+      border: 1px solid #d6d3d1;
+      color: var(--text2) !important;
+      background: transparent !important;
     }
 
-    .nav-cta:hover { background: var(--amber-dark) !important; }
+    .nav-cta:hover { border-color: #9ca3af !important; color: var(--text) !important; }
+
+    .nav-cta.admin {
+      background: linear-gradient(135deg, var(--amber), #d97706) !important;
+      color: #fff !important;
+      border: none !important;
+    }
+
+    .nav-cta.admin:hover { opacity: 0.9 !important; }
 
     /* HERO */
     .hero {
@@ -498,7 +507,8 @@
       <a href="#si-funksionon">Si funksionon</a>
       <a href="#cmimi">Çmimet</a>
       <a href="#faq">FAQ</a>
-      <a href="/login" class="nav-cta">Hyr</a>
+      <a href="/login" class="nav-cta">Pronarë</a>
+      <a href="/command" class="nav-cta admin">Admin</a>
     </div>
   </div>
 </nav>
