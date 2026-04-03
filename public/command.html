@@ -397,6 +397,13 @@ td.muted{color:var(--text3);font-size:12px;font-family:var(--mono)}
         Auto-Triggers
       </div>
 
+      <div class="nav-section">Suport</div>
+      <div class="nav-item" onclick="goTo('support-tickets',this)" id="nav-support">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2H3a1 1 0 00-1 1v9l3-3h8a1 1 0 001-1V3a1 1 0 00-1-1z"/></svg>
+        Suport Tickets
+        <span class="nav-badge" id="support-badge" style="display:none"></span>
+      </div>
+
       <div class="nav-section">Sistemi</div>
       <div class="nav-item" onclick="goTo('jerry-log',this)">
         <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="1 8 4 8 6 14 10 2 12 8 15 8"/></svg>
@@ -649,6 +656,19 @@ td.muted{color:var(--text3);font-size:12px;font-family:var(--mono)}
         </div>
       </div>
 
+      <!-- SUPPORT TICKETS -->
+      <div class="page" id="page-support-tickets">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+          <div class="section-header" style="margin:0"><div class="section-title">Suport Tickets</div><div class="section-sub">Çështje të eskalatuara nga pronari tek Jerry</div></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:16px">
+          <button class="btn sm" id="stf-open" onclick="filterTickets('open')" style="background:linear-gradient(135deg,#b45309,#d97706);color:#fff;border:none">Open</button>
+          <button class="btn sm ghost" id="stf-resolved" onclick="filterTickets('resolved')">Resolved</button>
+          <button class="btn sm ghost" id="stf-all" onclick="filterTickets('all')">Të gjitha</button>
+        </div>
+        <div id="tickets-list"></div>
+      </div>
+
       <!-- DANGER -->
       <div class="page" id="page-danger">
         <div class="section-header"><div class="section-title" style="color:var(--red)">Danger Zone</div><div class="section-sub">Veprime të pakthyeshme — kujdes</div></div>
@@ -696,6 +716,21 @@ td.muted{color:var(--text3);font-size:12px;font-family:var(--mono)}
     <div class="modal-foot">
       <button class="btn" onclick="closeModal('confirmSendModal')">Anulo</button>
       <button class="btn primary" onclick="doSendCampaign()">Konfirmo & Dërgo →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD CUSTOMER ADMIN MODAL -->
+<div class="overlay" id="addCustAdminModal">
+  <div class="modal">
+    <div class="modal-title">Shto Klient</div>
+    <div class="modal-sub">SHTO MANUALISHT NË LISTËN E KLIENTËVE</div>
+    <div class="field"><label>Emri</label><input id="addCustAdminName" placeholder="p.sh. Arben Hoxha"></div>
+    <div class="field"><label>Telefoni</label><input id="addCustAdminPhone" placeholder="+355 69 ..."></div>
+    <div id="addCustAdminErr" style="display:none;color:var(--red);font-size:12px;margin-bottom:8px"></div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeAddCustAdminModal()">Anulo</button>
+      <button class="btn primary" id="addCustAdminBtn" onclick="submitAddCustAdmin()">Shto Klientin</button>
     </div>
   </div>
 </div>
@@ -782,7 +817,7 @@ function goTo(id,el){
     overview:'Overview',restaurants:'Restorantet',reservations:'Rezervimet',
     customers:'Klientët',marketing:'Kampanja',triggers:'Auto-Triggers',
     'jerry-log':'Jerry Logs',env:'Environment',cron:'Cron Jobs',danger:'Danger Zone',
-    'rest-detail':'Detaje Restoranti'
+    'rest-detail':'Detaje Restoranti','support-tickets':'Suport Tickets'
   };
   document.getElementById('pageTitle').textContent=titles[id]||id;
   if(id==='restaurants')loadRestaurants();
@@ -791,6 +826,7 @@ function goTo(id,el){
   if(id==='marketing')loadMarketingPage();
   if(id==='triggers')loadTriggersPage();
   if(id==='env')loadEnv();
+  if(id==='support-tickets')loadSupportTickets('open');
   logAct('Navigoi: '+(titles[id]||id),'var(--bg3)','→');
 }
 
@@ -798,6 +834,7 @@ function goTo(id,el){
 async function loadAll(){
   await Promise.all([loadStats(),loadRestaurants()]);
   updateOverviewSub();
+  loadOpenTicketsCount();
 }
 
 function updateOverviewSub(){
@@ -1012,7 +1049,10 @@ async function loadRestCustomers(restId){
     const json=await r.json();
     const rows=json.data||[];
     document.getElementById('dt-customers').innerHTML=`
-      <div style="font-size:12px;color:var(--text3);margin-bottom:12px">${rows.length} klientë</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:12px;color:var(--text3)">${rows.length} klientë</div>
+        <button class="btn sm" onclick="openAddCustAdminModal(${restId})" style="background:linear-gradient(135deg,var(--accent),var(--accent-light));color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">+ Shto Klient</button>
+      </div>
       <div class="card"><div class="tbl-wrap"><table>
         <thead><tr><th>Emri</th><th>Telefoni</th><th>Vizita</th><th>E fundit</th><th>Segmenti</th></tr></thead>
         <tbody>${rows.length?rows.map(c=>`
@@ -1481,6 +1521,112 @@ async function createRest(){
 }
 
 function copyTxt(id){navigator.clipboard.writeText(document.getElementById(id).textContent).catch(()=>{});toast('✓ U kopjua')}
+
+// SUPPORT TICKETS
+let currentTicketFilter='open';
+async function loadSupportTickets(status){
+  currentTicketFilter=status||'open';
+  ['open','resolved','all'].forEach(s=>{
+    const btn=document.getElementById('stf-'+s);
+    if(!btn)return;
+    if(s===currentTicketFilter){
+      btn.style.background='linear-gradient(135deg,var(--accent),var(--accent-light))';
+      btn.style.color='#fff';btn.style.border='none';
+    }else{
+      btn.style.background='';btn.style.color='';btn.style.border='';
+    }
+  });
+  const el=document.getElementById('tickets-list');
+  if(!el)return;
+  el.innerHTML='<div class="loading"><div class="spinner"></div>Duke ngarkuar...</div>';
+  try{
+    const r=await fetch(BASE+'/admin/support-tickets?status='+currentTicketFilter,{headers:{'x-admin-key':adminKey}});
+    const json=await r.json();
+    const tickets=json.tickets||json.data||[];
+    if(!tickets.length){
+      el.innerHTML='<div class="empty"><div class="empty-icon">✓</div><div class="empty-text">Nuk ka ticket '+(currentTicketFilter==='open'?'të hapura':'')+'</div></div>';
+      return;
+    }
+    el.innerHTML=tickets.map(t=>`
+      <div class="card card-pad" style="margin-bottom:12px" id="ticket-${t.id}">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px">
+          <div>
+            <div style="font-weight:600;font-size:14px">${t.restaurant_name||'ID '+t.restaurant_id}</div>
+            <div style="font-size:11px;color:var(--text3);font-family:var(--mono)">${new Date(t.created_at).toLocaleString('sq-AL')}</div>
+          </div>
+          <span style="font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;background:${t.status==='resolved'?'var(--green-bg)':'var(--accent-bg)'};color:${t.status==='resolved'?'var(--green)':'var(--accent)'}">${t.status==='resolved'?'Zgjidhur':'I hapur'}</span>
+        </div>
+        <div style="background:var(--bg2);border-radius:8px;padding:10px 12px;margin-bottom:8px">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px;font-weight:500">PRONARI:</div>
+          <div style="font-size:13px">${t.customer_message}</div>
+        </div>
+        <div style="background:var(--accent-bg);border:1px solid var(--accent-border);border-radius:8px;padding:10px 12px;margin-bottom:12px">
+          <div style="font-size:11px;color:var(--accent);margin-bottom:4px;font-weight:500">JERRY:</div>
+          <div style="font-size:13px">${t.jerry_reply}</div>
+        </div>
+        ${t.admin_notes?`<div style="font-size:12px;color:var(--text3);margin-bottom:10px"><strong>Shënime admin:</strong> ${t.admin_notes}</div>`:''}
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${t.status!=='resolved'?`<button class="btn sm" onclick="resolveTicket(${t.id})" style="background:var(--green);color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">✓ Zgjidh</button>`:''}
+          <a href="https://wa.me/${(t.customer_message||'').match(/\+?\d{10,}/)?.[0]||''}" target="_blank" class="btn sm ghost" style="font-size:12px;padding:6px 14px;border-radius:6px;text-decoration:none;color:var(--text2);border:1px solid var(--border2);display:inline-block">WhatsApp</a>
+        </div>
+      </div>`).join('');
+  }catch(e){el.innerHTML='<div class="empty"><div class="empty-icon">⚠</div><div class="empty-text">Gabim duke ngarkuar tickets</div></div>'}
+}
+function filterTickets(status){loadSupportTickets(status)}
+async function resolveTicket(id){
+  const notes=prompt('Shënime opsionale (shtypni Enter për të kaluar):');
+  try{
+    const r=await fetch(BASE+'/admin/support-tickets/'+id,{
+      method:'PUT',headers:{'x-admin-key':adminKey,'Content-Type':'application/json'},
+      body:JSON.stringify({status:'resolved',admin_notes:notes||''})
+    });
+    if(r.ok){toast('✓ Ticket u zgjidh');loadSupportTickets(currentTicketFilter);loadOpenTicketsCount();}
+    else toast('Gabim duke zgjidhur ticket');
+  }catch(e){toast('Gabim rrjeti')}
+}
+async function loadOpenTicketsCount(){
+  try{
+    const r=await fetch(BASE+'/admin/support-tickets?status=open',{headers:{'x-admin-key':adminKey}});
+    const json=await r.json();
+    const count=(json.tickets||json.data||[]).length;
+    const badge=document.getElementById('support-badge');
+    if(badge){badge.textContent=count;badge.style.display=count>0?'inline-block':'none';
+      if(count>0){badge.style.background='var(--accent)';badge.style.color='#fff';}}
+  }catch(e){}
+}
+
+// ADD CUSTOMER (Admin drilldown)
+let addCustAdminRestId=null;
+function openAddCustAdminModal(restId){
+  addCustAdminRestId=restId;
+  document.getElementById('addCustAdminName').value='';
+  document.getElementById('addCustAdminPhone').value='';
+  document.getElementById('addCustAdminErr').style.display='none';
+  document.getElementById('addCustAdminModal').classList.add('open');
+  document.getElementById('addCustAdminName').focus();
+}
+function closeAddCustAdminModal(){document.getElementById('addCustAdminModal').classList.remove('open')}
+async function submitAddCustAdmin(){
+  const name=document.getElementById('addCustAdminName').value.trim();
+  const phone=document.getElementById('addCustAdminPhone').value.trim();
+  const errEl=document.getElementById('addCustAdminErr');
+  if(!name||!phone){errEl.textContent='Emri dhe telefoni janë të detyrueshme';errEl.style.display='block';return;}
+  const btn=document.getElementById('addCustAdminBtn');
+  btn.disabled=true;btn.textContent='Duke shtuar...';
+  try{
+    const r=await fetch(BASE+'/admin/restaurants/'+addCustAdminRestId+'/customers',{
+      method:'POST',headers:{'x-admin-key':adminKey,'Content-Type':'application/json'},
+      body:JSON.stringify({name,phone})
+    });
+    const d=await r.json();
+    if(r.ok&&d.success){
+      toast('✓ Klienti u shtua');
+      closeAddCustAdminModal();
+      loadRestCustomers(addCustAdminRestId);
+    }else{errEl.textContent=d.error||'Gabim';errEl.style.display='block';}
+  }catch(e){errEl.textContent='Gabim rrjeti';errEl.style.display='block';}
+  finally{btn.disabled=false;btn.textContent='Shto Klientin';}
+}
 
 // MODAL / DRAWER
 function closeModal(id){

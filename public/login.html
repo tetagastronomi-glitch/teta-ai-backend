@@ -9,254 +9,75 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
       --primary: #b45309;
       --primary-light: #d97706;
-      --primary-dark: #92400e;
-      --bg-primary: #fafaf8;
-      --bg-secondary: #f5f5f4;
-      --text-primary: #1a1a18;
-      --text-secondary: #57534e;
-      --text-tertiary: #78716c;
-      --border-primary: #e7e5e4;
-      --border-secondary: #d6d3d1;
+      --bg: #fafaf8;
+      --surface: #ffffff;
+      --border: #e7e5e4;
+      --border2: #d6d3d1;
+      --text: #1a1a18;
+      --text2: #57534e;
+      --text3: #78716c;
       --error: #ef4444;
-      --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
+    body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
 
-    body {
-      font-family: var(--font-primary);
-      background: var(--bg-primary);
-      color: var(--text-primary);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
+    nav { position: sticky; top: 0; z-index: 100; background: rgba(250,250,248,0.92); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); padding: 0 24px; }
+    .nav-inner { max-width: 1100px; margin: 0 auto; height: 60px; display: flex; align-items: center; justify-content: space-between; }
+    .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .nav-logo-icon { width: 34px; height: 34px; background: linear-gradient(135deg, var(--primary), var(--primary-light)); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 0.78rem; letter-spacing: -0.5px; }
+    .nav-logo-text { font-weight: 700; font-size: 1rem; color: var(--text); letter-spacing: -0.3px; }
+    .nav-back { display: flex; align-items: center; gap: 6px; color: var(--text2); text-decoration: none; font-size: 0.875rem; font-weight: 500; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border); transition: border-color 0.15s, color 0.15s; }
+    .nav-back:hover { border-color: var(--border2); color: var(--text); }
 
-    /* NAV */
-    nav {
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      background: rgba(250,250,248,0.92);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--border-primary);
-      padding: 0 24px;
-    }
+    main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 48px 24px; }
 
-    .nav-inner {
-      max-width: 1100px;
-      margin: 0 auto;
-      height: 60px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
+    .login-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; box-shadow: 0 4px 24px rgba(0,0,0,0.07); padding: 44px 40px; width: 100%; max-width: 420px; }
+    .card-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; justify-content: center; }
+    .card-logo-icon { width: 40px; height: 40px; background: linear-gradient(135deg, var(--primary), var(--primary-light)); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 0.9rem; }
+    .card-logo-text { font-weight: 700; font-size: 1.15rem; color: var(--text); letter-spacing: -0.4px; }
 
-    .nav-logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      text-decoration: none;
-    }
+    h2 { font-size: 1.5rem; font-weight: 600; text-align: center; letter-spacing: -0.5px; margin-bottom: 8px; }
+    .subtitle { font-size: 0.9375rem; color: var(--text2); text-align: center; margin-bottom: 32px; }
 
-    .nav-logo-icon {
-      width: 34px;
-      height: 34px;
-      background: linear-gradient(135deg, var(--primary), var(--primary-light));
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #fff;
-      font-weight: 800;
-      font-size: 0.78rem;
-      letter-spacing: -0.5px;
-    }
-
-    .nav-logo-text {
-      font-weight: 700;
-      font-size: 1rem;
-      color: var(--text-primary);
-      letter-spacing: -0.3px;
-    }
-
-    .nav-back {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      color: var(--text-secondary);
-      text-decoration: none;
-      font-size: 0.875rem;
-      font-weight: 500;
-      padding: 8px 14px;
-      border-radius: 8px;
-      border: 1px solid var(--border-primary);
-      transition: border-color 0.15s, color 0.15s;
-    }
-
-    .nav-back:hover { border-color: var(--border-secondary); color: var(--text-primary); }
-
-    /* MAIN */
-    main {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 48px 24px;
-    }
-
-    .login-card {
-      background: #fff;
-      border: 1px solid var(--border-primary);
-      border-radius: 20px;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.04);
-      padding: 44px 40px;
+    .pin-input {
       width: 100%;
-      max-width: 420px;
-    }
-
-    .card-logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 28px;
-      justify-content: center;
-    }
-
-    .card-logo-icon {
-      width: 40px;
-      height: 40px;
-      background: linear-gradient(135deg, var(--primary), var(--primary-light));
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #fff;
-      font-weight: 800;
-      font-size: 0.9rem;
-      letter-spacing: -0.5px;
-    }
-
-    .card-logo-text {
+      padding: 16px 18px;
+      border: 1.5px solid var(--border2);
+      border-radius: 12px;
+      font-size: 2rem;
+      font-family: var(--font);
       font-weight: 700;
-      font-size: 1.15rem;
-      color: var(--text-primary);
-      letter-spacing: -0.4px;
-    }
-
-    .login-card h2 {
-      font-size: 1.5rem;
-      font-weight: 600;
-      color: var(--text-primary);
-      text-align: center;
-      letter-spacing: -0.5px;
-      margin-bottom: 8px;
-    }
-
-    .login-card .subtitle {
-      font-size: 0.9375rem;
-      color: var(--text-secondary);
-      text-align: center;
-      margin-bottom: 32px;
-      line-height: 1.5;
-    }
-
-    .field { margin-bottom: 14px; }
-
-    input[type="password"] {
-      width: 100%;
-      padding: 14px 18px;
-      border: 1.5px solid var(--border-secondary);
-      border-radius: 10px;
-      font-size: 0.9375rem;
-      font-family: var(--font-primary);
-      color: var(--text-primary);
-      background: var(--bg-primary);
+      color: var(--text);
+      background: var(--bg);
       outline: none;
+      text-align: center;
+      letter-spacing: 1rem;
       transition: border-color 0.15s, box-shadow 0.15s;
-      letter-spacing: 2px;
+      margin-bottom: 14px;
     }
+    .pin-input::placeholder { font-size: 1.5rem; letter-spacing: 0.5rem; color: var(--border2); font-weight: 400; }
+    .pin-input:focus { border-color: var(--primary); background: var(--surface); box-shadow: 0 0 0 3px rgba(180,83,9,0.08); }
 
-    input[type="password"]::placeholder {
-      letter-spacing: 0;
-      color: var(--text-tertiary);
-    }
+    .login-btn { width: 100%; padding: 14px; background: linear-gradient(135deg, var(--primary), var(--primary-light)); color: #fff; border: none; border-radius: 10px; font-size: 0.9375rem; font-weight: 600; font-family: var(--font); cursor: pointer; transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s; }
+    .login-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(180,83,9,0.28); }
+    .login-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
-    input[type="password"]:focus {
-      border-color: var(--primary);
-      background: #fff;
-      box-shadow: 0 0 0 3px rgba(180,83,9,0.08);
-    }
+    #loginErr { display: none; color: var(--error); font-size: 0.875rem; text-align: center; margin-top: 12px; padding: 10px 14px; background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; }
 
-    .login-btn {
-      width: 100%;
-      padding: 14px;
-      background: linear-gradient(135deg, var(--primary), var(--primary-light));
-      color: #fff;
-      border: none;
-      border-radius: 10px;
-      font-size: 0.9375rem;
-      font-weight: 600;
-      font-family: var(--font-primary);
-      cursor: pointer;
-      transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
-      letter-spacing: 0.2px;
-      margin-top: 4px;
-    }
-
-    .login-btn:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(180,83,9,0.28);
-    }
-
-    .login-btn:active:not(:disabled) { transform: translateY(0); }
-    .login-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-
-    #loginErr {
-      display: none;
-      color: var(--error);
-      font-size: 0.875rem;
-      text-align: center;
-      margin-top: 12px;
-      padding: 10px 14px;
-      background: rgba(239,68,68,0.06);
-      border: 1px solid rgba(239,68,68,0.2);
-      border-radius: 8px;
-    }
-
-    .contact-note {
-      text-align: center;
-      font-size: 0.8125rem;
-      color: var(--text-tertiary);
-      margin-top: 20px;
-    }
-
-    .contact-note a {
-      color: var(--primary);
-      text-decoration: none;
-      font-weight: 500;
-    }
-
+    .contact-note { text-align: center; font-size: 0.8125rem; color: var(--text3); margin-top: 20px; }
+    .contact-note a { color: var(--primary); text-decoration: none; font-weight: 500; }
     .contact-note a:hover { text-decoration: underline; }
 
-    footer {
-      padding: 20px 24px;
-      text-align: center;
-      border-top: 1px solid var(--border-primary);
-    }
+    footer { padding: 20px 24px; text-align: center; border-top: 1px solid var(--border); }
+    .footer-copy { font-size: 0.8rem; color: var(--text3); }
 
-    .footer-copy { font-size: 0.8rem; color: var(--text-tertiary); }
-
-    @media (max-width: 480px) {
-      .login-card { padding: 32px 24px; }
-    }
+    @media (max-width: 480px) { .login-card { padding: 32px 24px; } }
   </style>
 </head>
 <body>
-
 <nav>
   <div class="nav-inner">
     <a href="/platform" class="nav-logo">
@@ -273,28 +94,26 @@
       <div class="card-logo-icon">TT</div>
       <span class="card-logo-text">Te Ta AI</span>
     </div>
-
     <h2>Dashboard Pronari</h2>
-    <p class="subtitle">Futni kodin e restorantit tuaj</p>
+    <p class="subtitle">Futni kodin 4-shifror të restorantit</p>
 
-    <div class="field">
-      <input
-        type="password"
-        id="loginKey"
-        placeholder="Kodi juaj..."
-        onkeydown="if(event.key==='Enter')doLogin()"
-        autocomplete="off"
-        autofocus
-      />
-    </div>
+    <input
+      type="text"
+      id="pinInput"
+      class="pin-input"
+      inputmode="numeric"
+      pattern="[0-9]*"
+      maxlength="4"
+      placeholder="• • • •"
+      autocomplete="off"
+      autofocus
+    />
 
     <button class="login-btn" onclick="doLogin()">Hyr →</button>
-
     <div id="loginErr"></div>
 
     <p class="contact-note">
-      Nuk keni kod?
-      <a href="https://wa.me/355693720144" target="_blank">Na kontaktoni</a>
+      Nuk keni kod? <a href="https://wa.me/355693720144" target="_blank">Na kontaktoni</a>
     </p>
   </div>
 </main>
@@ -305,8 +124,8 @@
 
 <script>
   async function doLogin() {
-    const key = document.getElementById('loginKey').value.trim();
-    if (!key) return;
+    const pin = document.getElementById('pinInput').value.trim();
+    if (!pin || pin.length < 4) return;
 
     const btn = document.querySelector('.login-btn');
     const errEl = document.getElementById('loginErr');
@@ -315,15 +134,20 @@
     btn.textContent = 'Duke hyrë...';
 
     try {
-      const res = await fetch('/owner/reservations?limit=1', {
-        headers: { 'x-owner-key': key }
+      const res = await fetch('/auth/pin-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin })
       });
+      const data = await res.json();
 
-      if (res.ok) {
-        localStorage.setItem('tta_owner_key', key);
+      if (res.ok && data.success) {
+        localStorage.setItem('tta_owner_key', data.owner_key);
+        localStorage.setItem('tta_restaurant_id', data.restaurant_id);
+        localStorage.setItem('tta_restaurant_name', data.restaurant_name);
         window.location.href = '/dashboard';
       } else {
-        errEl.textContent = 'Kodi nuk është i saktë';
+        errEl.textContent = data.error || 'Kodi nuk është i saktë';
         errEl.style.display = 'block';
         btn.disabled = false;
         btn.textContent = 'Hyr →';
@@ -335,6 +159,16 @@
       btn.textContent = 'Hyr →';
     }
   }
+
+  document.getElementById('pinInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') doLogin();
+  });
+
+  // Auto-submit when 4 digits entered
+  document.getElementById('pinInput').addEventListener('input', (e) => {
+    e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4);
+    if (e.target.value.length === 4) doLogin();
+  });
 </script>
 </body>
 </html>

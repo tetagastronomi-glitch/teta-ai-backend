@@ -1108,6 +1108,24 @@ async function initDb() {
       );
     `);
 
+    // ✅ PIN login for restaurant owners
+    await pool.query(`ALTER TABLE public.restaurants ADD COLUMN IF NOT EXISTS pin_code VARCHAR(10);`);
+
+    // ✅ Support tickets (Jerry escalation)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS public.support_tickets (
+        id SERIAL PRIMARY KEY,
+        restaurant_id INTEGER REFERENCES public.restaurants(id),
+        restaurant_name VARCHAR(255),
+        customer_message TEXT,
+        jerry_reply TEXT,
+        status VARCHAR(20) DEFAULT 'open',
+        admin_notes TEXT,
+        created_at TIMESTAMP DEFAULT NOW(),
+        resolved_at TIMESTAMP
+      );
+    `);
+
     console.log("✅ DB ready (migrations applied)");
   } catch (err) {
     console.error("❌ initDb error:", err);
@@ -1482,11 +1500,20 @@ app.post("/admin/restaurants", requireAdminKey, requireDbReady, async (req, res)
     const plan         = String(b.plan         || "free").toLowerCase();
     const max_capacity = Number(b.max_capacity || 50);
 
+    // Auto-generate unique 4-digit PIN
+    let pinCode;
+    let pinExists = true;
+    while (pinExists) {
+      pinCode = String(Math.floor(1000 + Math.random() * 9000));
+      const check = await pool.query('SELECT id FROM public.restaurants WHERE pin_code = $1', [pinCode]);
+      pinExists = check.rows.length > 0;
+    }
+
     const r = await pool.query(
-      `INSERT INTO public.restaurants (name, owner_phone, plan, max_capacity, is_active, trial_ends)
-       VALUES ($1,$2,$3,$4,true, CURRENT_DATE + INTERVAL '14 days')
-       RETURNING id, name, owner_phone, plan, max_capacity, is_active, trial_ends, created_at`,
-      [name, owner_phone, plan, max_capacity]
+      `INSERT INTO public.restaurants (name, owner_phone, plan, max_capacity, is_active, trial_ends, pin_code)
+       VALUES ($1,$2,$3,$4,true, CURRENT_DATE + INTERVAL '14 days', $5)
+       RETURNING id, name, owner_phone, plan, max_capacity, is_active, trial_ends, pin_code, created_at`,
+      [name, owner_phone, plan, max_capacity, pinCode]
     );
     const restaurant = r.rows[0];
 
@@ -1503,10 +1530,10 @@ app.post("/admin/restaurants", requireAdminKey, requireDbReady, async (req, res)
       [restaurant.id, hashKey(owner_key)]
     );
 
-    console.log(`✅ Admin created restaurant #${restaurant.id}: ${name}`);
+    console.log(`✅ Admin created restaurant #${restaurant.id}: ${name} (PIN: ${pinCode})`);
     return res.status(201).json({
       success: true, version: APP_VERSION,
-      data: { restaurant, api_key, owner_key, note: "Ruaji këto keys tani — shfaqen vetëm 1 herë." }
+      data: { restaurant, api_key, owner_key, pin_code: pinCode, note: "Ruaji këto keys dhe PIN-in tani — shfaqen vetëm 1 herë." }
     });
   } catch (err) {
     console.error("❌ POST /admin/restaurants:", err.message);
@@ -4050,6 +4077,161 @@ app.post('/auth/login', async (req, res) => {
   }
 
   return res.status(401).json({ error: 'Kodi nuk ekziston' });
+});
+
+// PIN login for restaurant owners
+app.post('/auth/pin-login', requireDbReady, async (req, res) => {
+  const { pin } = req.body || {};
+  if (!pin) return res.status(400).json({ error: 'Kodi mungon' });
+  try {
+    const result = await pool.query(
+      `SELECT r.id, r.name, ok.key_hash
+       FROM public.restaurants r
+       JOIN public.owner_keys ok ON ok.restaurant_id = r.id AND ok.is_active = TRUE
+       WHERE r.pin_code = $1 LIMIT 1`,
+      [String(pin).trim()]
+    );
+    if (result.rows.length > 0) {
+      const row = result.rows[0];
+      // Return a raw owner_key — we stored hash, so generate a fresh one and store it
+      const owner_key = 'own_' + crypto.randomBytes(8).toString('hex');
+      await pool.query(
+        `INSERT INTO public.owner_keys (restaurant_id, key_hash, label, is_active)
+         VALUES ($1,$2,'pin-login',TRUE)`,
+        [row.id, hashKey(owner_key)]
+      );
+      return res.json({ success: true, owner_key, restaurant_id: row.id, restaurant_name: row.name });
+    }
+    return res.status(401).json({ error: 'Kodi nuk është i saktë' });
+  } catch (err) {
+    console.error('PIN login error:', err.message);
+    res.status(500).json({ error: 'Gabim serveri' });
+  }
+});
+
+// POST /owner/customers — add customer from owner dashboard
+app.post('/owner/customers', requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const { name, phone } = req.body || {};
+    if (!name || !phone) return res.status(400).json({ error: 'Emri dhe telefoni janë të detyrueshëm' });
+    const existing = await pool.query(
+      'SELECT id FROM public.customers WHERE phone=$1 AND restaurant_id=$2',
+      [phone, req.restaurant_id]
+    );
+    if (existing.rows.length > 0) return res.status(409).json({ error: 'Ky klient ekziston tashmë' });
+    const r = await pool.query(
+      `INSERT INTO public.customers (restaurant_id, phone, full_name, first_seen_at, last_seen_at, visits_count, created_at, updated_at)
+       VALUES ($1,$2,$3,NOW(),NOW(),0,NOW(),NOW()) RETURNING *`,
+      [req.restaurant_id, phone, name]
+    );
+    res.json({ success: true, data: r.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /admin/restaurants/:id/customers — add customer from Command Center
+app.post('/admin/restaurants/:id/customers', requireAdminKey, requireDbReady, async (req, res) => {
+  try {
+    const restaurantId = Number(req.params.id);
+    const { name, phone } = req.body || {};
+    if (!name || !phone) return res.status(400).json({ error: 'Emri dhe telefoni janë të detyrueshëm' });
+    const existing = await pool.query(
+      'SELECT id FROM public.customers WHERE phone=$1 AND restaurant_id=$2',
+      [phone, restaurantId]
+    );
+    if (existing.rows.length > 0) return res.status(409).json({ error: 'Ky klient ekziston tashmë' });
+    const r = await pool.query(
+      `INSERT INTO public.customers (restaurant_id, phone, full_name, first_seen_at, last_seen_at, visits_count, created_at, updated_at)
+       VALUES ($1,$2,$3,NOW(),NOW(),0,NOW(),NOW()) RETURNING *`,
+      [restaurantId, phone, name]
+    );
+    res.json({ success: true, data: r.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /owner/support/chat — Jerry support for owners
+app.post('/owner/support/chat', requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const restRow = await pool.query('SELECT id, name FROM public.restaurants WHERE id=$1', [req.restaurant_id]);
+    const restaurant = restRow.rows[0];
+    const { message, history } = req.body || {};
+    if (!message) return res.status(400).json({ error: 'Message mungon' });
+
+    const Anthropic = require('@anthropic-ai/sdk');
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+    const systemPrompt = `Ti je Jerry, asistenti dixhital i platformës Te Ta AI.
+Tani po flet me pronarin e restorantit "${restaurant.name}".
+
+ROLI YT: Suport 24/7 për pronarin. Ndihmo me:
+- Si të përdorë dashboard-in
+- Si funksionojnë rezervimet, klientët, feedback, statistikat
+- Probleme teknike të thjeshta
+- Këshilla për biznesin
+
+RREGULLA:
+- Fol shqip, i ngrohtë, profesional
+- Përgjigju shkurt (max 2-3 fjali)
+- Nëse pronari ka problem që TI nuk mund ta zgjidhësh (bug teknik, ndryshim plani, faturim, WhatsApp bot), thuaj: "Këtë do ta kaloj te Gerald (admin). Do t'ju kontaktojë së shpejti!" dhe shto [ESCALATE] në fillim të përgjigjes.
+- Nëse pronari është i mërzitur ose ka ankesë serioze, gjithashtu [ESCALATE]
+- Mos shpik informacion — nëse nuk di, thuaj "Nuk jam i sigurt, po e kaloj te admin"
+
+RESTORANT: ${restaurant.name} (ID: ${restaurant.id})`;
+
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 512,
+      system: systemPrompt,
+      messages: [...(history || []), { role: 'user', content: message }],
+    });
+
+    const reply = response.content[0].text;
+    const needsEscalation = reply.includes('[ESCALATE]');
+    const cleanReply = reply.replace('[ESCALATE]', '').trim();
+
+    if (needsEscalation) {
+      await pool.query(
+        `INSERT INTO public.support_tickets (restaurant_id, restaurant_name, customer_message, jerry_reply, status, created_at)
+         VALUES ($1,$2,$3,$4,'open',NOW())`,
+        [restaurant.id, restaurant.name, message, cleanReply]
+      );
+    }
+
+    res.json({ reply: cleanReply, escalated: needsEscalation });
+  } catch (err) {
+    console.error('Support chat error:', err.message);
+    res.json({ reply: 'Kam një problem teknik. Ju lutem provoni përsëri ose na kontaktoni në WhatsApp.', escalated: false });
+  }
+});
+
+// GET /admin/support-tickets
+app.get('/admin/support-tickets', requireAdminKey, requireDbReady, async (req, res) => {
+  try {
+    const status = req.query.status || 'open';
+    const q = status === 'all'
+      ? await pool.query('SELECT * FROM public.support_tickets ORDER BY created_at DESC')
+      : await pool.query('SELECT * FROM public.support_tickets WHERE status=$1 ORDER BY created_at DESC', [status]);
+    res.json({ success: true, count: q.rows.length, data: q.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// PUT /admin/support-tickets/:id
+app.put('/admin/support-tickets/:id', requireAdminKey, requireDbReady, async (req, res) => {
+  try {
+    const { status, admin_notes } = req.body || {};
+    await pool.query(
+      'UPDATE public.support_tickets SET status=$1, admin_notes=$2, resolved_at=NOW() WHERE id=$3',
+      [status || 'resolved', admin_notes || '', Number(req.params.id)]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 app.get('/login', (_req, res) => {
