@@ -4,171 +4,300 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Te Ta AI — Hyrja</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    :root {
+      --primary: #b45309;
+      --primary-light: #d97706;
+      --primary-dark: #92400e;
+      --bg-primary: #fafaf8;
+      --bg-secondary: #f5f5f4;
+      --text-primary: #1a1a18;
+      --text-secondary: #57534e;
+      --text-tertiary: #78716c;
+      --border-primary: #e7e5e4;
+      --border-secondary: #d6d3d1;
+      --error: #ef4444;
+      --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
     body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: #fafaf8;
-      color: #1a1a1a;
+      font-family: var(--font-primary);
+      background: var(--bg-primary);
+      color: var(--text-primary);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
+    }
+
+    /* NAV */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(250,250,248,0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-primary);
+      padding: 0 24px;
+    }
+
+    .nav-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      height: 60px;
+      display: flex;
       align-items: center;
-      justify-content: center;
-      padding: 24px;
+      justify-content: space-between;
     }
 
-    .card {
-      background: #fff;
-      border: 1px solid #e5e5e3;
-      border-radius: 16px;
-      padding: 40px 36px;
-      width: 100%;
-      max-width: 400px;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.06);
-    }
-
-    .logo {
+    .nav-logo {
       display: flex;
       align-items: center;
       gap: 10px;
-      margin-bottom: 28px;
+      text-decoration: none;
+    }
+
+    .nav-logo-icon {
+      width: 34px;
+      height: 34px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 800;
+      font-size: 0.78rem;
+      letter-spacing: -0.5px;
+    }
+
+    .nav-logo-text {
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--text-primary);
+      letter-spacing: -0.3px;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .nav-links a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: color 0.15s;
+    }
+
+    .nav-links a:hover { color: var(--text-primary); }
+
+    .nav-back {
+      background: var(--bg-secondary) !important;
+      color: var(--text-secondary) !important;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 600 !important;
+      border: 1px solid var(--border-primary);
+      transition: border-color 0.15s !important;
+    }
+
+    .nav-back:hover { border-color: var(--border-secondary) !important; color: var(--text-primary) !important; }
+
+    /* MAIN */
+    main {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 24px;
+    }
+
+    .login-card {
+      background: #fff;
+      border: 1px solid var(--border-primary);
+      border-radius: 20px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.04);
+      padding: 44px 40px;
+      width: 100%;
+      max-width: 420px;
+    }
+
+    .card-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 32px;
       justify-content: center;
     }
 
-    .logo-mark {
+    .card-logo-icon {
       width: 40px;
       height: 40px;
-      background: #b45309;
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
       border-radius: 10px;
       display: flex;
       align-items: center;
       justify-content: center;
       color: #fff;
       font-weight: 800;
-      font-size: 1rem;
-      letter-spacing: -1px;
-    }
-
-    .logo-text {
-      font-size: 1.25rem;
-      font-weight: 700;
-      color: #1a1a1a;
-      letter-spacing: -0.5px;
-    }
-
-    .logo-text span {
-      color: #b45309;
-    }
-
-    h1 {
-      font-size: 1.5rem;
-      font-weight: 700;
-      text-align: center;
-      letter-spacing: -0.5px;
-      margin-bottom: 6px;
-    }
-
-    .sub {
-      text-align: center;
-      color: #6b7280;
       font-size: 0.9rem;
-      margin-bottom: 28px;
+      letter-spacing: -0.5px;
     }
 
-    .field {
-      margin-bottom: 16px;
+    .card-logo-text {
+      font-weight: 700;
+      font-size: 1.15rem;
+      color: var(--text-primary);
+      letter-spacing: -0.4px;
     }
+
+    .login-card h2 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      text-align: center;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+
+    .login-card .subtitle {
+      font-size: 0.9375rem;
+      color: var(--text-secondary);
+      text-align: center;
+      margin-bottom: 32px;
+      line-height: 1.5;
+    }
+
+    .field { margin-bottom: 14px; }
 
     input[type="password"] {
       width: 100%;
-      padding: 12px 14px;
-      border: 1.5px solid #e5e5e3;
+      padding: 14px 18px;
+      border: 1.5px solid var(--border-secondary);
       border-radius: 10px;
-      font-size: 1rem;
-      font-family: inherit;
+      font-size: 0.9375rem;
+      font-family: var(--font-primary);
+      color: var(--text-primary);
+      background: var(--bg-primary);
       outline: none;
-      background: #fafaf8;
-      transition: border-color 0.15s;
+      transition: border-color 0.15s, box-shadow 0.15s;
       letter-spacing: 2px;
     }
 
     input[type="password"]::placeholder {
       letter-spacing: 0;
-      color: #9ca3af;
+      color: var(--text-tertiary);
     }
 
     input[type="password"]:focus {
-      border-color: #b45309;
+      border-color: var(--primary);
       background: #fff;
+      box-shadow: 0 0 0 3px rgba(180,83,9,0.08);
     }
 
     .login-btn {
       width: 100%;
-      padding: 13px;
-      background: #b45309;
+      padding: 14px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
       color: #fff;
       border: none;
       border-radius: 10px;
-      font-size: 1rem;
+      font-size: 0.9375rem;
       font-weight: 600;
-      font-family: inherit;
+      font-family: var(--font-primary);
       cursor: pointer;
-      transition: background 0.15s, opacity 0.15s;
+      transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+      letter-spacing: 0.2px;
+      margin-top: 4px;
     }
 
-    .login-btn:hover:not(:disabled) { background: #92400e; }
+    .login-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(180,83,9,0.28);
+    }
+
+    .login-btn:active:not(:disabled) { transform: translateY(0); }
     .login-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
-    .error {
+    #loginErr {
       display: none;
-      background: #fef2f2;
-      border: 1px solid #fecaca;
-      color: #dc2626;
-      border-radius: 8px;
-      padding: 10px 14px;
+      color: var(--error);
       font-size: 0.875rem;
-      margin-top: 12px;
       text-align: center;
+      margin-top: 12px;
+      padding: 10px 14px;
+      background: rgba(239,68,68,0.06);
+      border: 1px solid rgba(239,68,68,0.2);
+      border-radius: 8px;
     }
 
-    .footer-note {
+    .contact-note {
       text-align: center;
-      color: #9ca3af;
-      font-size: 0.8rem;
+      font-size: 0.8125rem;
+      color: var(--text-tertiary);
       margin-top: 20px;
     }
 
-    .footer-note a {
-      color: #b45309;
+    .contact-note a {
+      color: var(--primary);
       text-decoration: none;
       font-weight: 500;
     }
 
-    .footer-note a:hover { text-decoration: underline; }
+    .contact-note a:hover { text-decoration: underline; }
 
-    .back-link {
-      display: block;
+    /* FOOTER */
+    footer {
+      padding: 20px 24px;
       text-align: center;
-      color: #9ca3af;
-      font-size: 0.8rem;
-      margin-top: 28px;
-      text-decoration: none;
+      border-top: 1px solid var(--border-primary);
     }
 
-    .back-link:hover { color: #6b7280; }
+    .footer-copy {
+      font-size: 0.8rem;
+      color: var(--text-tertiary);
+    }
+
+    /* MOBILE */
+    @media (max-width: 480px) {
+      .nav-links a:not(.nav-back) { display: none; }
+      .login-card { padding: 32px 24px; }
+    }
   </style>
 </head>
 <body>
-  <div class="card">
-    <div class="logo">
-      <div class="logo-mark">TT</div>
-      <div class="logo-text">Te Ta <span>AI</span></div>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/platform" class="nav-logo">
+      <div class="nav-logo-icon">TT</div>
+      <span class="nav-logo-text">Te Ta AI</span>
+    </a>
+    <div class="nav-links">
+      <a href="/platform#si-funksionon">Si funksionon</a>
+      <a href="/platform#cmimi">Çmimet</a>
+      <a href="/platform" class="nav-back">← Kthehu</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <div class="login-card">
+    <div class="card-logo">
+      <div class="card-logo-icon">TT</div>
+      <span class="card-logo-text">Te Ta AI</span>
     </div>
 
-    <h1>Hyni në platformë</h1>
-    <p class="sub">Futni kodin tuaj për të hyrë</p>
+    <h2>Hyni në platformë</h2>
+    <p class="subtitle">Futni kodin tuaj për të hyrë</p>
 
     <div class="field">
       <input
@@ -183,58 +312,61 @@
 
     <button class="login-btn" onclick="doLogin()">Hyr →</button>
 
-    <div id="loginErr" class="error"></div>
+    <div id="loginErr"></div>
 
-    <p class="footer-note">
+    <p class="contact-note">
       Nuk keni kod?
       <a href="https://wa.me/355693720144" target="_blank">Na kontaktoni</a>
     </p>
   </div>
+</main>
 
-  <a href="/platform" class="back-link">← Kthehu tek faqja kryesore</a>
+<footer>
+  <p class="footer-copy">© 2026 Te Ta AI · Ndërtuar në Shqipëri</p>
+</footer>
 
-  <script>
-    async function doLogin() {
-      const key = document.getElementById('loginKey').value.trim();
-      if (!key) return;
+<script>
+  async function doLogin() {
+    const key = document.getElementById('loginKey').value.trim();
+    if (!key) return;
 
-      const btn = document.querySelector('.login-btn');
-      const err = document.getElementById('loginErr');
-      btn.disabled = true;
-      btn.textContent = 'Duke hyrë...';
-      err.style.display = 'none';
+    const btn = document.querySelector('.login-btn');
+    const err = document.getElementById('loginErr');
+    btn.disabled = true;
+    btn.textContent = 'Duke hyrë...';
+    err.style.display = 'none';
 
-      try {
-        const res = await fetch('/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ key })
-        });
+    try {
+      const res = await fetch('/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key })
+      });
 
-        const data = await res.json();
+      const data = await res.json();
 
-        if (res.ok) {
-          if (data.role === 'admin') {
-            localStorage.setItem('tta_admin_key', key);
-            window.location.href = data.redirect;
-          } else if (data.role === 'owner') {
-            localStorage.setItem('tta_owner_key', key);
-            localStorage.setItem('tta_restaurant_id', data.restaurant_id);
-            window.location.href = data.redirect;
-          }
-        } else {
-          err.textContent = data.error || 'Kodi nuk ekziston';
-          err.style.display = 'block';
-          btn.disabled = false;
-          btn.textContent = 'Hyr →';
+      if (res.ok) {
+        if (data.role === 'admin') {
+          localStorage.setItem('tta_admin_key', key);
+          window.location.href = data.redirect;
+        } else if (data.role === 'owner') {
+          localStorage.setItem('tta_owner_key', key);
+          localStorage.setItem('tta_restaurant_id', data.restaurant_id);
+          window.location.href = data.redirect;
         }
-      } catch (e) {
-        err.textContent = 'Gabim lidhjeje. Provoni përsëri.';
+      } else {
+        err.textContent = data.error || 'Kodi nuk ekziston';
         err.style.display = 'block';
         btn.disabled = false;
         btn.textContent = 'Hyr →';
       }
+    } catch (e) {
+      err.textContent = 'Gabim lidhjeje. Provoni përsëri.';
+      err.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Hyr →';
     }
-  </script>
+  }
+</script>
 </body>
 </html>

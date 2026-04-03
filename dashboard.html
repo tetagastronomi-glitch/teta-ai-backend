@@ -9,24 +9,24 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <style>
   :root {
-    --sidebar-bg: #0F172A;
+    --sidebar-bg: #ffffff;
     --sidebar-width: 64px;
-    --accent: #6366F1;
-    --accent-light: #EEF2FF;
-    --accent-hover: #4F46E5;
-    --bg: #F8FAFF;
+    --accent: #b45309;
+    --accent-light: #d97706;
+    --accent-hover: #92400e;
+    --bg: #fafaf8;
     --surface: #FFFFFF;
-    --border: #E2E8F0;
-    --text: #0F172A;
-    --text-muted: #64748B;
-    --text-light: #94A3B8;
+    --border: #e7e5e4;
+    --text: #1a1a18;
+    --text-muted: #57534e;
+    --text-light: #78716c;
     --radius: 12px;
     --radius-sm: 8px;
-    --shadow: 0 1px 3px rgba(0,0,0,0.08);
+    --shadow: 0 1px 3px rgba(0,0,0,0.06);
     --shadow-md: 0 4px 16px rgba(0,0,0,0.07);
     --transition: 0.18s ease;
 
-    --amber: #F59E0B;  --amber-bg: #FFFBEB;  --amber-border: #FDE68A;
+    --amber: #b45309;  --amber-bg: #fef3c7;  --amber-border: #fde68a;
     --green: #10B981;  --green-bg: #ECFDF5;  --green-border: #A7F3D0;
     --red: #EF4444;    --red-bg: #FEF2F2;    --red-border: #FECACA;
     --blue: #3B82F6;   --blue-bg: #EFF6FF;   --blue-border: #BFDBFE;
@@ -67,10 +67,26 @@
     text-align: center;
   }
   .login-logo {
-    font-size: 1.7rem;
+    font-size: 1.15rem;
     font-weight: 700;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.3px;
     margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+  .login-logo-icon {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-light));
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 800;
+    font-size: 12px;
   }
   .login-logo .lo { color: var(--accent); }
   .login-logo .go { color: var(--text); }
@@ -88,7 +104,7 @@
     outline: none;
     transition: border-color var(--transition), box-shadow var(--transition);
   }
-  .login-box input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+  .login-box input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(180,83,9,0.08); }
   .error-msg { color: var(--red); font-size: 13px; margin-top: 10px; min-height: 18px; }
 
   /* ===== BUTTONS ===== */
@@ -112,14 +128,15 @@
   .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
   .btn-primary {
-    background: var(--accent);
+    background: linear-gradient(135deg, var(--accent), var(--accent-light));
     color: #fff;
     border-radius: 10px;
-    box-shadow: 0 2px 8px rgba(99,102,241,0.28);
+    box-shadow: 0 2px 8px rgba(180,83,9,0.25);
   }
   .btn-primary:hover:not(:disabled) {
-    background: var(--accent-hover);
-    box-shadow: 0 4px 14px rgba(99,102,241,0.38);
+    opacity: 0.9;
+    box-shadow: 0 4px 14px rgba(180,83,9,0.35);
+    transform: translateY(-1px);
   }
   .login-box .btn-primary { width: 100%; padding: 12px; font-size: 14px; }
 
@@ -165,6 +182,7 @@
     width: var(--sidebar-width);
     height: 100vh;
     background: var(--sidebar-bg);
+    border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -179,17 +197,23 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    border-bottom: 1px solid rgba(255,255,255,0.07);
+    border-bottom: 1px solid var(--border);
   }
   .sidebar-logo-mark {
-    font-size: 12px;
-    font-weight: 700;
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-light));
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 800;
     color: #fff;
-    letter-spacing: 0.04em;
+    letter-spacing: -0.5px;
     line-height: 1;
-    text-align: center;
   }
-  .sidebar-logo-mark em { color: var(--accent); font-style: normal; }
+  .sidebar-logo-mark em { color: #fff; font-style: normal; }
 
   .sidebar-nav {
     padding: 12px 0;
@@ -210,13 +234,13 @@
     justify-content: center;
     border-radius: 10px;
     cursor: pointer;
-    color: rgba(255,255,255,0.4);
+    color: var(--text-muted);
     transition: background var(--transition), color var(--transition);
     user-select: none;
   }
-  .nav-item:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.9); }
-  .nav-item.active { background: var(--accent); color: #fff; }
-  .nav-item.active:hover { background: var(--accent-hover); }
+  .nav-item:hover { background: #f5f5f4; color: var(--text); }
+  .nav-item.active { background: linear-gradient(135deg, var(--accent), var(--accent-light)); color: #fff; }
+  .nav-item.active:hover { opacity: 0.9; }
 
   /* Tooltip */
   .nav-item::after {
@@ -225,7 +249,7 @@
     left: calc(100% + 10px);
     top: 50%;
     transform: translateY(-50%);
-    background: #1E293B;
+    background: var(--text);
     color: #fff;
     font-size: 12px;
     font-weight: 500;
@@ -236,7 +260,7 @@
     opacity: 0;
     transition: opacity 0.15s ease;
     z-index: 300;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
   }
   .nav-item:hover::after { opacity: 1; }
 
@@ -244,7 +268,7 @@
 
   .sidebar-footer {
     padding: 12px 0;
-    border-top: 1px solid rgba(255,255,255,0.07);
+    border-top: 1px solid var(--border);
     width: 100%;
     display: flex;
     justify-content: center;
@@ -260,18 +284,18 @@
     border-radius: 10px;
     border: none;
     background: transparent;
-    color: rgba(255,255,255,0.35);
+    color: var(--text-light);
     cursor: pointer;
     transition: background var(--transition), color var(--transition);
   }
-  .btn-logout:hover { background: rgba(239,68,68,0.15); color: #FCA5A5; }
+  .btn-logout:hover { background: #fef2f2; color: #ef4444; }
   .btn-logout::after {
     content: 'Dil';
     position: absolute;
     left: calc(100% + 10px);
     top: 50%;
     transform: translateY(-50%);
-    background: #1E293B;
+    background: var(--text);
     color: #fff;
     font-size: 12px;
     font-weight: 500;
@@ -282,7 +306,7 @@
     opacity: 0;
     transition: opacity 0.15s ease;
     z-index: 300;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
   }
   .btn-logout:hover::after { opacity: 1; }
 
@@ -726,7 +750,7 @@
 <!-- ===== LOGIN ===== -->
 <div id="login-screen">
   <div class="login-box">
-    <div class="login-logo"><span class="lo">Te</span><span class="go">Ta</span> AI</div>
+    <div class="login-logo"><div class="login-logo-icon">TT</div><span class="lo">Te</span><span class="go"> Ta</span> AI</div>
     <div class="login-sub">Hyni me Owner Key-n tuaj</div>
     <input type="password" id="owner-key-input" placeholder="x-owner-key..." autocomplete="off" />
     <button class="btn btn-primary" id="login-btn" onclick="doLogin()">Hyr</button>
@@ -742,7 +766,7 @@
   <!-- Narrow Sidebar -->
   <nav id="sidebar">
     <div class="sidebar-logo">
-      <div class="sidebar-logo-mark"><em>Te</em>Ta</div>
+      <div class="sidebar-logo-mark">TT</div>
     </div>
 
     <div class="sidebar-nav">
