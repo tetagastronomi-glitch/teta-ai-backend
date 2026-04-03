@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="sq">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Te Ta AI — Hyrja</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #fafaf8;
+      color: #1a1a1a;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid #e5e5e3;
+      border-radius: 16px;
+      padding: 40px 36px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 28px;
+      justify-content: center;
+    }
+
+    .logo-mark {
+      width: 40px;
+      height: 40px;
+      background: #b45309;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 800;
+      font-size: 1rem;
+      letter-spacing: -1px;
+    }
+
+    .logo-text {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #1a1a1a;
+      letter-spacing: -0.5px;
+    }
+
+    .logo-text span {
+      color: #b45309;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      text-align: center;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+    }
+
+    .sub {
+      text-align: center;
+      color: #6b7280;
+      font-size: 0.9rem;
+      margin-bottom: 28px;
+    }
+
+    .field {
+      margin-bottom: 16px;
+    }
+
+    input[type="password"] {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1.5px solid #e5e5e3;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-family: inherit;
+      outline: none;
+      background: #fafaf8;
+      transition: border-color 0.15s;
+      letter-spacing: 2px;
+    }
+
+    input[type="password"]::placeholder {
+      letter-spacing: 0;
+      color: #9ca3af;
+    }
+
+    input[type="password"]:focus {
+      border-color: #b45309;
+      background: #fff;
+    }
+
+    .login-btn {
+      width: 100%;
+      padding: 13px;
+      background: #b45309;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+    }
+
+    .login-btn:hover:not(:disabled) { background: #92400e; }
+    .login-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .error {
+      display: none;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #dc2626;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.875rem;
+      margin-top: 12px;
+      text-align: center;
+    }
+
+    .footer-note {
+      text-align: center;
+      color: #9ca3af;
+      font-size: 0.8rem;
+      margin-top: 20px;
+    }
+
+    .footer-note a {
+      color: #b45309;
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .footer-note a:hover { text-decoration: underline; }
+
+    .back-link {
+      display: block;
+      text-align: center;
+      color: #9ca3af;
+      font-size: 0.8rem;
+      margin-top: 28px;
+      text-decoration: none;
+    }
+
+    .back-link:hover { color: #6b7280; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <div class="logo-mark">TT</div>
+      <div class="logo-text">Te Ta <span>AI</span></div>
+    </div>
+
+    <h1>Hyni në platformë</h1>
+    <p class="sub">Futni kodin tuaj për të hyrë</p>
+
+    <div class="field">
+      <input
+        type="password"
+        id="loginKey"
+        placeholder="Kodi juaj..."
+        onkeydown="if(event.key==='Enter')doLogin()"
+        autocomplete="off"
+        autofocus
+      />
+    </div>
+
+    <button class="login-btn" onclick="doLogin()">Hyr →</button>
+
+    <div id="loginErr" class="error"></div>
+
+    <p class="footer-note">
+      Nuk keni kod?
+      <a href="https://wa.me/355693720144" target="_blank">Na kontaktoni</a>
+    </p>
+  </div>
+
+  <a href="/platform" class="back-link">← Kthehu tek faqja kryesore</a>
+
+  <script>
+    async function doLogin() {
+      const key = document.getElementById('loginKey').value.trim();
+      if (!key) return;
+
+      const btn = document.querySelector('.login-btn');
+      const err = document.getElementById('loginErr');
+      btn.disabled = true;
+      btn.textContent = 'Duke hyrë...';
+      err.style.display = 'none';
+
+      try {
+        const res = await fetch('/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          if (data.role === 'admin') {
+            localStorage.setItem('tta_admin_key', key);
+            window.location.href = data.redirect;
+          } else if (data.role === 'owner') {
+            localStorage.setItem('tta_owner_key', key);
+            localStorage.setItem('tta_restaurant_id', data.restaurant_id);
+            window.location.href = data.redirect;
+          }
+        } else {
+          err.textContent = data.error || 'Kodi nuk ekziston';
+          err.style.display = 'block';
+          btn.disabled = false;
+          btn.textContent = 'Hyr →';
+        }
+      } catch (e) {
+        err.textContent = 'Gabim lidhjeje. Provoni përsëri.';
+        err.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Hyr →';
+      }
+    }
+  </script>
+</body>
+</html>

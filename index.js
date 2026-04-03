@@ -3868,7 +3868,7 @@ Përgjigju në shqip, drejtpërdrejt si partner biznesi. Ji i shkurtër dhe prec
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
     const response = await client.messages.create({
-      model: 'claude-opus-4-5',
+      model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       system: context,
       messages: [...(history || []), { role: 'user', content: message }],
@@ -3894,6 +3894,46 @@ app.get('/admin/reservations', requireAdminKey, requireDbReady, async (req, res)
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// ===================== AUTH / LANDING =====================
+app.post('/auth/login', async (req, res) => {
+  const { key } = req.body || {};
+  if (!key) return res.status(400).json({ error: 'Kodi mungon' });
+
+  if (key === process.env.ADMIN_KEY) {
+    return res.json({ role: 'admin', redirect: '/command' });
+  }
+
+  try {
+    const keyHash = hashKey(key);
+    const result = await pool.query(
+      `SELECT r.id, r.name FROM public.owner_keys ok
+       JOIN public.restaurants r ON r.id = ok.restaurant_id
+       WHERE ok.key_hash = $1 AND ok.is_active = TRUE LIMIT 1`,
+      [keyHash]
+    );
+    if (result.rows.length > 0) {
+      return res.json({
+        role: 'owner',
+        redirect: '/dashboard',
+        restaurant_id: result.rows[0].id,
+        restaurant_name: result.rows[0].name,
+      });
+    }
+  } catch (err) {
+    console.error('Auth error:', err.message);
+  }
+
+  return res.status(401).json({ error: 'Kodi nuk ekziston' });
+});
+
+app.get('/login', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+app.get('/platform', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'platform.html'));
 });
 
 app.get('/dashboard', (req, res) => {

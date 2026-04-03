@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="sq">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Te Ta AI — Platforma #1 e Rezervimeve për Restorante</title>
+  <meta name="description" content="Automatizoni rezervimet e restorantit tuaj me WhatsApp AI. Pa aplikacion, pa trajnim. Gati brenda 24 orësh." />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --amber: #b45309;
+      --amber-light: #fef3c7;
+      --amber-dark: #92400e;
+      --bg: #fafaf8;
+      --surface: #ffffff;
+      --border: #e5e5e3;
+      --text: #1a1a1a;
+      --text2: #374151;
+      --text3: #6b7280;
+      --green: #059669;
+      --green-bg: #ecfdf5;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    /* NAV */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(250,250,248,0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+    }
+
+    .nav-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+    }
+
+    .nav-logo-mark {
+      width: 32px;
+      height: 32px;
+      background: var(--amber);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 800;
+      font-size: 0.8rem;
+      letter-spacing: -1px;
+    }
+
+    .nav-logo-text {
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--text);
+      letter-spacing: -0.3px;
+    }
+
+    .nav-logo-text span { color: var(--amber); }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+    }
+
+    .nav-links a {
+      color: var(--text3);
+      text-decoration: none;
+      font-size: 0.9rem;
+      transition: color 0.15s;
+    }
+
+    .nav-links a:hover { color: var(--text); }
+
+    .nav-cta {
+      background: var(--amber) !important;
+      color: #fff !important;
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.875rem !important;
+      transition: background 0.15s !important;
+    }
+
+    .nav-cta:hover { background: var(--amber-dark) !important; }
+
+    /* HERO */
+    .hero {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 96px 24px 80px;
+      text-align: center;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--amber-light);
+      color: var(--amber);
+      border: 1px solid #fde68a;
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-bottom: 24px;
+      letter-spacing: 0.3px;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.2rem, 5vw, 3.6rem);
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      line-height: 1.1;
+      margin-bottom: 20px;
+      color: var(--text);
+    }
+
+    .hero h1 span { color: var(--amber); }
+
+    .hero-sub {
+      font-size: 1.15rem;
+      color: var(--text3);
+      max-width: 560px;
+      margin: 0 auto 36px;
+      line-height: 1.7;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--amber);
+      color: #fff;
+      padding: 14px 28px;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    .btn-primary:hover { background: var(--amber-dark); transform: translateY(-1px); }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface);
+      color: var(--text2);
+      padding: 14px 24px;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 500;
+      text-decoration: none;
+      border: 1px solid var(--border);
+      transition: border-color 0.15s;
+    }
+
+    .btn-secondary:hover { border-color: #9ca3af; }
+
+    .hero-note {
+      margin-top: 16px;
+      font-size: 0.8rem;
+      color: var(--text3);
+    }
+
+    /* SOCIAL PROOF */
+    .proof {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 20px 24px;
+      text-align: center;
+    }
+
+    .proof-inner {
+      max-width: 800px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 32px;
+      flex-wrap: wrap;
+    }
+
+    .proof-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.875rem;
+      color: var(--text3);
+    }
+
+    .proof-item strong { color: var(--text2); }
+
+    /* HOW IT WORKS */
+    section { padding: 80px 24px; }
+
+    .section-inner { max-width: 1100px; margin: 0 auto; }
+
+    .section-label {
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      color: var(--amber);
+      margin-bottom: 10px;
+    }
+
+    .section-title {
+      font-size: clamp(1.6rem, 3vw, 2.2rem);
+      font-weight: 800;
+      letter-spacing: -0.8px;
+      margin-bottom: 12px;
+    }
+
+    .section-sub {
+      color: var(--text3);
+      font-size: 1rem;
+      max-width: 520px;
+      margin-bottom: 48px;
+    }
+
+    /* STEPS */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 24px;
+    }
+
+    .step {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px 24px;
+    }
+
+    .step-num {
+      width: 36px;
+      height: 36px;
+      background: var(--amber-light);
+      color: var(--amber);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 1rem;
+      margin-bottom: 16px;
+    }
+
+    .step h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
+    .step p { font-size: 0.875rem; color: var(--text3); line-height: 1.6; }
+
+    /* FEATURES */
+    .features-bg { background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 2px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .feature-cell {
+      background: var(--surface);
+      padding: 28px 24px;
+    }
+
+    .feature-icon {
+      font-size: 1.5rem;
+      margin-bottom: 12px;
+    }
+
+    .feature-cell h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 6px; }
+    .feature-cell p { font-size: 0.85rem; color: var(--text3); line-height: 1.6; }
+
+    /* PRICING */
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px;
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    .plan-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px 28px;
+      position: relative;
+    }
+
+    .plan-card.featured {
+      border-color: var(--amber);
+      box-shadow: 0 0 0 3px rgba(180,83,9,0.08);
+    }
+
+    .plan-badge {
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--amber);
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 12px;
+      border-radius: 20px;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+
+    .plan-name { font-size: 0.85rem; font-weight: 600; color: var(--text3); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+    .plan-price { font-size: 2.2rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 4px; }
+    .plan-price span { font-size: 1rem; font-weight: 500; color: var(--text3); }
+    .plan-desc { font-size: 0.85rem; color: var(--text3); margin-bottom: 24px; }
+
+    .plan-features { list-style: none; margin-bottom: 28px; }
+    .plan-features li {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 0.875rem;
+      color: var(--text2);
+      padding: 5px 0;
+    }
+
+    .plan-features li::before {
+      content: '✓';
+      color: var(--green);
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .plan-cta {
+      display: block;
+      text-align: center;
+      padding: 12px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+
+    .plan-cta.primary { background: var(--amber); color: #fff; }
+    .plan-cta.primary:hover { background: var(--amber-dark); }
+    .plan-cta.secondary { background: var(--bg); color: var(--text2); border: 1px solid var(--border); }
+    .plan-cta.secondary:hover { border-color: #9ca3af; }
+
+    /* FAQ */
+    .faq-list { max-width: 680px; }
+    .faq-item {
+      border-bottom: 1px solid var(--border);
+      padding: 20px 0;
+    }
+
+    .faq-q {
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .faq-q::after {
+      content: '+';
+      font-size: 1.2rem;
+      color: var(--text3);
+      flex-shrink: 0;
+      transition: transform 0.2s;
+    }
+
+    .faq-item.open .faq-q::after { transform: rotate(45deg); }
+
+    .faq-a {
+      display: none;
+      font-size: 0.875rem;
+      color: var(--text3);
+      line-height: 1.7;
+      margin-top: 10px;
+    }
+
+    .faq-item.open .faq-a { display: block; }
+
+    /* CTA SECTION */
+    .cta-section {
+      background: var(--text);
+      color: #fff;
+      text-align: center;
+      padding: 80px 24px;
+    }
+
+    .cta-section h2 {
+      font-size: clamp(1.6rem, 3vw, 2.4rem);
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin-bottom: 14px;
+    }
+
+    .cta-section p { color: #9ca3af; font-size: 1rem; margin-bottom: 32px; }
+
+    .btn-white {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #fff;
+      color: var(--text);
+      padding: 14px 28px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 1rem;
+      text-decoration: none;
+      transition: opacity 0.15s;
+    }
+
+    .btn-white:hover { opacity: 0.9; }
+
+    /* FOOTER */
+    footer {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 32px 24px;
+      text-align: center;
+    }
+
+    .footer-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .footer-copy { font-size: 0.8rem; color: var(--text3); }
+    .footer-links { display: flex; gap: 20px; }
+    .footer-links a { font-size: 0.8rem; color: var(--text3); text-decoration: none; }
+    .footer-links a:hover { color: var(--text); }
+
+    /* MOBILE */
+    @media (max-width: 640px) {
+      .nav-links a:not(.nav-cta) { display: none; }
+      .hero { padding: 64px 20px 56px; }
+      .proof-inner { gap: 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <a href="/platform" class="nav-logo">
+      <div class="nav-logo-mark">TT</div>
+      <div class="nav-logo-text">Te Ta <span>AI</span></div>
+    </a>
+    <div class="nav-links">
+      <a href="#si-funksionon">Si funksionon</a>
+      <a href="#cmimi">Çmimet</a>
+      <a href="#faq">FAQ</a>
+      <a href="/login" class="nav-cta">Hyr</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">
+    ✦ Platforma #1 e rezervimeve me AI në Shqipëri
+  </div>
+  <h1>
+    Rezervimet automatike<br />
+    me <span>WhatsApp AI</span>
+  </h1>
+  <p class="hero-sub">
+    Asistenti juaj virtual pranon rezervime 24/7 direkt nga WhatsApp.
+    Pa aplikacion. Pa trajnim. Klientët tuaj tashmë dinë si ta përdorin.
+  </p>
+  <div class="hero-actions">
+    <a href="https://wa.me/355693720144?text=Dua%20t%C3%AB%20regjistrohem%20n%C3%AB%20Te%20Ta%20AI%20-%20Plani%20FALAS" class="btn-primary" target="_blank">
+      Filloni Falas →
+    </a>
+    <a href="#si-funksionon" class="btn-secondary">
+      Shih si funksionon
+    </a>
+  </div>
+  <p class="hero-note">Pa kartë krediti · Gati brenda 24 orësh · Anulim kurdo</p>
+</div>
+
+<!-- SOCIAL PROOF -->
+<div class="proof">
+  <div class="proof-inner">
+    <div class="proof-item">
+      <strong>24/7</strong> pranon rezervime
+    </div>
+    <div class="proof-item">
+      <strong>0 min</strong> trajnim për staf
+    </div>
+    <div class="proof-item">
+      <strong>100%</strong> konfirmim automatik
+    </div>
+    <div class="proof-item">
+      <strong>WhatsApp</strong> — pa aplikacion të ri
+    </div>
+  </div>
+</div>
+
+<!-- SI FUNKSIONON -->
+<section id="si-funksionon">
+  <div class="section-inner">
+    <div class="section-label">Si funksionon</div>
+    <h2 class="section-title">Nga konfuzion tek kontroll — brenda 4 hapave</h2>
+    <p class="section-sub">I gjithë procesi është automatik. Ju merrni vetëm njoftimet.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3>Klienti dërgon mesazh</h3>
+        <p>Shkruan në WhatsApp tuaj: "Dua të rezervoj për 4 persona të premten". AI kupton menjëherë.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3>AI pyet dhe konfirmon</h3>
+        <p>Ai kërkon datën, orën, emrin — nëse gjithçka është OK, konfirmon automatikisht.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3>Ju merrni njoftim</h3>
+        <p>Rezervimi shfaqet menjëherë në dashboard-in tuaj. Mund ta rishikoni ose anuloni.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <h3>Klienti merr kujtesë</h3>
+        <p>Sistemi dërgon kujtesë automatike 1 ditë para rezervimit. Asnjë no-show pa paralajmërim.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features-bg">
+  <div class="section-inner">
+    <div class="section-label">Veçoritë</div>
+    <h2 class="section-title">Gjithçka që ju nevojitet</h2>
+    <p class="section-sub">I ndërtuar posaçërisht për restorante shqiptare.</p>
+
+    <div class="features-grid">
+      <div class="feature-cell">
+        <div class="feature-icon">🤖</div>
+        <h3>AI në Shqip</h3>
+        <p>Asistenti flet shqip natyrshëm, kupton dialekte dhe emra vendas.</p>
+      </div>
+      <div class="feature-cell">
+        <div class="feature-icon">📊</div>
+        <h3>Dashboard live</h3>
+        <p>Shihni të gjitha rezervimet, klientët dhe statistikat në kohë reale.</p>
+      </div>
+      <div class="feature-cell">
+        <div class="feature-icon">⚡</div>
+        <h3>Konfirmim i menjëhershëm</h3>
+        <p>Klienti merr konfirmim brenda sekondave — pa pritur, pa telefon.</p>
+      </div>
+      <div class="feature-cell">
+        <div class="feature-icon">📅</div>
+        <h3>Menaxhim kapaciteti</h3>
+        <p>Sistemi kontrollon automatikisht nëse ka vend para konfirmimit.</p>
+      </div>
+      <div class="feature-cell">
+        <div class="feature-icon">🔔</div>
+        <h3>Kujtesa automatike</h3>
+        <p>Dërgon kujtesë tek klientët — 0% no-show pa paralajmërim.</p>
+      </div>
+      <div class="feature-cell">
+        <div class="feature-icon">📈</div>
+        <h3>Marketing i integruar</h3>
+        <p>Dërgoni oferta tek klientët e vjetër me 1 klik. RFV scoring automatik.</p>
+      </div>
+      <div class="feature-cell">
+        <div class="feature-icon">🛡️</div>
+        <h3>Jerry Guardian</h3>
+        <p>AI monitoron sistemin 24/7 dhe zgjidh problemet automatikisht.</p>
+      </div>
+      <div class="feature-cell">
+        <div class="feature-icon">🔗</div>
+        <h3>Pa integrimer komplekse</h3>
+        <p>Punon me numrin tuaj ekzistues të WhatsApp Business. 0 ndryshime.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section id="cmimi">
+  <div class="section-inner" style="text-align:center">
+    <div class="section-label">Çmimet</div>
+    <h2 class="section-title">Transparent. Pa surpriza.</h2>
+    <p class="section-sub" style="margin:0 auto 48px">14 ditë falas për çdo restorant të ri. Pa kartë krediti.</p>
+
+    <div class="pricing-grid">
+      <div class="plan-card">
+        <div class="plan-name">Falas</div>
+        <div class="plan-price">0 <span>€/muaj</span></div>
+        <div class="plan-desc">Për të provuar platformën</div>
+        <ul class="plan-features">
+          <li>Rezervime të pakufizuara</li>
+          <li>WhatsApp Bot AI</li>
+          <li>Dashboard bazë</li>
+          <li>Konfirmim automatik</li>
+          <li>Kujtesa për klientë</li>
+        </ul>
+        <a href="https://wa.me/355693720144?text=Dua%20t%C3%AB%20regjistrohem%20n%C3%AB%20Te%20Ta%20AI%20-%20Plani%20FALAS" class="plan-cta secondary" target="_blank">
+          Filloni Falas
+        </a>
+      </div>
+
+      <div class="plan-card featured">
+        <div class="plan-badge">MË I POPULLARIZUAR</div>
+        <div class="plan-name">PRO</div>
+        <div class="plan-price">29 <span>€/muaj</span></div>
+        <div class="plan-desc">Për restorante serioze</div>
+        <ul class="plan-features">
+          <li>Gjithçka nga Falas</li>
+          <li>Marketing automatik (RFV)</li>
+          <li>Jerry Guardian AI</li>
+          <li>Triggers inteligjente</li>
+          <li>Raporte të detajuara</li>
+          <li>Eksport klientësh</li>
+          <li>Suport prioritar</li>
+        </ul>
+        <a href="https://wa.me/355693720144?text=Dua%20t%C3%AB%20regjistrohem%20n%C3%AB%20Te%20Ta%20AI%20-%20Plani%20PRO" class="plan-cta primary" target="_blank">
+          Zgjidhni PRO
+        </a>
+      </div>
+
+      <div class="plan-card">
+        <div class="plan-name">Enterprise</div>
+        <div class="plan-price" style="font-size:1.4rem;padding-top:4px">Me marrëveshje</div>
+        <div class="plan-desc">Për zinxhirë restorantesh</div>
+        <ul class="plan-features">
+          <li>Gjithçka nga PRO</li>
+          <li>Multi-lokacion</li>
+          <li>API i plotë</li>
+          <li>Onboarding personal</li>
+          <li>SLA i garantuar</li>
+          <li>Çmim i personalizuar</li>
+        </ul>
+        <a href="https://wa.me/355693720144?text=Dua%20informacion%20p%C3%ABr%20planin%20Enterprise" class="plan-cta secondary" target="_blank">
+          Na Kontaktoni
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq" class="features-bg">
+  <div class="section-inner">
+    <div class="section-label">FAQ</div>
+    <h2 class="section-title">Pyetje të shpeshta</h2>
+
+    <div class="faq-list">
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">A duhet numër i ri WhatsApp?</div>
+        <div class="faq-a">Jo. Sistemi punon me numrin tuaj ekzistues të WhatsApp Business. Nuk keni nevojë të ndryshoni asgjë tek klientët tuaj.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">Sa kohë duhet për aktivizim?</div>
+        <div class="faq-a">Zakonisht brenda 24 orësh nga regjistrimi. Ne konfigurojmë gjithçka — ju vetëm na jepni numrin dhe oraret e restorantit.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">A funksionon AI-ja mirë me emra shqip?</div>
+        <div class="faq-a">Po. Asistenti është trajnuar posaçërisht për shqip, duke përfshirë emra vendor, dialekte dhe mënyrën si shqiptarët shkruajnë në WhatsApp.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">Çfarë ndodh nëse bëj upgrade ose anulim?</div>
+        <div class="faq-a">Mund të bëni upgrade kurdo — ndryshimi hyn në fuqi menjëherë. Anulimi bëhet me njoftim 30 ditë paraprak. Të dhënat tuaja ruhen për 60 ditë.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">A mund të kufizoj oraret e pranimeve?</div>
+        <div class="faq-a">Po. Nga dashboard-i juaj vendosni oraret e hapjes, kapacitetin maksimal për çdo slot, dhe kufizimet e rezervimeve të minutës së fundit.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">Si funksionon pagesa?</div>
+        <div class="faq-a">Pagesa bëhet manualisht — transfertë bankare ose cash. Na kontaktoni në WhatsApp dhe i rregullojmë bashkë. Pa surpriza.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<div class="cta-section">
+  <h2>Gati të filloni?</h2>
+  <p>14 ditë falas. Pa kartë krediti. Gati brenda 24 orësh.</p>
+  <a href="https://wa.me/355693720144?text=Dua%20t%C3%AB%20regjistrohem%20n%C3%AB%20Te%20Ta%20AI%20-%20Plani%20FALAS" class="btn-white" target="_blank">
+    Filloni Falas në WhatsApp →
+  </a>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-copy">© 2025 Te Ta AI · Ndërtuar në Shqipëri</div>
+    <div class="footer-links">
+      <a href="/privacy">Privatësia</a>
+      <a href="https://wa.me/355693720144" target="_blank">Kontakt</a>
+      <a href="/login">Hyrja</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  function toggleFaq(el) {
+    el.closest('.faq-item').classList.toggle('open');
+  }
+</script>
+</body>
+</html>
