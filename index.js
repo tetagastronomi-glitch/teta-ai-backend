@@ -1570,6 +1570,130 @@ app.patch("/admin/restaurants/:id/billing", requireAdminKey, requireDbReady, asy
     res.status(500).json({ success: false, error: err.message });
   }
 });
+// DELETE /admin/restaurants/:id — cascade delete
+app.delete("/admin/restaurants/:id", requireAdminKey, requireDbReady, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ success: false, error: "Invalid id" });
+    await pool.query(`DELETE FROM public.reservations WHERE restaurant_id = $1`, [id]);
+    await pool.query(`DELETE FROM public.customers WHERE restaurant_id = $1`, [id]);
+    await pool.query(`DELETE FROM public.feedback WHERE restaurant_id = $1`, [id]);
+    await pool.query(`DELETE FROM public.api_keys WHERE restaurant_id = $1`, [id]);
+    await pool.query(`DELETE FROM public.owner_keys WHERE restaurant_id = $1`, [id]);
+    const r = await pool.query(`DELETE FROM public.restaurants WHERE id = $1 RETURNING id, name`, [id]);
+    if (!r.rows.length) return res.status(404).json({ success: false, error: "Not found" });
+    console.log(`✅ Admin deleted restaurant #${id}: ${r.rows[0].name}`);
+    res.json({ success: true, message: 'Restorant u fshi', deleted: r.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /admin/restaurants/:id/reservations
+app.get("/admin/restaurants/:id/reservations", requireAdminKey, requireDbReady, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ success: false, error: "Invalid id" });
+    const q = await pool.query(
+      `SELECT * FROM public.reservations WHERE restaurant_id = $1 ORDER BY created_at DESC LIMIT 500`,
+      [id]
+    );
+    res.json({ success: true, count: q.rows.length, data: q.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /admin/restaurants/:id/customers
+app.get("/admin/restaurants/:id/customers", requireAdminKey, requireDbReady, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ success: false, error: "Invalid id" });
+    const q = await pool.query(
+      `SELECT * FROM public.customers WHERE restaurant_id = $1 ORDER BY last_seen_at DESC NULLS LAST LIMIT 500`,
+      [id]
+    );
+    res.json({ success: true, count: q.rows.length, data: q.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /admin/restaurants/:id/feedback
+app.get("/admin/restaurants/:id/feedback", requireAdminKey, requireDbReady, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ success: false, error: "Invalid id" });
+    const q = await pool.query(
+      `SELECT * FROM public.feedback WHERE restaurant_id = $1 ORDER BY created_at DESC LIMIT 200`,
+      [id]
+    );
+    res.json({ success: true, count: q.rows.length, data: q.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /admin/restaurants/:id/stats
+app.get("/admin/restaurants/:id/stats", requireAdminKey, requireDbReady, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ success: false, error: "Invalid id" });
+    const [week, dayPeak, hourPeak, customers] = await Promise.all([
+      pool.query(`
+        SELECT
+          COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days')  AS this_week,
+          COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '14 days'
+                             AND created_at <  NOW() - INTERVAL '7 days')  AS last_week
+        FROM public.reservations WHERE restaurant_id = $1`, [id]),
+      pool.query(`
+        SELECT TO_CHAR(date::date,'Day') AS day_name, COUNT(*) AS cnt
+        FROM public.reservations WHERE restaurant_id=$1 AND date IS NOT NULL
+        GROUP BY day_name ORDER BY cnt DESC LIMIT 1`, [id]),
+      pool.query(`
+        SELECT SPLIT_PART(time,':',1) AS hour, COUNT(*) AS cnt
+        FROM public.reservations WHERE restaurant_id=$1 AND time IS NOT NULL
+        GROUP BY hour ORDER BY cnt DESC LIMIT 1`, [id]),
+      pool.query(`
+        SELECT
+          COUNT(*) FILTER (WHERE visits_count=1) AS new_customers,
+          COUNT(*) FILTER (WHERE visits_count>1)  AS returning_customers
+        FROM public.customers WHERE restaurant_id=$1`, [id]),
+    ]);
+    res.json({ success: true, data: {
+      this_week:           Number(week.rows[0]?.this_week || 0),
+      last_week:           Number(week.rows[0]?.last_week || 0),
+      peak_day:            dayPeak.rows[0]?.day_name?.trim() || '—',
+      peak_hour:           hourPeak.rows[0] ? hourPeak.rows[0].hour + ':00' : '—',
+      new_customers:       Number(customers.rows[0]?.new_customers || 0),
+      returning_customers: Number(customers.rows[0]?.returning_customers || 0),
+    }});
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// DELETE /admin/cleanup-duplicates
+app.delete("/admin/cleanup-duplicates", requireAdminKey, requireDbReady, async (_req, res) => {
+  try {
+    const result = await pool.query(`
+      WITH ranked AS (
+        SELECT id, ROW_NUMBER() OVER (
+          PARTITION BY phone, date, time, restaurant_id ORDER BY id ASC
+        ) AS rn
+        FROM public.reservations
+      )
+      DELETE FROM public.reservations WHERE id IN (
+        SELECT id FROM ranked WHERE rn > 1
+      ) RETURNING id
+    `);
+    const rem = await pool.query(`SELECT COUNT(*) AS cnt FROM public.reservations`);
+    res.json({ success: true, deleted: result.rows.length, remaining: Number(rem.rows[0].cnt) });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // =====================
 // CRON: AUTO CLOSE RESERVATIONS
 // =====================
