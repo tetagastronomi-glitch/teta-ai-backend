@@ -4165,6 +4165,73 @@ app.post('/owner/support/chat', requireOwnerKey, requireDbReady, async (req, res
     const Anthropic = require('@anthropic-ai/sdk');
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+    // --- DB context queries ---
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+    const [todayRes, pendingRes, totalCustRes, feedbackRes, recentRes] = await Promise.all([
+      // Today's reservations (all statuses)
+      pool.query(
+        `SELECT customer_name, reservation_time::text, party_size, status
+         FROM public.reservations
+         WHERE restaurant_id=$1 AND DATE(reservation_time)=$2
+         ORDER BY reservation_time ASC`,
+        [req.restaurant_id, today]
+      ),
+      // Pending reservations (upcoming)
+      pool.query(
+        `SELECT COUNT(*) AS cnt FROM public.reservations
+         WHERE restaurant_id=$1 AND status='pending' AND reservation_time >= NOW()`,
+        [req.restaurant_id]
+      ),
+      // Total customers
+      pool.query(
+        `SELECT COUNT(*) AS cnt FROM public.customers WHERE restaurant_id=$1`,
+        [req.restaurant_id]
+      ),
+      // Average feedback rating (last 30 days)
+      pool.query(
+        `SELECT ROUND(AVG(rating)::numeric, 1) AS avg_rating, COUNT(*) AS cnt
+         FROM public.feedback
+         WHERE restaurant_id=$1 AND created_at >= NOW() - INTERVAL '30 days'`,
+        [req.restaurant_id]
+      ),
+      // Last 5 reservations (any date)
+      pool.query(
+        `SELECT customer_name, reservation_time::text, party_size, status
+         FROM public.reservations
+         WHERE restaurant_id=$1
+         ORDER BY reservation_time DESC LIMIT 5`,
+        [req.restaurant_id]
+      ),
+    ]);
+
+    const todayList = todayRes.rows.map(r => {
+      const time = r.reservation_time ? r.reservation_time.slice(11, 16) : '?';
+      return `  • ${r.customer_name}, ora ${time}, ${r.party_size} persona (${r.status})`;
+    }).join('\n') || '  (asnjë rezervim sot)';
+
+    const recentList = recentRes.rows.map(r => {
+      const dt = r.reservation_time ? r.reservation_time.slice(0, 16).replace('T', ' ') : '?';
+      return `  • ${r.customer_name}, ${dt}, ${r.party_size} persona (${r.status})`;
+    }).join('\n') || '  (asnjë rezervim)';
+
+    const avgRating = feedbackRes.rows[0]?.avg_rating || 'N/A';
+    const feedbackCount = feedbackRes.rows[0]?.cnt || 0;
+    const totalCustomers = totalCustRes.rows[0]?.cnt || 0;
+    const pendingCount = pendingRes.rows[0]?.cnt || 0;
+
+    const dbContext = `
+GJENDJA AKTUALE E RESTORANTIT (${today}):
+- Rezervime sot: ${todayRes.rows.length}
+${todayList}
+- Rezervime në pritje (të ardhshme): ${pendingCount}
+- Total klientë: ${totalCustomers}
+- Feedback mesatar (30 ditë): ${avgRating}/5 (${feedbackCount} vlerësime)
+
+REZERVIMET E FUNDIT:
+${recentList}`;
+    // --- end DB context ---
+
     const systemPrompt = `Ti je Jerry, asistenti dixhital i platformës Te Ta AI.
 Tani po flet me pronarin e restorantit "${restaurant.name}".
 
@@ -4173,15 +4240,17 @@ ROLI YT: Suport 24/7 për pronarin. Ndihmo me:
 - Si funksionojnë rezervimet, klientët, feedback, statistikat
 - Probleme teknike të thjeshta
 - Këshilla për biznesin
+- Kur pronari pyet për të dhëna (rezervime, klientë, feedback), PËRDOR të dhënat reale nga databaza që kemi sot
 
 RREGULLA:
 - Fol shqip, i ngrohtë, profesional
-- Përgjigju shkurt (max 2-3 fjali)
+- Përgjigju shkurt dhe konkretisht me numra dhe fakte reale
 - Nëse pronari ka problem që TI nuk mund ta zgjidhësh (bug teknik, ndryshim plani, faturim, WhatsApp bot), thuaj: "Këtë do ta kaloj te Gerald (admin). Do t'ju kontaktojë së shpejti!" dhe shto [ESCALATE] në fillim të përgjigjes.
 - Nëse pronari është i mërzitur ose ka ankesë serioze, gjithashtu [ESCALATE]
 - Mos shpik informacion — nëse nuk di, thuaj "Nuk jam i sigurt, po e kaloj te admin"
 
-RESTORANT: ${restaurant.name} (ID: ${restaurant.id})`;
+RESTORANT: ${restaurant.name} (ID: ${restaurant.id})
+${dbContext}`;
 
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
