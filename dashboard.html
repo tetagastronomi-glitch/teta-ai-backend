@@ -1019,6 +1019,25 @@
     }
   }
 
+  // Auto-login from localStorage (set by PIN login at /login)
+  async function tryAutoLogin() {
+    const stored = localStorage.getItem('tta_owner_key');
+    if (!stored) return;
+    try {
+      const res = await apiFetch('/owner/reservations?limit=1', stored);
+      if (!res.ok) { localStorage.removeItem('tta_owner_key'); return; }
+      OWNER_KEY = stored;
+      const j = await res.json();
+      const restName = localStorage.getItem('tta_restaurant_name') || ('restaurant #' + (j.restaurant_id || '?'));
+      document.getElementById('restaurant-badge').textContent = restName;
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      updateHeaderDate();
+      loadAll();
+      checkBotStatus();
+    } catch (_) {}
+  }
+
   document.getElementById('owner-key-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') doLogin();
   });
@@ -1027,6 +1046,9 @@
     OWNER_KEY = '';
     allReservations = [];
     allCustomers = [];
+    localStorage.removeItem('tta_owner_key');
+    localStorage.removeItem('tta_restaurant_id');
+    localStorage.removeItem('tta_restaurant_name');
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('app').style.display = 'none';
     document.getElementById('owner-key-input').value = '';
@@ -1881,6 +1903,9 @@ async function sendSupport() {
     appendSupportMessage('jerry', 'Kam problem teknik. Provoni përsëri.');
   }
 }
+
+// Auto-login on page load if PIN login stored a key
+tryAutoLogin();
 </script>
 
 </body>
