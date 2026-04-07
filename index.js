@@ -35,10 +35,12 @@ const crypto = require("crypto");
 const axios = require("axios");
 const pool = require("./db");
 const rateLimit = require("express-rate-limit");
+const helmet = require("helmet");
 
 const app = express();
 app.set('trust proxy', 1);
 app.use(cors());
+app.use(helmet());
 app.use(express.json({ limit: "1mb" }));
 app.use("/webhook", (req, res, next) => next());
 
@@ -68,6 +70,15 @@ const ownerLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, error: "Shumë kërkesa nga paneli." },
+});
+
+// Login brute-force protection — 5 tentativa / 15 min per IP
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: "Shumë tentativa login. Provo pas 15 minutash." },
 });
 
 app.use("/reservations", reservationLimiter);
@@ -1138,7 +1149,7 @@ async function calculateRFV(db, restaurantId) {
       phone,
       COUNT(*) as frequency,
       MAX(created_at) as last_visit,
-      AVG(party_size) as avg_value,
+      AVG(people) as avg_value,
       array_agg(status) as statuses
     FROM reservations
     WHERE restaurant_id = $1
@@ -4048,11 +4059,11 @@ app.get('/admin/reservations', requireAdminKey, requireDbReady, async (req, res)
 });
 
 // ===================== AUTH / LANDING =====================
-app.post('/auth/login', async (req, res) => {
+app.post('/auth/login', loginLimiter, async (req, res) => {
   const { key } = req.body || {};
   if (!key) return res.status(400).json({ error: 'Kodi mungon' });
 
-  if (key === process.env.ADMIN_KEY) {
+  if (process.env.ADMIN_KEY && safeEqual(key, process.env.ADMIN_KEY)) {
     return res.json({ role: 'admin', redirect: '/command' });
   }
 
@@ -4080,7 +4091,7 @@ app.post('/auth/login', async (req, res) => {
 });
 
 // PIN login for restaurant owners
-app.post('/auth/pin-login', requireDbReady, async (req, res) => {
+app.post('/auth/pin-login', loginLimiter, requireDbReady, async (req, res) => {
   const { pin } = req.body || {};
   if (!pin) return res.status(400).json({ error: 'Kodi mungon' });
   try {
@@ -4171,16 +4182,16 @@ app.post('/owner/support/chat', requireOwnerKey, requireDbReady, async (req, res
     const [todayRes, pendingRes, totalCustRes, feedbackRes, recentRes] = await Promise.all([
       // Today's reservations (all statuses)
       pool.query(
-        `SELECT customer_name, reservation_time::text, party_size, status
+        `SELECT customer_name, date::text, time::text, people, status
          FROM public.reservations
-         WHERE restaurant_id=$1 AND DATE(reservation_time)=$2
-         ORDER BY reservation_time ASC`,
+         WHERE restaurant_id=$1 AND date=$2
+         ORDER BY time ASC`,
         [req.restaurant_id, today]
       ),
       // Pending reservations (upcoming)
       pool.query(
         `SELECT COUNT(*) AS cnt FROM public.reservations
-         WHERE restaurant_id=$1 AND status='pending' AND reservation_time >= NOW()`,
+         WHERE restaurant_id=$1 AND status='pending' AND date >= CURRENT_DATE`,
         [req.restaurant_id]
       ),
       // Total customers
@@ -4197,22 +4208,23 @@ app.post('/owner/support/chat', requireOwnerKey, requireDbReady, async (req, res
       ),
       // Last 5 reservations (any date)
       pool.query(
-        `SELECT customer_name, reservation_time::text, party_size, status
+        `SELECT customer_name, date::text, time::text, people, status
          FROM public.reservations
          WHERE restaurant_id=$1
-         ORDER BY reservation_time DESC LIMIT 5`,
+         ORDER BY date DESC, time DESC LIMIT 5`,
         [req.restaurant_id]
       ),
     ]);
 
     const todayList = todayRes.rows.map(r => {
-      const time = r.reservation_time ? r.reservation_time.slice(11, 16) : '?';
-      return `  • ${r.customer_name}, ora ${time}, ${r.party_size} persona (${r.status})`;
+      const t = r.time ? r.time.slice(0, 5) : '?';
+      return `  • ${r.customer_name}, ora ${t}, ${r.people} persona (${r.status})`;
     }).join('\n') || '  (asnjë rezervim sot)';
 
     const recentList = recentRes.rows.map(r => {
-      const dt = r.reservation_time ? r.reservation_time.slice(0, 16).replace('T', ' ') : '?';
-      return `  • ${r.customer_name}, ${dt}, ${r.party_size} persona (${r.status})`;
+      const d = r.date || '?';
+      const t = r.time ? r.time.slice(0, 5) : '?';
+      return `  • ${r.customer_name}, ${d} ${t}, ${r.people} persona (${r.status})`;
     }).join('\n') || '  (asnjë rezervim)';
 
     const avgRating = feedbackRes.rows[0]?.avg_rating || 'N/A';
