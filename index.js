@@ -4002,7 +4002,14 @@ app.get("/owner/reports/feedback/daily", requireOwnerKey, requireDbReady, async 
 
 const path = require('path');
 
-app.use(express.static(path.join(__dirname, 'public')));
+// No-cache for HTML files so updates deploy immediately
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    }
+  }
+}));
 
 app.get('/admin-panel', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
@@ -4326,16 +4333,18 @@ app.put('/admin/support-tickets/:id', requireAdminKey, requireDbReady, async (re
   }
 });
 
+const noCache = { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache', 'Expires': '0' };
+
 app.get('/login', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+  res.set(noCache).sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
 app.get('/platform', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'platform.html'));
+  res.set(noCache).sendFile(path.join(__dirname, 'public', 'platform.html'));
 });
 
 app.get('/dashboard', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+  res.set(noCache).sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
 app.get('/onboarding', (req, res) => {
