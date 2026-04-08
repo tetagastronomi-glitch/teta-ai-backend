@@ -1122,6 +1122,15 @@ async function initDb() {
     // ✅ PIN login for restaurant owners
     await pool.query(`ALTER TABLE public.restaurants ADD COLUMN IF NOT EXISTS pin_code VARCHAR(10);`);
 
+    // ✅ Restaurant details (settings page)
+    await pool.query(`ALTER TABLE public.restaurants ADD COLUMN IF NOT EXISTS phone TEXT DEFAULT '';`);
+    await pool.query(`ALTER TABLE public.restaurants ADD COLUMN IF NOT EXISTS address TEXT DEFAULT '';`);
+    await pool.query(`ALTER TABLE public.restaurants ADD COLUMN IF NOT EXISTS email TEXT DEFAULT '';`);
+    await pool.query(`ALTER TABLE public.restaurants ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'Europe/Tirane';`);
+    await pool.query(`ALTER TABLE public.restaurants ADD COLUMN IF NOT EXISTS language TEXT DEFAULT 'sq';`);
+    await pool.query(`ALTER TABLE public.restaurants ADD COLUMN IF NOT EXISTS ai_provider TEXT DEFAULT 'anthropic';`);
+    await pool.query(`ALTER TABLE public.restaurants ADD COLUMN IF NOT EXISTS ai_model TEXT DEFAULT 'claude-sonnet-4-20250514';`);
+
     // ✅ Support tickets (Jerry escalation)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS public.support_tickets (
