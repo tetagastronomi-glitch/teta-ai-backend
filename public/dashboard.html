@@ -1,0 +1,1887 @@
+<!DOCTYPE html>
+<html lang="sq">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Teta AI — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --sidebar-bg: #ffffff;
+    --sidebar-width: 64px;
+    --accent: #b45309;
+    --accent-light: #d97706;
+    --accent-hover: #92400e;
+    --bg: #fafaf8;
+    --surface: #FFFFFF;
+    --border: #e7e5e4;
+    --text: #1a1a18;
+    --text-muted: #57534e;
+    --text-light: #78716c;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.07);
+    --transition: 0.18s ease;
+
+    --amber: #b45309;  --amber-bg: #fef3c7;  --amber-border: #fde68a;
+    --green: #10B981;  --green-bg: #ECFDF5;  --green-border: #A7F3D0;
+    --red: #EF4444;    --red-bg: #FEF2F2;    --red-border: #FECACA;
+    --blue: #3B82F6;   --blue-bg: #EFF6FF;   --blue-border: #BFDBFE;
+    --gray: #6B7280;   --gray-bg: #F9FAFB;   --gray-border: #D1D5DB;
+    --orange: #F97316; --orange-bg: #FFF7ED;  --orange-border: #FED7AA;
+    --purple: #8B5CF6; --purple-bg: #F5F3FF;  --purple-border: #DDD6FE;
+    --slate: #64748B;  --slate-bg: #F8FAFC;   --slate-border: #CBD5E1;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 14px;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.5;
+  }
+
+  /* ===== LOGIN ===== */
+  #login-screen {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 24px;
+    background: var(--bg);
+  }
+  .login-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 48px 40px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+    text-align: center;
+  }
+  .login-logo {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+  .login-logo-icon {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-light));
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 800;
+    font-size: 12px;
+  }
+  .login-logo .lo { color: var(--accent); }
+  .login-logo .go { color: var(--text); }
+  .login-sub { color: var(--text-muted); font-size: 13px; margin-bottom: 32px; }
+  .login-box input {
+    width: 100%;
+    padding: 11px 16px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 14px;
+    font-family: inherit;
+    margin-bottom: 12px;
+    outline: none;
+    transition: border-color var(--transition), box-shadow var(--transition);
+  }
+  .login-box input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(180,83,9,0.08); }
+  .error-msg { color: var(--red); font-size: 13px; margin-top: 10px; min-height: 18px; }
+
+  /* ===== BUTTONS ===== */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 9px 16px;
+    border-radius: var(--radius-sm);
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    transition: opacity var(--transition), transform var(--transition), background var(--transition), box-shadow var(--transition);
+    white-space: nowrap;
+    text-decoration: none;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent-light));
+    color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(180,83,9,0.25);
+  }
+  .btn-primary:hover:not(:disabled) {
+    opacity: 0.9;
+    box-shadow: 0 4px 14px rgba(180,83,9,0.35);
+    transform: translateY(-1px);
+  }
+  .login-box .btn-primary { width: 100%; padding: 12px; font-size: 14px; }
+
+  .btn-ghost {
+    background: var(--surface);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover:not(:disabled) { background: var(--bg); color: var(--text); }
+
+  .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 6px; }
+
+  .btn-confirm  { background: var(--green-bg);  color: var(--green);  border: 1px solid var(--green-border);  }
+  .btn-confirm:hover:not(:disabled)  { background: #D1FAE5; }
+  .btn-decline  { background: var(--red-bg);    color: var(--red);    border: 1px solid var(--red-border);    }
+  .btn-decline:hover:not(:disabled)  { background: #FEE2E2; }
+  .btn-complete { background: var(--blue-bg);   color: var(--blue);   border: 1px solid var(--blue-border);   }
+  .btn-complete:hover:not(:disabled) { background: #DBEAFE; }
+  .btn-noshow   { background: var(--amber-bg);  color: var(--amber);  border: 1px solid var(--amber-border);  }
+  .btn-noshow:hover:not(:disabled)   { background: #FEF3C7; }
+  .btn-cancel   { background: var(--red-bg);    color: var(--red);    border: 1px solid var(--red-border);    }
+  .btn-cancel:hover:not(:disabled)   { background: #FEE2E2; }
+  .btn-feedback { background: var(--purple-bg); color: var(--purple); border: 1px solid var(--purple-border); }
+  .btn-feedback:hover:not(:disabled) { background: #EDE9FE; }
+
+  /* ===== APP LAYOUT ===== */
+  #app { display: none; min-height: 100vh; }
+
+  #sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(15,23,42,0.4);
+    z-index: 100;
+    backdrop-filter: blur(2px);
+  }
+  #sidebar-overlay.open { display: block; }
+
+  /* ===== NARROW SIDEBAR ===== */
+  #sidebar {
+    position: fixed;
+    top: 0; left: 0;
+    width: var(--sidebar-width);
+    height: 100vh;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 200;
+    transition: transform var(--transition);
+  }
+
+  .sidebar-logo {
+    width: 100%;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-logo-mark {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-light));
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -0.5px;
+    line-height: 1;
+  }
+  .sidebar-logo-mark em { color: #fff; font-style: normal; }
+
+  .sidebar-nav {
+    padding: 12px 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+  }
+
+  .nav-item {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: background var(--transition), color var(--transition);
+    user-select: none;
+  }
+  .nav-item:hover { background: #f5f5f4; color: var(--text); }
+  .nav-item.active { background: linear-gradient(135deg, var(--accent), var(--accent-light)); color: #fff; }
+  .nav-item.active:hover { opacity: 0.9; }
+
+  /* Tooltip */
+  .nav-item::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: calc(100% + 10px);
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--text);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 5px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    z-index: 300;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  .nav-item:hover::after { opacity: 1; }
+
+  .nav-icon { width: 20px; height: 20px; flex-shrink: 0; }
+
+  .sidebar-footer {
+    padding: 12px 0;
+    border-top: 1px solid var(--border);
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .btn-logout {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    border: none;
+    background: transparent;
+    color: var(--text-light);
+    cursor: pointer;
+    transition: background var(--transition), color var(--transition);
+  }
+  .btn-logout:hover { background: #fef2f2; color: #ef4444; }
+  .btn-logout::after {
+    content: 'Dil';
+    position: absolute;
+    left: calc(100% + 10px);
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--text);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 5px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    z-index: 300;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  .btn-logout:hover::after { opacity: 1; }
+
+  /* ===== MAIN AREA ===== */
+  .main-area {
+    margin-left: var(--sidebar-width);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .top-header {
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 28px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    z-index: 50;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+
+  .hamburger-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 36px; height: 36px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg);
+    cursor: pointer;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    transition: background var(--transition);
+  }
+  .hamburger-btn:hover { background: var(--border); color: var(--text); }
+
+  #header-panel-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    flex: 1;
+  }
+
+  #header-date {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  #restaurant-badge {
+    display: inline-flex;
+    align-items: center;
+    background: var(--accent-light);
+    color: var(--accent);
+    border: 1px solid rgba(99,102,241,0.18);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  #bot-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    cursor: pointer;
+    transition: opacity var(--transition), background var(--transition);
+    user-select: none;
+    white-space: nowrap;
+  }
+  #bot-status-pill:hover { background: var(--border); }
+  #bot-status-pill.dimmed { opacity: 0.5; pointer-events: none; }
+
+  #bot-status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--text-light);
+    flex-shrink: 0;
+    transition: background var(--transition), box-shadow var(--transition);
+  }
+  #bot-status-dot.active   { background: var(--green);  box-shadow: 0 0 0 3px rgba(16,185,129,0.2); }
+  #bot-status-dot.inactive { background: var(--red);    box-shadow: 0 0 0 3px rgba(239,68,68,0.15); }
+  #bot-status-text { font-size: 12.5px; font-weight: 600; }
+  #bot-toggle-btn { display: none; }
+
+  /* ===== PAGE CONTENT ===== */
+  .page-content { padding: 28px; flex: 1; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* ===== STAT CARDS ===== */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 16px;
+    box-shadow: var(--shadow);
+    transition: transform var(--transition), box-shadow var(--transition);
+  }
+  .stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+
+  .stat-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+  .stat-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .stat-amber  .stat-value { color: #F59E0B; } .stat-amber  .stat-dot { background: #F59E0B; }
+  .stat-green  .stat-value { color: #10B981; } .stat-green  .stat-dot { background: #10B981; }
+  .stat-red    .stat-value { color: #EF4444; } .stat-red    .stat-dot { background: #EF4444; }
+  .stat-blue   .stat-value { color: #3B82F6; } .stat-blue   .stat-dot { background: #3B82F6; }
+  .stat-gray   .stat-value { color: #6B7280; } .stat-gray   .stat-dot { background: #6B7280; }
+  .stat-orange .stat-value { color: #F97316; } .stat-orange .stat-dot { background: #F97316; }
+  .stat-purple .stat-value { color: var(--purple); } .stat-purple .stat-dot { background: var(--purple); }
+  .stat-slate  .stat-value { color: var(--slate);  } .stat-slate  .stat-dot { background: var(--slate); }
+
+  /* ===== TOOLBAR ===== */
+  .toolbar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .date-shortcut-group {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--surface);
+  }
+  .date-shortcut {
+    padding: 7px 14px;
+    font-size: 12.5px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    transition: background var(--transition), color var(--transition);
+    border-right: 1px solid var(--border);
+  }
+  .date-shortcut:last-child { border-right: none; }
+  .date-shortcut:hover  { background: var(--bg); color: var(--text); }
+  .date-shortcut.active { background: var(--accent); color: #fff; }
+
+  .form-input {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color var(--transition), box-shadow var(--transition);
+    min-width: 160px;
+  }
+  .form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,0.08); }
+  .form-input[type="date"] { cursor: pointer; }
+  select.form-input { cursor: pointer; }
+
+  /* ===== CARD ===== */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    margin-bottom: 24px;
+  }
+  .card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .card-title { font-size: 14px; font-weight: 600; color: var(--text); }
+  .count-label { font-size: 12.5px; color: var(--text-muted); font-weight: 500; margin-right: auto; }
+
+  /* ===== TABLE ===== */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+
+  th {
+    padding: 10px 16px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    background: #F1F5F9;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+    font-size: 13.5px;
+    color: var(--text);
+  }
+  tr:last-child td { border-bottom: none; }
+  tbody tr { transition: background var(--transition); }
+  tbody tr:hover td { background: #F8FAFF; }
+
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .text-muted { color: var(--text-muted); }
+
+  /* ===== STATUS BADGES ===== */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    border: 1px solid transparent;
+  }
+  .badge::before {
+    content: '';
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .badge-pending   { background: var(--amber-bg);   color: var(--amber);  border-color: var(--amber-border);  }
+  .badge-pending::before   { background: var(--amber); }
+  .badge-confirmed { background: var(--green-bg);   color: var(--green);  border-color: var(--green-border);  }
+  .badge-confirmed::before { background: var(--green); }
+  .badge-declined  { background: var(--red-bg);     color: var(--red);    border-color: var(--red-border);    }
+  .badge-declined::before  { background: var(--red); }
+  .badge-completed { background: var(--blue-bg);    color: var(--blue);   border-color: var(--blue-border);   }
+  .badge-completed::before { background: var(--blue); }
+  .badge-no_show   { background: var(--gray-bg);    color: var(--gray);   border-color: var(--gray-border);   }
+  .badge-no_show::before   { background: var(--gray); }
+  .badge-cancelled { background: var(--orange-bg);  color: var(--orange); border-color: var(--orange-border); }
+  .badge-cancelled::before { background: var(--orange); }
+
+  /* ===== CHANNEL BADGES ===== */
+  .ch-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11.5px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .ch-whatsapp { background: #DCFCE7; color: #15803D; }
+  .ch-telefon  { background: #DBEAFE; color: #1D4ED8; }
+  .ch-walkin   { background: #FEF9C3; color: #854D0E; }
+  .ch-manual   { background: #F3E8FF; color: #7E22CE; }
+  .ch-other    { background: var(--slate-bg); color: var(--slate); }
+
+  /* ===== MODAL ===== */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(15,23,42,0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal-box {
+    background: var(--surface);
+    border-radius: 16px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.2);
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: modalIn 0.18s ease;
+  }
+  @keyframes modalIn {
+    from { opacity: 0; transform: translateY(-10px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .modal-header {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .modal-title { font-size: 15px; font-weight: 600; color: var(--text); }
+  .modal-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    padding: 4px;
+    border-radius: 6px;
+    font-size: 18px;
+    line-height: 1;
+    transition: color var(--transition), background var(--transition);
+  }
+  .modal-close:hover { color: var(--text); background: var(--bg); }
+
+  .modal-body { padding: 20px 24px; }
+  .modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+
+  .form-group { margin-bottom: 14px; }
+  .form-label { display: block; font-size: 12.5px; font-weight: 600; color: var(--text); margin-bottom: 5px; }
+  .form-label .opt { font-weight: 400; color: var(--text-muted); font-size: 11.5px; margin-left: 4px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .modal-body .form-input { width: 100%; min-width: unset; }
+  textarea.form-input { resize: vertical; min-height: 72px; }
+
+  /* ===== SKELETON ===== */
+  @keyframes shimmer {
+    0%   { background-position: -600px 0; }
+    100% { background-position:  600px 0; }
+  }
+  .skeleton {
+    display: inline-block;
+    height: 14px;
+    border-radius: 6px;
+    background: linear-gradient(90deg, #E2E8F0 25%, #F1F5F9 50%, #E2E8F0 75%);
+    background-size: 600px 100%;
+    animation: shimmer 1.4s infinite linear;
+  }
+  .skel-sm  { width: 60px; }
+  .skel-md  { width: 100px; }
+  .skel-lg  { width: 140px; }
+  .skel-xl  { width: 180px; }
+  .skel-btn { width: 72px; height: 28px; border-radius: 6px; }
+
+  /* ===== EMPTY STATE ===== */
+  .empty-state { padding: 56px 24px; text-align: center; color: var(--text-muted); }
+  .empty-state-icon  { font-size: 2.5rem; margin-bottom: 12px; line-height: 1; }
+  .empty-state-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .empty-state-sub   { font-size: 13px; color: var(--text-muted); }
+
+  /* ===== TOAST ===== */
+  #toast {
+    position: fixed;
+    bottom: 28px; right: 28px;
+    background: #1E293B;
+    color: #fff;
+    border-radius: 12px;
+    padding: 13px 18px;
+    font-size: 13.5px;
+    font-weight: 500;
+    max-width: 340px;
+    transform: translateY(80px) scale(0.95);
+    opacity: 0;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+    z-index: 9999;
+    pointer-events: none;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  }
+  #toast.show    { transform: translateY(0) scale(1); opacity: 1; }
+  #toast.success { background: #064E3B; }
+  #toast.error   { background: #7F1D1D; }
+
+  /* ===== FEEDBACK ===== */
+  .feedback-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+  .feedback-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: var(--shadow);
+  }
+  .feedback-card .score      { font-size: 1.5rem; font-weight: 700; }
+  .feedback-card .score.high { color: var(--green); }
+  .feedback-card .score.mid  { color: var(--amber); }
+  .feedback-card .score.low  { color: var(--red); }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 1100px) { .stats-row { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 600px)  { .stats-row { grid-template-columns: repeat(2, 1fr); gap: 10px; } }
+  @media (max-width: 768px) {
+    #sidebar { transform: translateX(calc(-1 * var(--sidebar-width))); }
+    #sidebar.open { transform: translateX(0); }
+    .main-area { margin-left: 0; }
+    .hamburger-btn { display: flex; }
+    .page-content { padding: 16px; }
+    .top-header { padding: 0 16px; }
+    #header-date { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== LOGIN ===== -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo"><div class="login-logo-icon">TT</div><span class="lo">Te</span><span class="go"> Ta</span> AI</div>
+    <div class="login-sub">Hyni me Owner Key-n tuaj</div>
+    <input type="password" id="owner-key-input" placeholder="x-owner-key..." autocomplete="off" />
+    <button class="btn btn-primary" id="login-btn" onclick="doLogin()">Hyr</button>
+    <div class="error-msg" id="login-error"></div>
+  </div>
+</div>
+
+<!-- ===== APP ===== -->
+<div id="app">
+
+  <div id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+  <!-- Narrow Sidebar -->
+  <nav id="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-mark">TT</div>
+    </div>
+
+    <div class="sidebar-nav">
+      <div class="nav-item active" id="nav-reservations" data-tooltip="Rezervimet" onclick="switchTab('reservations')">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
+        </svg>
+      </div>
+      <div class="nav-item" id="nav-customers" data-tooltip="Klientët" onclick="switchTab('customers')">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
+        </svg>
+      </div>
+      <div class="nav-item" id="nav-feedback" data-tooltip="Feedback" onclick="switchTab('feedback')">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M18 13V5a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2h3l3 3 3-3h3a2 2 0 002-2zM5 7a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zm1 3a1 1 0 100 2h3a1 1 0 100-2H6z" clip-rule="evenodd"/>
+        </svg>
+      </div>
+      <div class="nav-item" id="nav-missed" data-tooltip="Mesazhe të Humbura" onclick="switchTab('missed')">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <button class="btn-logout" onclick="doLogout()">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd"/>
+        </svg>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Main area -->
+  <div class="main-area">
+
+    <!-- Sticky header -->
+    <header class="top-header">
+      <button class="hamburger-btn" onclick="toggleSidebar()" aria-label="Menu">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/>
+        </svg>
+      </button>
+
+      <span id="header-panel-name">Rezervimet</span>
+      <span id="header-date"></span>
+      <span id="restaurant-badge">—</span>
+
+      <div id="bot-status-pill" onclick="toggleBot()" title="Kliko për të ndryshuar statusin e botit">
+        <span id="bot-status-dot"></span>
+        <span id="bot-status-text" style="color: var(--text-muted);">Duke kontrolluar...</span>
+      </div>
+
+      <button id="bot-toggle-btn"></button>
+    </header>
+
+    <!-- Page content -->
+    <main class="page-content">
+
+      <!-- RESERVATIONS PANEL -->
+      <div id="panel-reservations" class="panel active">
+
+        <div class="stats-row" id="res-stats"></div>
+
+        <!-- Date toolbar -->
+        <div class="toolbar">
+          <input class="form-input" type="date" id="res-date-filter" onchange="renderReservations()" />
+          <div class="date-shortcut-group">
+            <button class="date-shortcut" onclick="setResDate(-1)">Dje</button>
+            <button class="date-shortcut" onclick="setResDate(0)">Sot</button>
+            <button class="date-shortcut" onclick="setResDate(1)">Nesër</button>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="loadReservations()">
+            <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/>
+            </svg>
+            Rifresko
+          </button>
+        </div>
+
+        <!-- Filter toolbar -->
+        <div class="toolbar">
+          <input class="form-input" type="text" id="res-search" placeholder="Kërko emër / telefon..." oninput="renderReservations()" style="min-width:220px;" />
+          <select class="form-input" id="res-status-filter" onchange="renderReservations()">
+            <option value="">Të gjitha statuset</option>
+            <option value="pending">Pending</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="declined">Declined</option>
+            <option value="completed">Completed</option>
+            <option value="no_show">No Show</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Rezervimet</span>
+            <span class="count-label" id="res-count">—</span>
+            <button class="btn btn-ghost btn-sm" onclick="exportCSV()" title="Eksporto si CSV">⬇ CSV</button>
+            <button class="btn btn-primary btn-sm" onclick="openAddModal()">➕ Shto Rezervim</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Emri</th>
+                  <th>Telefon</th>
+                  <th>Data</th>
+                  <th>Ora</th>
+                  <th>Persona</th>
+                  <th>Zona</th>
+                  <th>Statusi</th>
+                  <th>Kanali</th>
+                  <th>Veprime</th>
+                </tr>
+              </thead>
+              <tbody id="res-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div><!-- /panel-reservations -->
+
+      <!-- CUSTOMERS PANEL -->
+      <div id="panel-customers" class="panel">
+        <div class="toolbar">
+          <input class="form-input" type="text" id="cust-search" placeholder="Kërko emër / telefon..." oninput="renderCustomers()" style="min-width:220px;" />
+          <button class="btn btn-ghost btn-sm" onclick="loadCustomers()">
+            <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/>
+            </svg>
+            Rifresko
+          </button>
+          <button class="btn btn-primary btn-sm" onclick="openAddCustomerModal()">+ Shto Klient</button>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Klientët</span>
+            <span class="count-label" id="cust-count">—</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Emri</th>
+                  <th>Telefon</th>
+                  <th>Vizita</th>
+                  <th>E parë</th>
+                  <th>E fundit</th>
+                  <th>Marketing</th>
+                  <th>SMS</th>
+                  <th>WhatsApp</th>
+                  <th>Veprime</th>
+                </tr>
+              </thead>
+              <tbody id="cust-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div><!-- /panel-customers -->
+
+      <!-- MISSED MESSAGES PANEL -->
+      <div id="panel-missed" class="panel">
+        <div class="toolbar">
+          <button class="btn btn-ghost btn-sm" onclick="loadMissedMessages()">
+            <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/>
+            </svg>
+            Rifresko
+          </button>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">📵 Mesazhe të Humbura</span>
+            <span class="count-label" id="missed-count">—</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Telefon</th>
+                  <th>Mesazhi</th>
+                  <th>Marrë</th>
+                </tr>
+              </thead>
+              <tbody id="missed-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div><!-- /panel-missed -->
+
+      <!-- FEEDBACK PANEL -->
+      <div id="panel-feedback" class="panel">
+        <div class="toolbar">
+          <button class="btn btn-ghost btn-sm" onclick="loadFeedback()">
+            <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/>
+            </svg>
+            Rifresko
+          </button>
+        </div>
+        <div id="feedback-content"></div>
+      </div><!-- /panel-feedback -->
+
+    </main>
+  </div><!-- /main-area -->
+
+</div><!-- /app -->
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+  let OWNER_KEY = '';
+  let allReservations = [];
+  let allCustomers = [];
+
+  // ===== AUTH =====
+  async function doLogin() {
+    const key = document.getElementById('owner-key-input').value.trim();
+    if (!key) return;
+    const btn = document.getElementById('login-btn');
+    const err = document.getElementById('login-error');
+    btn.disabled = true;
+    btn.textContent = 'Duke u lidhur...';
+    err.textContent = '';
+    try {
+      const res = await apiFetch('/owner/reservations?limit=1', key);
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        err.textContent = j.error || 'Çelës i pasaktë ose gabim serveri.';
+        return;
+      }
+      OWNER_KEY = key;
+      const j = await res.json();
+      document.getElementById('restaurant-badge').textContent = 'restaurant #' + (j.restaurant_id || '?');
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      updateHeaderDate();
+      loadAll();
+      checkBotStatus();
+    } catch (e) {
+      err.textContent = 'Nuk u lidh: ' + e.message;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Hyr';
+    }
+  }
+
+  document.getElementById('owner-key-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+
+  function doLogout() {
+    OWNER_KEY = '';
+    allReservations = [];
+    allCustomers = [];
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('owner-key-input').value = '';
+  }
+
+  // ===== API =====
+  function apiFetch(path, key, opts = {}) {
+    const headers = { 'Content-Type': 'application/json', 'x-owner-key': key || OWNER_KEY };
+    return fetch(path, { headers, ...opts });
+  }
+
+  async function apiJSON(path, opts = {}) {
+    const res = await apiFetch(path, OWNER_KEY, opts);
+    const j = await res.json();
+    if (!j.success) throw new Error(j.error || 'API error');
+    return j;
+  }
+
+  // ===== TABS =====
+  function switchTab(name) {
+    document.querySelectorAll('.nav-item').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    const navEl = document.getElementById('nav-' + name);
+    if (navEl) navEl.classList.add('active');
+    const panel = document.getElementById('panel-' + name);
+    if (panel) panel.classList.add('active');
+
+    const nameMap = { reservations: 'Rezervimet', customers: 'Klientët', feedback: 'Feedback', missed: 'Mesazhe të Humbura' };
+    document.getElementById('header-panel-name').textContent = nameMap[name] || name;
+
+    if (name === 'reservations' && allReservations.length === 0) loadReservations();
+    if (name === 'customers' && allCustomers.length === 0) loadCustomers();
+    if (name === 'feedback') loadFeedback();
+    if (name === 'missed') loadMissedMessages();
+
+    closeSidebar();
+  }
+
+  // ===== DATE UTILS =====
+  function todayStr() {
+    const d = new Date();
+    return d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
+  }
+
+  function setResDate(offset) {
+    // Timezone-aware (Europe/Tirane)
+    const now = new Date();
+    const tirane = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Tirane' }));
+    tirane.setDate(tirane.getDate() + offset);
+    const s = tirane.getFullYear() + '-' +
+      String(tirane.getMonth() + 1).padStart(2, '0') + '-' +
+      String(tirane.getDate()).padStart(2, '0');
+    document.getElementById('res-date-filter').value = s;
+
+    document.querySelectorAll('.date-shortcut').forEach((btn, i) => {
+      btn.classList.toggle('active', i - 1 === offset);
+    });
+
+    renderReservations();
+  }
+
+  function loadAll() {
+    setResDate(0);
+    loadReservations();
+  }
+
+  function updateHeaderDate() {
+    const el = document.getElementById('header-date');
+    if (!el) return;
+    const now = new Date();
+    el.textContent = now.toLocaleDateString('sq-AL', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+  }
+
+  // ===== TOAST =====
+  let toastTimer;
+  function toast(msg, type = 'success') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'show ' + type;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.className = ''; }, 3200);
+  }
+
+  // ===== SKELETON ROWS =====
+  function skeletonResRows(n) {
+    return Array.from({ length: n }, () => `
+      <tr>
+        <td><span class="skeleton skel-sm"></span></td>
+        <td><span class="skeleton skel-lg"></span></td>
+        <td><span class="skeleton skel-md"></span></td>
+        <td><span class="skeleton skel-md"></span></td>
+        <td><span class="skeleton skel-sm"></span></td>
+        <td><span class="skeleton skel-sm"></span></td>
+        <td><span class="skeleton skel-md"></span></td>
+        <td><span class="skeleton skel-md"></span></td>
+        <td><span class="skeleton skel-sm"></span></td>
+        <td><span class="skeleton skel-btn"></span></td>
+      </tr>`).join('');
+  }
+
+  function skeletonCustRows(n) {
+    return Array.from({ length: n }, () => `
+      <tr>
+        <td><span class="skeleton skel-lg"></span></td>
+        <td><span class="skeleton skel-md"></span></td>
+        <td><span class="skeleton skel-sm"></span></td>
+        <td><span class="skeleton skel-md"></span></td>
+        <td><span class="skeleton skel-md"></span></td>
+        <td><span class="skeleton skel-sm"></span></td>
+        <td><span class="skeleton skel-sm"></span></td>
+        <td><span class="skeleton skel-sm"></span></td>
+        <td><span class="skeleton skel-btn"></span></td>
+      </tr>`).join('');
+  }
+
+  // ===== RESERVATIONS =====
+  async function loadReservations() {
+    document.getElementById('res-tbody').innerHTML = skeletonResRows(5);
+    try {
+      const j = await apiJSON('/owner/reservations?limit=100');
+      allReservations = j.data || [];
+      renderReservations();
+    } catch (e) {
+      document.getElementById('res-tbody').innerHTML = `
+        <tr><td colspan="10">
+          <div class="empty-state">
+            <div class="empty-state-icon">⚠️</div>
+            <div class="empty-state-title">Gabim</div>
+            <div class="empty-state-sub">${esc(e.message)}</div>
+          </div>
+        </td></tr>`;
+    }
+  }
+
+  function renderReservations() {
+    const search       = document.getElementById('res-search').value.toLowerCase();
+    const statusFilter = document.getElementById('res-status-filter').value;
+    const dateFilter   = document.getElementById('res-date-filter').value;
+
+    let rows = allReservations.filter(r => {
+      const matchSearch = !search ||
+        (r.customer_name || '').toLowerCase().includes(search) ||
+        (r.phone || '').includes(search);
+      const matchStatus = !statusFilter || (r.status || '').toLowerCase() === statusFilter;
+      const rDateLocal = r.date
+        ? new Date(r.date).toLocaleDateString('en-CA', { timeZone: 'Europe/Tirane' })
+        : '';
+      const matchDate = !dateFilter || rDateLocal === dateFilter;
+      return matchSearch && matchStatus && matchDate;
+    });
+
+    rows.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+
+    // stats based on date-filtered subset
+    const statsBase = dateFilter
+      ? allReservations.filter(r => {
+          const rDateLocal = r.date
+            ? new Date(r.date).toLocaleDateString('en-CA', { timeZone: 'Europe/Tirane' })
+            : '';
+          return rDateLocal === dateFilter;
+        })
+      : allReservations;
+    const counts = { pending: 0, confirmed: 0, declined: 0, completed: 0, no_show: 0, cancelled: 0 };
+    statsBase.forEach(r => {
+      const s = (r.status || '').toLowerCase();
+      if (counts[s] !== undefined) counts[s]++;
+    });
+
+    document.getElementById('res-stats').innerHTML = `
+      <div class="stat-card stat-amber">
+        <div class="stat-label"><span class="stat-dot"></span>Pending</div>
+        <div class="stat-value">${counts.pending}</div>
+      </div>
+      <div class="stat-card stat-green">
+        <div class="stat-label"><span class="stat-dot"></span>Konfirmuar</div>
+        <div class="stat-value">${counts.confirmed}</div>
+      </div>
+      <div class="stat-card stat-red">
+        <div class="stat-label"><span class="stat-dot"></span>Refuzuar</div>
+        <div class="stat-value">${counts.declined}</div>
+      </div>
+      <div class="stat-card stat-blue">
+        <div class="stat-label"><span class="stat-dot"></span>Kompletuar</div>
+        <div class="stat-value">${counts.completed}</div>
+      </div>
+      <div class="stat-card stat-gray">
+        <div class="stat-label"><span class="stat-dot"></span>No Show</div>
+        <div class="stat-value">${counts.no_show}</div>
+      </div>
+      <div class="stat-card stat-orange">
+        <div class="stat-label"><span class="stat-dot"></span>Anuluar</div>
+        <div class="stat-value">${counts.cancelled}</div>
+      </div>
+    `;
+
+    const dateLabel = dateFilter ? fmtDate(dateFilter) : null;
+    document.getElementById('res-count').textContent = dateLabel
+      ? `${rows.length} rezervime për ${dateLabel}`
+      : `${rows.length} rekorde`;
+
+    if (rows.length === 0) {
+      const emptyMsg = dateFilter ? 'Nuk ka rezervime për këtë datë' : 'Asnjë rezervim';
+      document.getElementById('res-tbody').innerHTML = `
+        <tr><td colspan="10">
+          <div class="empty-state">
+            <div class="empty-state-icon">📅</div>
+            <div class="empty-state-title">${emptyMsg}</div>
+            <div class="empty-state-sub">Provoni të ndryshoni filtrat ose datën</div>
+          </div>
+        </td></tr>`;
+      return;
+    }
+
+    document.getElementById('res-tbody').innerHTML = rows.map(r => {
+      const badge   = statusBadge(r.status);
+      const actions = buildResActions(r);
+      return `<tr>
+        <td class="text-muted" style="font-size:12px;">${r.id}</td>
+        <td><strong>${esc(r.customer_name || '—')}</strong></td>
+        <td class="text-muted">${esc(cleanPhone(r.phone))}</td>
+        <td class="text-muted">${r.date ? new Date(r.date).toLocaleDateString('sq-AL', { timeZone: 'Europe/Tirane', day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'}</td>
+        <td>${esc(r.time || '—')}</td>
+        <td>${r.people || '—'}</td>
+        <td class="text-muted">${esc(r.area || '—')}</td>
+        <td>${badge}</td>
+        <td>${channelBadge(r.channel)}</td>
+        <td><div class="actions">${actions}</div></td>
+      </tr>`;
+    }).join('');
+  }
+
+  function statusBadge(status) {
+    const s = (status || '').toLowerCase();
+    const map = {
+      pending:   ['badge-pending',   'Pending'],
+      confirmed: ['badge-confirmed', 'Konfirmuar'],
+      declined:  ['badge-declined',  'Refuzuar'],
+      completed: ['badge-completed', 'Kompletuar'],
+      no_show:   ['badge-no_show',   'No Show'],
+      cancelled: ['badge-cancelled', 'Anuluar'],
+    };
+    const [cls, label] = map[s] || ['', s || '—'];
+    return `<span class="badge ${cls}">${label}</span>`;
+  }
+
+  function buildResActions(r) {
+    const s = (r.status || '').toLowerCase();
+    const btns = [];
+    if (s === 'pending') {
+      btns.push(`<button class="btn btn-sm btn-confirm" onclick="resAction(${r.id},'confirm')">✓ Konfirmo</button>`);
+      btns.push(`<button class="btn btn-sm btn-decline" onclick="resAction(${r.id},'decline')">✕ Refuzo</button>`);
+    }
+    if (s === 'confirmed') {
+      btns.push(`<button class="btn btn-sm btn-complete" onclick="resAction(${r.id},'complete')">✓ Kompletuar</button>`);
+      btns.push(`<button class="btn btn-sm btn-noshow"  onclick="resAction(${r.id},'no-show')">? No Show</button>`);
+      btns.push(`<button class="btn btn-sm btn-cancel"  onclick="resAction(${r.id},'cancel')">✕ Anulo</button>`);
+    }
+    return btns.join('') || '<span class="text-muted" style="font-size:12px;">—</span>';
+  }
+
+  async function resAction(id, action) {
+    const labels = { confirm: 'Konfirmo', decline: 'Refuzo', complete: 'Kompletim', 'no-show': 'No Show', cancel: 'Anulo' };
+    if (!confirm(`${labels[action] || action} rezervimin #${id}?`)) return;
+    try {
+      await apiJSON(`/owner/reservations/${id}/${action}`, {
+        method: 'POST',
+        body: JSON.stringify({})
+      });
+      toast(`Sukses: rezervimi u ${labels[action] || action}!`);
+      const idx = allReservations.findIndex(r => r.id === id);
+      if (idx !== -1) {
+        const statusMap = {
+          confirm:   'Confirmed',
+          decline:   'Declined',
+          complete:  'Completed',
+          'no-show': 'NoShow',
+          cancel:    'Cancelled'
+        };
+        allReservations[idx].status = statusMap[action] || allReservations[idx].status;
+      }
+      renderReservations();
+    } catch (e) {
+      toast('Gabim: ' + e.message, 'error');
+    }
+  }
+
+  // ===== CUSTOMERS =====
+  async function loadCustomers() {
+    document.getElementById('cust-tbody').innerHTML = skeletonCustRows(3);
+    try {
+      const j = await apiJSON('/owner/customers?limit=200');
+      allCustomers = j.data || [];
+      renderCustomers();
+    } catch (e) {
+      document.getElementById('cust-tbody').innerHTML = `
+        <tr><td colspan="9">
+          <div class="empty-state">
+            <div class="empty-state-icon">⚠️</div>
+            <div class="empty-state-title">Gabim</div>
+            <div class="empty-state-sub">${esc(e.message)}</div>
+          </div>
+        </td></tr>`;
+    }
+  }
+
+  function renderCustomers() {
+    const search = document.getElementById('cust-search').value.toLowerCase();
+    const rows = allCustomers.filter(c =>
+      !search ||
+      (c.full_name || '').toLowerCase().includes(search) ||
+      (c.phone || '').includes(search)
+    );
+
+    document.getElementById('cust-count').textContent = rows.length + ' klientë';
+
+    if (rows.length === 0) {
+      document.getElementById('cust-tbody').innerHTML = `
+        <tr><td colspan="9">
+          <div class="empty-state">
+            <div class="empty-state-icon">👥</div>
+            <div class="empty-state-title">Asnjë klient</div>
+            <div class="empty-state-sub">Nuk u gjet asnjë klient me këto kritere</div>
+          </div>
+        </td></tr>`;
+      return;
+    }
+
+    document.getElementById('cust-tbody').innerHTML = rows.map(c => {
+      const yn = v => v
+        ? `<span style="color:var(--green);font-weight:600;">✓</span>`
+        : `<span style="color:var(--text-light);">—</span>`;
+      const star = (c.visits_count || 0) >= 3 ? ' ⭐' : '';
+      return `<tr>
+        <td><strong>${esc(c.full_name || '—')}${star}</strong></td>
+        <td class="text-muted">${esc(cleanPhone(c.phone))}</td>
+        <td><strong>${c.visits_count || 0}</strong></td>
+        <td class="text-muted" style="font-size:12px;">${fmtDate(c.first_seen_at)}</td>
+        <td class="text-muted" style="font-size:12px;">${fmtDate(c.last_seen_at)}</td>
+        <td>${yn(c.consent_marketing)}</td>
+        <td>${yn(c.consent_sms)}</td>
+        <td>${yn(c.consent_whatsapp)}</td>
+        <td>
+          <button class="btn btn-sm btn-feedback" onclick="sendFeedback(${c.id}, '${esc(c.phone)}')">📩 Feedback</button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  async function sendFeedback(customerId, phone) {
+    if (!confirm(`Dërgo kërkesë feedback tek ${phone}?`)) return;
+    try {
+      await apiJSON('/owner/feedback/send-one', {
+        method: 'POST',
+        body: JSON.stringify({ customer_id: customerId })
+      });
+      toast('Feedback u dërgua!');
+    } catch (e) {
+      toast('Gabim: ' + e.message, 'error');
+    }
+  }
+
+  // ===== FEEDBACK =====
+  async function loadFeedback() {
+    document.getElementById('feedback-content').innerHTML = `
+      <div class="empty-state" style="padding:40px;">
+        <div style="display:inline-block;width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;"></div>
+      </div>`;
+
+    try {
+      const j = await apiJSON('/owner/reports/feedback/daily');
+      const d = j.data;
+      if (!d) {
+        document.getElementById('feedback-content').innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">📭</div>
+            <div class="empty-state-title">Nuk ka feedback sot</div>
+            <div class="empty-state-sub">${j.message || 'Provo sërish më vonë.'}</div>
+          </div>`;
+        return;
+      }
+      const scoreClass = d.avg_score >= 4 ? 'high' : d.avg_score >= 3 ? 'mid' : 'low';
+      document.getElementById('feedback-content').innerHTML = `
+        <div class="stats-row" style="margin-bottom:24px;">
+          <div class="stat-card stat-blue">
+            <div class="stat-label"><span class="stat-dot"></span>Total Feedback</div>
+            <div class="stat-value">${d.total_feedback}</div>
+          </div>
+          <div class="stat-card stat-${scoreClass === 'high' ? 'green' : scoreClass === 'mid' ? 'amber' : 'red'}">
+            <div class="stat-label"><span class="stat-dot"></span>Mesatarja</div>
+            <div class="stat-value">${d.avg_score}</div>
+          </div>
+          <div class="stat-card stat-green">
+            <div class="stat-label"><span class="stat-dot"></span>Pozitive</div>
+            <div class="stat-value">${d.positive_count}</div>
+          </div>
+          <div class="stat-card stat-red">
+            <div class="stat-label"><span class="stat-dot"></span>Rrezik</div>
+            <div class="stat-value">${d.risk_count}</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Raporti ditor — ${d.day}</span>
+          </div>
+          <div style="padding:24px;color:var(--text-muted);font-size:13.5px;">
+            Të gjitha feedback-et e mbledhura sot për restorantin tuaj.
+          </div>
+        </div>`;
+    } catch (e) {
+      document.getElementById('feedback-content').innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">⚠️</div>
+          <div class="empty-state-title">Gabim</div>
+          <div class="empty-state-sub">${esc(e.message)}</div>
+        </div>`;
+    }
+  }
+
+  // ===== UTILS =====
+  function esc(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function fmtDate(d) {
+    if (!d) return '—';
+    try {
+      return new Date(d).toLocaleDateString('sq-AL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    } catch {
+      return String(d).slice(0, 10);
+    }
+  }
+
+  // ===== BOT CONTROL =====
+  async function checkBotStatus() {
+    try {
+      const res = await fetch('/owner/bot/status', {
+        headers: { 'x-owner-key': OWNER_KEY }
+      });
+      const data = await res.json();
+      const active = data?.bot_active;
+
+      const dot  = document.getElementById('bot-status-dot');
+      const text = document.getElementById('bot-status-text');
+
+      dot.className = active ? 'active' : 'inactive';
+      text.textContent = active ? 'Bot Aktiv' : 'Bot Ndalur';
+      text.style.color = active ? 'var(--green)' : 'var(--red)';
+
+      const btn = document.getElementById('bot-toggle-btn');
+      btn.textContent = active ? 'Ndal Botin' : 'Ndiz Botin';
+
+      window._botActive = active;
+    } catch (e) {
+      console.error('Bot status error:', e);
+    }
+  }
+
+  async function toggleBot() {
+    const action = window._botActive ? 'stop' : 'start';
+    const pill = document.getElementById('bot-status-pill');
+    pill.classList.add('dimmed');
+    try {
+      await fetch(`/owner/bot/${action}`, {
+        method: 'POST',
+        headers: { 'x-owner-key': OWNER_KEY }
+      });
+      await checkBotStatus();
+    } finally {
+      pill.classList.remove('dimmed');
+    }
+  }
+
+  setInterval(checkBotStatus, 30000);
+
+  // ===== MOBILE SIDEBAR =====
+  function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    if (sidebar.classList.contains('open')) {
+      closeSidebar();
+    } else {
+      sidebar.classList.add('open');
+      overlay.classList.add('open');
+    }
+  }
+
+  function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebar-overlay').classList.remove('open');
+  }
+
+  // ===== INIT =====
+  document.getElementById('res-tbody').innerHTML = skeletonResRows(5);
+
+  const spinStyle = document.createElement('style');
+  spinStyle.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
+  document.head.appendChild(spinStyle);
+
+  // ===== ADD RESERVATION MODAL =====
+  function openAddModal() {
+    document.getElementById('add-date').value = todayStr();
+    document.getElementById('add-name').value = '';
+    document.getElementById('add-phone').value = '';
+    document.getElementById('add-time').value = '';
+    document.getElementById('add-people').value = '';
+    document.getElementById('add-channel').value = '';
+    document.getElementById('add-area').value = '';
+    document.getElementById('add-special').value = '';
+    document.getElementById('add-res-modal').classList.add('open');
+    document.getElementById('add-name').focus();
+  }
+
+  function closeAddModal() {
+    document.getElementById('add-res-modal').classList.remove('open');
+  }
+
+  function handleModalOverlayClick(e) {
+    if (e.target === document.getElementById('add-res-modal')) closeAddModal();
+  }
+
+  async function submitAddReservation() {
+    const name  = document.getElementById('add-name').value.trim();
+    const phone = document.getElementById('add-phone').value.trim();
+    if (!name)  { toast('Emri i klientit është i detyrueshëm!', 'error'); return; }
+    if (!phone) { toast('Numri i telefonit është i detyrueshëm!', 'error'); return; }
+
+    const body = { customer_name: name, phone };
+    const date    = document.getElementById('add-date').value;
+    const time    = document.getElementById('add-time').value;
+    const people  = document.getElementById('add-people').value;
+    const channel = document.getElementById('add-channel').value;
+    const area    = document.getElementById('add-area').value;
+    const special = document.getElementById('add-special').value.trim();
+
+    if (date)    body.date    = date;
+    if (time)    body.time    = time;
+    if (people)  body.people  = parseInt(people, 10);
+    if (channel) body.channel = channel;
+    if (area)    body.area    = area;
+    if (special) body.special_requests = special;
+
+    const btn = document.getElementById('add-res-submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Duke krijuar...';
+
+    try {
+      await apiJSON('/owner/reservations/create', { method: 'POST', body: JSON.stringify(body) });
+      toast('Rezervimi u krijua me sukses! ✅');
+      closeAddModal();
+      await loadReservations();
+    } catch (e) {
+      toast('Gabim: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Krijo Rezervimin';
+    }
+  }
+
+  // ===== CLEAN PHONE =====
+  function cleanPhone(phone) {
+    if (!phone) return '—';
+    return phone.replace('@s.whatsapp.net', '').replace('@lid', '').split(':')[0];
+  }
+
+  // ===== MISSED MESSAGES =====
+  async function loadMissedMessages() {
+    document.getElementById('missed-tbody').innerHTML = `
+      <tr><td colspan="4"><div class="empty-state"><div style="display:inline-block;width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;"></div></div></td></tr>`;
+    try {
+      const j = await apiJSON('/owner/missed-messages?limit=100');
+      const rows = j.data || [];
+      document.getElementById('missed-count').textContent = rows.length + ' mesazhe';
+      if (rows.length === 0) {
+        document.getElementById('missed-tbody').innerHTML = `
+          <tr><td colspan="4"><div class="empty-state">
+            <div class="empty-state-icon">📵</div>
+            <div class="empty-state-title">Asnjë mesazh i humbur</div>
+            <div class="empty-state-sub">Klientët shkruan vetëm kur boti është aktiv</div>
+          </div></td></tr>`;
+        return;
+      }
+      document.getElementById('missed-tbody').innerHTML = rows.map(m => `<tr>
+        <td class="text-muted" style="font-size:12px;">${m.id}</td>
+        <td><strong>${esc(cleanPhone(m.phone))}</strong></td>
+        <td>${esc(m.message || '—')}</td>
+        <td class="text-muted" style="font-size:12px;">${fmtDate(m.received_at || m.created_at)}</td>
+      </tr>`).join('');
+    } catch (e) {
+      document.getElementById('missed-tbody').innerHTML = `
+        <tr><td colspan="4"><div class="empty-state">
+          <div class="empty-state-icon">⚠️</div>
+          <div class="empty-state-title">Gabim</div>
+          <div class="empty-state-sub">${esc(e.message)}</div>
+        </div></td></tr>`;
+    }
+  }
+
+  // ===== EXPORT CSV =====
+  function exportCSV() {
+    const dateFilter = document.getElementById('res-date-filter').value;
+    const rows = dateFilter
+      ? allReservations.filter(r => {
+          const d = r.date ? new Date(r.date).toLocaleDateString('en-CA', { timeZone: 'Europe/Tirane' }) : '';
+          return d === dateFilter;
+        })
+      : allReservations;
+
+    const headers = ['ID', 'Emri', 'Telefon', 'Data', 'Ora', 'Persona', 'Zona', 'Statusi', 'Kanali'];
+    const q = s => `"${String(s || '').replace(/"/g, '""')}"`;
+    const lines = [headers.join(','), ...rows.map(r => [
+      r.id, q(r.customer_name), q(cleanPhone(r.phone)),
+      r.date || '', r.time || '', r.people || '',
+      q(r.area), q(r.status), q(r.channel)
+    ].join(','))];
+
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `rezervimet-${dateFilter || 'te-gjitha'}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('CSV u eksportua!');
+  }
+
+  // ===== AUTO-REFRESH (silent, çdo 30s) =====
+  async function silentRefresh() {
+    if (!OWNER_KEY) return;
+    const activePanel = document.querySelector('.panel.active');
+    if (!activePanel || activePanel.id !== 'panel-reservations') return;
+    try {
+      const j = await apiJSON('/owner/reservations?limit=100');
+      allReservations = j.data || [];
+      renderReservations();
+    } catch { /* silent */ }
+  }
+  setInterval(silentRefresh, 30000);
+
+  function channelBadge(channel) {
+    const c = (channel || '').toLowerCase();
+    if (c === 'whatsapp' || c === 'whatsapp_manual') return `<span class="ch-badge ch-whatsapp">💬 WhatsApp</span>`;
+    if (c === 'telefon')  return `<span class="ch-badge ch-telefon">📞 Telefonik</span>`;
+    if (c === 'walk-in')  return `<span class="ch-badge ch-walkin">🚶 Walk-in</span>`;
+    if (c === 'manual')   return `<span class="ch-badge ch-manual">✍️ Manual</span>`;
+    if (c === 'other')    return `<span class="ch-badge ch-other">${esc(channel)}</span>`;
+    if (!channel || channel === '—') return `<span class="text-muted" style="font-size:12px;">—</span>`;
+    return `<span class="ch-badge ch-other">${esc(channel)}</span>`;
+  }
+</script>
+
+<!-- ===== ADD RESERVATION MODAL ===== -->
+<div class="modal-overlay" id="add-res-modal" onclick="handleModalOverlayClick(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">➕ Shto Rezervim Manual</span>
+      <button class="modal-close" onclick="closeAddModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Emri i klientit <span style="color:var(--red)">*</span></label>
+          <input class="form-input" id="add-name" type="text" placeholder="p.sh. Arta Kelmendi" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Numri i telefonit <span style="color:var(--red)">*</span></label>
+          <input class="form-input" id="add-phone" type="tel" placeholder="p.sh. 0681234567" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Data <span class="opt">(opsionale)</span></label>
+          <input class="form-input" id="add-date" type="date" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ora <span class="opt">(opsionale)</span></label>
+          <input class="form-input" id="add-time" type="time" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Numri i personave <span class="opt">(opsionale)</span></label>
+          <input class="form-input" id="add-people" type="number" min="1" max="500" placeholder="2" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Kanali <span class="opt">(opsionale)</span></label>
+          <select class="form-input" id="add-channel">
+            <option value="">— Zgjidhni —</option>
+            <option value="whatsapp">💬 WhatsApp</option>
+            <option value="telefon">📞 Telefonik</option>
+            <option value="walk-in">🚶 Walk-in</option>
+            <option value="other">Tjetër</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Zona <span class="opt">(opsionale)</span></label>
+          <select class="form-input" id="add-area">
+            <option value="">— Zgjidhni —</option>
+            <option value="brendshme">Brendshme</option>
+            <option value="ballkon">Ballkon</option>
+            <option value="kopësht">Kopësht</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Kërkesa speciale <span class="opt">(opsionale)</span></label>
+        <textarea class="form-input" id="add-special" placeholder="p.sh. tavolinë afër dritares, festë ditëlindjeje..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeAddModal()">Anulo</button>
+      <button class="btn btn-primary btn-sm" id="add-res-submit-btn" onclick="submitAddReservation()">Krijo Rezervimin</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD CUSTOMER MODAL -->
+<div id="add-customer-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.3);z-index:500;align-items:center;justify-content:center;backdrop-filter:blur(4px)" onclick="if(event.target===this)closeAddCustomerModal()">
+  <div style="background:#fff;border-radius:16px;padding:28px;width:420px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,0.12)">
+    <div style="font-size:1.1rem;font-weight:600;margin-bottom:4px">Shto Klient të Ri</div>
+    <div style="font-size:0.8rem;color:#78716c;margin-bottom:20px">Klienti do të shtohet në listën tuaj</div>
+    <div style="margin-bottom:12px">
+      <label style="display:block;font-size:0.8rem;font-weight:500;color:#57534e;margin-bottom:4px">Emri *</label>
+      <input id="add-cust-name" class="form-input" placeholder="Emri i plotë..." style="width:100%" />
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="display:block;font-size:0.8rem;font-weight:500;color:#57534e;margin-bottom:4px">Telefoni *</label>
+      <input id="add-cust-phone" class="form-input" placeholder="+355 69..." style="width:100%" />
+    </div>
+    <div style="color:#ef4444;font-size:0.8rem;min-height:18px;margin-bottom:12px" id="add-cust-err"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost btn-sm" onclick="closeAddCustomerModal()">Anulo</button>
+      <button class="btn btn-primary btn-sm" onclick="submitAddCustomer()">Ruaj Klientin</button>
+    </div>
+  </div>
+</div>
+
+<!-- JERRY SUPPORT WIDGET -->
+<div id="jerry-support-toggle" onclick="toggleSupportChat()" style="position:fixed;bottom:24px;right:24px;width:56px;height:56px;background:linear-gradient(135deg,#b45309,#d97706);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 20px rgba(180,83,9,0.4);z-index:400;transition:transform 0.2s" onmouseenter="this.style.transform='scale(1.08)'" onmouseleave="this.style.transform='scale(1)'">
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+  <div style="position:absolute;top:-4px;right:-4px;background:#10b981;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:10px;border:2px solid #fff">24/7</div>
+</div>
+
+<div id="jerry-support-panel" style="display:none;position:fixed;bottom:92px;right:24px;width:360px;max-height:500px;background:#fff;border:1px solid #e7e5e4;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.12);z-index:400;flex-direction:column;overflow:hidden">
+  <div style="padding:14px 18px;border-bottom:1px solid #e7e5e4;display:flex;align-items:center;gap:10px;flex-shrink:0">
+    <div style="width:32px;height:32px;background:linear-gradient(135deg,#b45309,#d97706);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:12px;flex-shrink:0">J</div>
+    <div>
+      <div style="font-weight:600;font-size:14px">Jerry Suport</div>
+      <div style="font-size:11px;color:#10b981;display:flex;align-items:center;gap:4px"><span style="width:6px;height:6px;background:#10b981;border-radius:50%;display:inline-block"></span>24/7 aktiv</div>
+    </div>
+    <button onclick="toggleSupportChat()" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#78716c;font-size:20px;line-height:1;padding:4px">×</button>
+  </div>
+  <div id="support-messages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;min-height:260px;max-height:340px"></div>
+  <div id="support-typing" style="display:none;padding:0 16px 8px;font-size:12px;color:#78716c;font-style:italic">Jerry po shkruan...</div>
+  <div style="padding:12px 16px;border-top:1px solid #e7e5e4;display:flex;gap:8px;flex-shrink:0">
+    <input id="supportInput" class="form-input" placeholder="Shkruani pyetjen..." style="flex:1" onkeydown="if(event.key==='Enter')sendSupport()" />
+    <button onclick="sendSupport()" style="padding:9px 14px;background:linear-gradient(135deg,#b45309,#d97706);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px">→</button>
+  </div>
+</div>
+
+<script>
+// ADD CUSTOMER
+function openAddCustomerModal() {
+  const m = document.getElementById('add-customer-modal');
+  m.style.display = 'flex';
+  document.getElementById('add-cust-name').value = '';
+  document.getElementById('add-cust-phone').value = '';
+  document.getElementById('add-cust-err').textContent = '';
+  setTimeout(() => document.getElementById('add-cust-name').focus(), 50);
+}
+function closeAddCustomerModal() {
+  document.getElementById('add-customer-modal').style.display = 'none';
+}
+async function submitAddCustomer() {
+  const name = document.getElementById('add-cust-name').value.trim();
+  const phone = document.getElementById('add-cust-phone').value.trim();
+  const errEl = document.getElementById('add-cust-err');
+  if (!name || !phone) { errEl.textContent = 'Emri dhe telefoni janë të detyrueshëm'; return; }
+  try {
+    const ownerKey = localStorage.getItem('tta_owner_key') || '';
+    const r = await fetch('/owner/customers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-owner-key': ownerKey },
+      body: JSON.stringify({ name, phone })
+    });
+    const d = await r.json();
+    if (r.status === 409) { errEl.textContent = 'Ky klient ekziston tashmë'; return; }
+    if (!r.ok) { errEl.textContent = d.error || 'Gabim'; return; }
+    closeAddCustomerModal();
+    if (typeof loadCustomers === 'function') loadCustomers();
+    if (typeof showToast === 'function') showToast('Klienti u shtua');
+  } catch (e) { errEl.textContent = 'Gabim lidhjeje'; }
+}
+
+// JERRY SUPPORT CHAT
+let supportHistory = [];
+let supportOpen = false;
+
+function toggleSupportChat() {
+  supportOpen = !supportOpen;
+  const panel = document.getElementById('jerry-support-panel');
+  panel.style.display = supportOpen ? 'flex' : 'none';
+  if (supportOpen && document.getElementById('support-messages').children.length === 0) {
+    appendSupportMessage('jerry', 'Përshëndetje! Jam Jerry, suporti juaj 24/7. Si mund t\'ju ndihmoj sot?');
+  }
+  if (supportOpen) setTimeout(() => document.getElementById('supportInput').focus(), 100);
+}
+
+function appendSupportMessage(role, text) {
+  const el = document.getElementById('support-messages');
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;' + (role === 'user' ? 'justify-content:flex-end' : 'justify-content:flex-start');
+  if (role === 'system') {
+    div.innerHTML = `<div style="background:#fef3c7;border:1px solid #fde68a;color:#92400e;border-radius:10px;padding:10px 14px;font-size:13px;width:100%;text-align:center">⚠ ${text}</div>`;
+  } else {
+    const bg = role === 'user' ? 'background:linear-gradient(135deg,#b45309,#d97706);color:#fff' : 'background:rgba(180,83,9,0.07);color:#1a1a18;border:1px solid rgba(180,83,9,0.1)';
+    div.innerHTML = `<div style="${bg};border-radius:12px;padding:10px 14px;font-size:13px;max-width:85%;line-height:1.5">${text}</div>`;
+  }
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+async function sendSupport() {
+  const input = document.getElementById('supportInput');
+  const msg = input.value.trim();
+  if (!msg) return;
+  appendSupportMessage('user', msg);
+  input.value = '';
+  document.getElementById('support-typing').style.display = 'block';
+  try {
+    const ownerKey = localStorage.getItem('tta_owner_key') || '';
+    const res = await fetch('/owner/support/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-owner-key': ownerKey },
+      body: JSON.stringify({ message: msg, history: supportHistory })
+    });
+    const data = await res.json();
+    document.getElementById('support-typing').style.display = 'none';
+    supportHistory.push({ role: 'user', content: msg });
+    supportHistory.push({ role: 'assistant', content: data.reply });
+    appendSupportMessage('jerry', data.reply);
+    if (data.escalated) appendSupportMessage('system', "Kjo çështje u kalua te admin. Gerald do t'ju kontaktojë së shpejti!");
+  } catch (e) {
+    document.getElementById('support-typing').style.display = 'none';
+    appendSupportMessage('jerry', 'Kam problem teknik. Provoni përsëri.');
+  }
+}
+</script>
+
+</body>
+</html>

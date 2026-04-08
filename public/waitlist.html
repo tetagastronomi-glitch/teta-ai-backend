@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Te Ta AI — Waitlist</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#09090B;--bg2:#0F0F12;--surface:rgba(255,255,255,0.03);--surface2:rgba(255,255,255,0.06);--border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.12);--text:#FAFAFA;--text2:rgba(255,255,255,0.5);--text3:rgba(255,255,255,0.3);--amber:#F59E0B;--amber2:#D97706;--violet:#8B5CF6;--emerald:#10B981;--red:#EF4444;--blue:#3B82F6;--font:'Plus Jakarta Sans',sans-serif;--mono:'JetBrains Mono',monospace}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;display:flex}
+a{text-decoration:none;color:inherit}
+
+.sidebar{width:240px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50}
+.sidebar-logo{display:flex;align-items:center;gap:10px;padding:20px;border-bottom:1px solid var(--border)}
+.s-icon{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--amber),var(--amber2));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff;box-shadow:0 0 20px rgba(245,158,11,0.15)}
+.s-text{font-size:16px;font-weight:800}.s-text span{color:var(--amber)}
+
+.sidebar-nav{flex:1;padding:16px 12px;display:flex;flex-direction:column;gap:2px;overflow-y:auto}
+.nav-sec{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3);padding:16px 12px 6px;font-family:var(--mono)}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;transition:all 0.2s;position:relative}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:rgba(245,158,11,0.08);color:var(--amber);border:1px solid rgba(245,158,11,0.12)}
+.nav-item .ico{width:20px;text-align:center;font-size:15px;opacity:0.5}
+.nav-item.active .ico{opacity:1}
+
+.main{flex:1;margin-left:240px;display:flex;flex-direction:column}
+.topbar{height:64px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 28px;background:rgba(9,9,11,0.8);backdrop-filter:blur(20px);position:sticky;top:0;z-index:40}
+.topbar-left{display:flex;align-items:center;gap:14px}
+.topbar-title{font-size:18px;font-weight:700}
+
+.content{padding:28px;flex:1}
+
+.action-btn{padding:7px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:12px;font-weight:600;font-family:var(--font);cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:5px}
+.action-btn:hover{background:rgba(255,255,255,0.08);color:var(--text)}
+.action-btn.primary{background:linear-gradient(135deg,var(--amber),var(--amber2));color:#fff;border-color:transparent}
+.action-btn.primary:hover{box-shadow:0 4px 15px rgba(245,158,11,0.25)}
+
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px}
+.stat-card{background:var(--surface);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:16px;padding:20px;transition:all 0.25s}
+.stat-card:hover{border-color:var(--border2);transform:translateY(-2px)}
+.stat-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);margin-bottom:8px;font-family:var(--mono)}
+.stat-value{font-size:28px;font-weight:800;font-family:var(--mono)}
+
+.waitlist-container{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+
+.wl-header{display:grid;grid-template-columns:60px 1.5fr 1fr 80px 100px 1fr 160px;gap:12px;padding:14px 24px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);font-family:var(--mono);border-bottom:1px solid var(--border);align-items:center}
+
+.wl-row{display:grid;grid-template-columns:60px 1.5fr 1fr 80px 100px 1fr 160px;gap:12px;padding:16px 24px;border-bottom:1px solid var(--border);align-items:center;transition:all 0.2s}
+.wl-row:last-child{border-bottom:none}
+.wl-row:hover{background:var(--surface2)}
+
+.wl-pos{font-size:18px;font-weight:800;font-family:var(--mono);color:var(--amber);text-align:center}
+.wl-name{font-size:14px;font-weight:600}
+.wl-phone{font-size:13px;color:var(--text2);font-family:var(--mono)}
+.wl-party{font-size:13px;font-weight:600;text-align:center}
+.wl-wait{font-size:13px;font-family:var(--mono);font-weight:600}
+.wl-wait.short{color:var(--emerald)}
+.wl-wait.medium{color:var(--amber)}
+.wl-wait.long{color:var(--red)}
+.wl-notes{font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.wl-actions{display:flex;gap:6px;justify-content:flex-end}
+.btn-notify{padding:6px 12px;border-radius:8px;border:1px solid rgba(16,185,129,0.2);background:rgba(16,185,129,0.08);color:var(--emerald);font-size:11px;font-weight:700;font-family:var(--font);cursor:pointer;transition:all 0.2s;white-space:nowrap}
+.btn-notify:hover{background:rgba(16,185,129,0.15);border-color:rgba(16,185,129,0.3)}
+.btn-notify.notified{background:rgba(16,185,129,0.04);color:var(--text3);border-color:var(--border);cursor:default;font-size:10px}
+.btn-remove{padding:6px 12px;border-radius:8px;border:1px solid rgba(239,68,68,0.2);background:rgba(239,68,68,0.08);color:var(--red);font-size:11px;font-weight:700;font-family:var(--font);cursor:pointer;transition:all 0.2s}
+.btn-remove:hover{background:rgba(239,68,68,0.15);border-color:rgba(239,68,68,0.3)}
+
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);z-index:200;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:20px;padding:32px;max-width:440px;width:90%}
+.modal h3{font-size:18px;font-weight:700;margin-bottom:20px}
+.form-group{margin-bottom:16px}
+.form-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);margin-bottom:6px;display:block;font-family:var(--mono)}
+.form-input{width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;color:var(--text);font-family:var(--font);font-size:14px;outline:none;transition:border-color 0.2s}
+.form-input:focus{border-color:var(--amber)}
+.form-textarea{width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;color:var(--text);font-family:var(--font);font-size:14px;outline:none;resize:vertical;min-height:60px;transition:border-color 0.2s}
+.form-textarea:focus{border-color:var(--amber)}
+.modal-actions{display:flex;gap:10px;margin-top:24px}
+.modal-actions .action-btn{flex:1;justify-content:center;padding:12px}
+
+.empty-state{text-align:center;padding:80px 40px;color:var(--text3)}
+.empty-state .icon{font-size:48px;margin-bottom:16px}
+.empty-state .title{font-size:16px;font-weight:600;color:var(--text2);margin-bottom:8px}
+.empty-state .desc{font-size:13px}
+
+@media(max-width:900px){
+  .wl-header,.wl-row{grid-template-columns:40px 1.2fr 1fr 60px 80px 120px;font-size:11px}
+  .wl-header>:nth-child(6),.wl-row>:nth-child(6){display:none}
+}
+@media(max-width:768px){.main{margin-left:0}.stats-row{grid-template-columns:1fr}
+  .wl-header,.wl-row{grid-template-columns:40px 1fr 80px 120px}
+  .wl-header>:nth-child(3),.wl-row>:nth-child(3),.wl-header>:nth-child(5),.wl-row>:nth-child(5),.wl-header>:nth-child(6),.wl-row>:nth-child(6){display:none}
+}
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+<div class="sidebar-logo"><div class="s-icon">TT</div><div class="s-text">Te Ta <span>AI</span></div></div>
+<nav class="sidebar-nav">
+<div class="nav-sec" data-i18n="nav_section.core">Restaurant</div>
+<a class="nav-item" href="/dashboard"><div class="ico">📊</div><span data-i18n="nav.dashboard">Dashboard</span></a>
+<a class="nav-item" href="/analytics"><div class="ico">📈</div><span data-i18n="nav.analytics">Analytics</span></a>
+<a class="nav-item" href="/guests"><div class="ico">👥</div><span data-i18n="nav.guests">Guests</span></a>
+<a class="nav-item" href="/messages"><div class="ico">💬</div><span data-i18n="nav.messages">Messages</span></a>
+<div class="nav-sec" data-i18n="nav_section.operations">Operations</div>
+<a class="nav-item" href="/floorplan"><div class="ico">🗺️</div><span data-i18n="nav.floor_plan">Floor Plan</span></a>
+<a class="nav-item" href="/menu"><div class="ico">🍽️</div><span data-i18n="nav.menu">Menu</span></a>
+<a class="nav-item active" href="/waitlist"><div class="ico">⏳</div><span data-i18n="nav.waitlist">Waitlist</span></a>
+<div class="nav-sec" data-i18n="nav_section.marketing">Marketing</div>
+<a class="nav-item" href="/campaigns"><div class="ico">📢</div><span data-i18n="nav.campaigns">Campaigns</span></a>
+<div class="nav-sec" data-i18n="nav_section.system">System</div>
+<a class="nav-item" href="/settings"><div class="ico">⚙️</div><span data-i18n="nav.settings">Settings</span></a>
+</nav>
+</aside>
+
+<div class="main">
+<div class="topbar">
+<div class="topbar-left">
+<div class="topbar-title" data-i18n="nav.waitlist">Waitlist</div>
+</div>
+<div>
+<button class="action-btn primary" onclick="openAddModal()" data-i18n="waitlist.add_to_waitlist">+ Add to Waitlist</button>
+</div>
+</div>
+
+<div class="content">
+<div class="stats-row">
+<div class="stat-card"><div class="stat-label" data-i18n="waitlist.people_waiting">People Waiting</div><div class="stat-value" style="color:var(--amber)" id="statWaiting">0</div></div>
+<div class="stat-card"><div class="stat-label" data-i18n="waitlist.avg_wait">Avg Wait Time</div><div class="stat-value" style="color:var(--violet)" id="statAvgWait">0 min</div></div>
+<div class="stat-card"><div class="stat-label" data-i18n="waitlist.total_guests">Total Guests</div><div class="stat-value" style="color:var(--emerald)" id="statGuests">0</div></div>
+</div>
+
+<div class="waitlist-container" id="waitlistContainer">
+<div class="wl-header">
+<div>#</div>
+<div data-i18n="waitlist.col_name">Name</div>
+<div data-i18n="waitlist.col_phone">Phone</div>
+<div data-i18n="waitlist.col_party">Party</div>
+<div data-i18n="waitlist.col_wait">Wait Time</div>
+<div data-i18n="waitlist.col_notes">Notes</div>
+<div style="text-align:right" data-i18n="waitlist.col_actions">Actions</div>
+</div>
+<div id="waitlistBody"></div>
+</div>
+
+<div class="empty-state" id="emptyState" style="display:none">
+<div class="icon">✨</div>
+<div class="title" data-i18n="waitlist.empty_title">No one waiting!</div>
+<div class="desc" data-i18n="waitlist.empty_desc">All tables are available. Guests will appear here when the waitlist fills up.</div>
+</div>
+</div>
+</div>
+
+<!-- Add to Waitlist Modal -->
+<div class="modal-overlay" id="addModal">
+<div class="modal">
+<h3 data-i18n="waitlist.add_modal_title">Add to Waitlist</h3>
+<div class="form-group">
+<label class="form-label" data-i18n="waitlist.customer_name">Customer Name</label>
+<input type="text" class="form-input" id="addName" placeholder="Full name">
+</div>
+<div class="form-group">
+<label class="form-label" data-i18n="waitlist.phone_number">Phone Number</label>
+<input type="tel" class="form-input" id="addPhone" placeholder="+355 69 123 4567">
+</div>
+<div class="form-group">
+<label class="form-label" data-i18n="waitlist.party_size">Party Size</label>
+<input type="number" class="form-input" id="addParty" placeholder="2" min="1" max="20">
+</div>
+<div class="form-group">
+<label class="form-label" data-i18n="waitlist.notes">Notes (optional)</label>
+<textarea class="form-textarea" id="addNotes" placeholder="Special requests, preferences..."></textarea>
+</div>
+<div class="modal-actions">
+<button class="action-btn" onclick="closeAddModal()" data-i18n="actions.cancel">Cancel</button>
+<button class="action-btn primary" onclick="addToWaitlist()" data-i18n="waitlist.add_to_waitlist">Add to Waitlist</button>
+</div>
+</div>
+</div>
+
+<script>
+const ownerKey = localStorage.getItem('tta_owner_key');
+if (!ownerKey) window.location.href = '/login';
+
+const API = (path, opts = {}) => fetch('/owner' + path, {
+  ...opts,
+  headers: { 'Content-Type': 'application/json', 'x-owner-key': ownerKey, ...(opts.headers || {}) },
+  body: opts.body ? JSON.stringify(opts.body) : undefined
+}).then(r => r.json());
+
+let waitlist = [];
+let waitTimer = null;
+
+async function loadWaitlist() {
+  try {
+    const res = await API('/waitlist');
+    waitlist = Array.isArray(res) ? res : (res.waitlist || res.data || []);
+  } catch (e) {
+    console.error('Failed to load waitlist:', e);
+    waitlist = [];
+  }
+  renderWaitlist();
+  renderStats();
+}
+
+function getWaitMinutes(createdAt) {
+  if (!createdAt) return 0;
+  const created = new Date(createdAt);
+  const now = new Date();
+  return Math.max(0, Math.round((now - created) / 60000));
+}
+
+function formatWait(mins) {
+  if (mins < 60) return mins + ' min';
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return h + 'h ' + m + 'm';
+}
+
+function waitClass(mins) {
+  if (mins <= 15) return 'short';
+  if (mins <= 30) return 'medium';
+  return 'long';
+}
+
+function esc(str) {
+  const d = document.createElement('div');
+  d.textContent = str || '';
+  return d.innerHTML;
+}
+
+function renderStats() {
+  document.getElementById('statWaiting').textContent = waitlist.length;
+  const totalGuests = waitlist.reduce((sum, w) => sum + (w.party_size || 1), 0);
+  document.getElementById('statGuests').textContent = totalGuests;
+
+  if (waitlist.length > 0) {
+    const avgMins = Math.round(waitlist.reduce((sum, w) => sum + getWaitMinutes(w.created_at || w.added_at), 0) / waitlist.length);
+    document.getElementById('statAvgWait').textContent = formatWait(avgMins);
+  } else {
+    document.getElementById('statAvgWait').textContent = '0 min';
+  }
+}
+
+function renderWaitlist() {
+  const body = document.getElementById('waitlistBody');
+  const container = document.getElementById('waitlistContainer');
+  const empty = document.getElementById('emptyState');
+
+  if (waitlist.length === 0) {
+    container.style.display = 'none';
+    empty.style.display = 'block';
+    return;
+  }
+  container.style.display = 'block';
+  empty.style.display = 'none';
+
+  body.innerHTML = waitlist.map((w, i) => {
+    const mins = getWaitMinutes(w.created_at || w.added_at);
+    const wc = waitClass(mins);
+    const notified = w.notified_at || w.notified;
+    const notifyBtn = notified
+      ? `<button class="btn-notify notified" disabled>Notified ✓<br>${typeof notified === 'string' ? new Date(notified).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : ''}</button>`
+      : `<button class="btn-notify" onclick="notifyGuest(${w.id})">Notify</button>`;
+
+    return `<div class="wl-row">
+      <div class="wl-pos">#${i + 1}</div>
+      <div class="wl-name">${esc(w.customer_name || w.name)}</div>
+      <div class="wl-phone">${esc(w.phone || w.phone_number || '—')}</div>
+      <div class="wl-party">👥 ${w.party_size || 1}</div>
+      <div class="wl-wait ${wc}" data-created="${w.created_at || w.added_at || ''}">${formatWait(mins)}</div>
+      <div class="wl-notes" title="${esc(w.notes)}">${esc(w.notes || '—')}</div>
+      <div class="wl-actions">${notifyBtn}<button class="btn-remove" onclick="removeGuest(${w.id})">Remove</button></div>
+    </div>`;
+  }).join('');
+}
+
+function startLiveTimer() {
+  if (waitTimer) clearInterval(waitTimer);
+  waitTimer = setInterval(() => {
+    document.querySelectorAll('.wl-wait[data-created]').forEach(el => {
+      const created = el.dataset.created;
+      if (!created) return;
+      const mins = getWaitMinutes(created);
+      el.textContent = formatWait(mins);
+      el.className = 'wl-wait ' + waitClass(mins);
+    });
+    renderStats();
+  }, 30000);
+}
+
+function openAddModal() {
+  document.getElementById('addName').value = '';
+  document.getElementById('addPhone').value = '';
+  document.getElementById('addParty').value = '';
+  document.getElementById('addNotes').value = '';
+  document.getElementById('addModal').classList.add('show');
+  setTimeout(() => document.getElementById('addName').focus(), 100);
+}
+
+function closeAddModal() {
+  document.getElementById('addModal').classList.remove('show');
+}
+
+async function addToWaitlist() {
+  const customer_name = document.getElementById('addName').value.trim();
+  const phone = document.getElementById('addPhone').value.trim();
+  const party_size = parseInt(document.getElementById('addParty').value) || 1;
+  const notes = document.getElementById('addNotes').value.trim();
+
+  if (!customer_name) return;
+
+  try {
+    await API('/waitlist', {
+      method: 'POST',
+      body: { customer_name, phone, party_size, notes }
+    });
+    closeAddModal();
+    loadWaitlist();
+  } catch (e) {
+    console.error('Failed to add to waitlist:', e);
+  }
+}
+
+async function notifyGuest(id) {
+  try {
+    await API(`/waitlist/${id}/notify`, { method: 'POST' });
+    loadWaitlist();
+  } catch (e) {
+    console.error('Failed to notify guest:', e);
+  }
+}
+
+async function removeGuest(id) {
+  if (!confirm('Remove this guest from the waitlist?')) return;
+  try {
+    await API(`/waitlist/${id}`, { method: 'DELETE' });
+    loadWaitlist();
+  } catch (e) {
+    console.error('Failed to remove guest:', e);
+  }
+}
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('show'); });
+});
+
+loadWaitlist();
+startLiveTimer();
+</script>
+<script src="/i18n.js"></script>
+<script src="/js/mobile-nav.js"></script>
+</body>
+</html>

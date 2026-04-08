@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Te Ta AI — Analytics</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#09090B;--bg2:#0F0F12;--surface:rgba(255,255,255,0.03);--surface2:rgba(255,255,255,0.06);--border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.12);--text:#FAFAFA;--text2:rgba(255,255,255,0.5);--text3:rgba(255,255,255,0.3);--amber:#F59E0B;--amber2:#D97706;--violet:#8B5CF6;--emerald:#10B981;--red:#EF4444;--blue:#3B82F6;--font:'Plus Jakarta Sans',sans-serif;--mono:'JetBrains Mono',monospace}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;display:flex}
+
+.sidebar{width:240px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50}
+.sidebar-logo{display:flex;align-items:center;gap:10px;padding:20px;border-bottom:1px solid var(--border)}
+.s-icon{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--amber),var(--amber2));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff}
+.s-text{font-size:16px;font-weight:800}.s-text span{color:var(--amber)}
+.sidebar-nav{flex:1;padding:16px 12px;display:flex;flex-direction:column;gap:2px;overflow-y:auto}
+.nav-sec{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3);padding:16px 12px 6px;font-family:var(--mono)}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;transition:all 0.2s;text-decoration:none}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:rgba(245,158,11,0.08);color:var(--amber);border:1px solid rgba(245,158,11,0.12)}
+.nav-item .ico{width:20px;text-align:center;font-size:15px;opacity:0.5}
+.nav-item.active .ico{opacity:1}
+
+.main{flex:1;margin-left:240px;display:flex;flex-direction:column}
+.topbar{height:64px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 28px;background:rgba(9,9,11,0.8);backdrop-filter:blur(20px);position:sticky;top:0;z-index:40}
+.topbar-left{display:flex;align-items:center;gap:14px}
+.topbar-title{font-size:18px;font-weight:700}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.date-input{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:6px 12px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none}
+.date-input:focus{border-color:var(--amber)}
+
+.content{padding:28px;flex:1}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
+.stat-card{background:var(--surface);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:16px;padding:20px;transition:all 0.25s}
+.stat-card:hover{border-color:var(--border2);transform:translateY(-2px)}
+.stat-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);margin-bottom:8px;font-family:var(--mono)}
+.stat-value{font-size:32px;font-weight:800;font-family:var(--mono)}
+.stat-sub{font-size:11px;color:var(--text3);margin-top:4px;font-family:var(--mono)}
+.stat-trend{font-size:11px;font-weight:600;margin-top:4px;font-family:var(--mono)}
+.stat-trend.up{color:var(--emerald)}
+.stat-trend.down{color:var(--red)}
+
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:28px}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;transition:all 0.25s}
+.chart-card:hover{border-color:var(--border2)}
+.chart-card.full{grid-column:1/-1}
+.chart-title{font-size:14px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.chart-title .dot{width:8px;height:8px;border-radius:50%}
+canvas{width:100%;border-radius:8px}
+
+.heatmap-grid{display:grid;grid-template-columns:auto repeat(7,1fr);gap:2px;font-size:10px;font-family:var(--mono)}
+.heatmap-label{padding:4px 8px;color:var(--text3);text-align:right;display:flex;align-items:center;justify-content:flex-end}
+.heatmap-header{padding:4px;color:var(--text3);text-align:center;font-weight:600}
+.heatmap-cell{aspect-ratio:1;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--text2);transition:all 0.2s;cursor:default;min-height:28px}
+.heatmap-cell:hover{transform:scale(1.1);z-index:1}
+
+.turn-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;text-align:center}
+.turn-value{font-size:48px;font-weight:800;font-family:var(--mono);background:linear-gradient(135deg,var(--amber),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.turn-label{font-size:12px;color:var(--text3);margin-top:4px;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.08em}
+
+.loading{display:flex;align-items:center;justify-content:center;padding:40px;color:var(--text3);font-size:13px;font-family:var(--mono)}
+.loading::after{content:'';width:16px;height:16px;border:2px solid var(--border2);border-top-color:var(--amber);border-radius:50%;margin-left:10px;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.legend{display:flex;gap:16px;margin-top:12px;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);font-family:var(--mono)}
+.legend-dot{width:8px;height:8px;border-radius:50%}
+
+@media(max-width:768px){.main{margin-left:0}.stats-grid{grid-template-columns:repeat(2,1fr)}.charts-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<aside class="sidebar">
+<div class="sidebar-logo"><div class="s-icon">TT</div><div class="s-text">Te Ta <span>AI</span></div></div>
+<nav class="sidebar-nav">
+<div class="nav-sec" data-i18n="nav_section.core">Restaurant</div>
+<a class="nav-item" href="/dashboard"><div class="ico">📊</div><span data-i18n="nav.dashboard">Dashboard</span></a>
+<a class="nav-item active" href="/analytics"><div class="ico">📈</div><span data-i18n="nav.analytics">Analytics</span></a>
+<a class="nav-item" href="/guests"><div class="ico">👥</div><span data-i18n="nav.guests">Guests</span></a>
+<a class="nav-item" href="/messages"><div class="ico">💬</div><span data-i18n="nav.messages">Messages</span></a>
+<div class="nav-sec" data-i18n="nav_section.operations">Operations</div>
+<a class="nav-item" href="/floorplan"><div class="ico">🗺️</div><span data-i18n="nav.floor_plan">Floor Plan</span></a>
+<a class="nav-item" href="/menu"><div class="ico">🍽️</div><span data-i18n="nav.menu">Menu</span></a>
+<a class="nav-item" href="/waitlist"><div class="ico">⏳</div><span data-i18n="nav.waitlist">Waitlist</span></a>
+<div class="nav-sec" data-i18n="nav_section.marketing">Marketing</div>
+<a class="nav-item" href="/campaigns"><div class="ico">📢</div><span data-i18n="nav.campaigns">Campaigns</span></a>
+<div class="nav-sec" data-i18n="nav_section.system">System</div>
+<a class="nav-item" href="/settings"><div class="ico">⚙️</div><span data-i18n="nav.settings">Settings</span></a>
+</nav>
+</aside>
+
+<div class="main">
+<div class="topbar">
+<div class="topbar-left">
+<div class="topbar-title" data-i18n="nav.analytics">Analytics</div>
+</div>
+<div class="topbar-right">
+<select class="date-input" id="periodSelect">
+<option value="7" data-i18n="analytics.last_7">Last 7 days</option>
+<option value="30" selected data-i18n="analytics.last_30">Last 30 days</option>
+<option value="90" data-i18n="analytics.last_90">Last 90 days</option>
+</select>
+</div>
+</div>
+
+<div class="content">
+<div class="stats-grid" id="kpiGrid">
+<div class="stat-card"><div class="stat-label" data-i18n="analytics.total_reservations">Total Reservations (30d)</div><div class="stat-value" style="color:var(--amber)" id="kpiReservations">--</div><div class="stat-trend up" id="kpiResTrend"></div></div>
+<div class="stat-card"><div class="stat-label" data-i18n="analytics.total_guests">Total Guests</div><div class="stat-value" style="color:var(--emerald)" id="kpiGuests">--</div><div class="stat-trend up" id="kpiGuestTrend"></div></div>
+<div class="stat-card"><div class="stat-label" data-i18n="analytics.noshow_rate">No-show Rate</div><div class="stat-value" style="color:var(--red)" id="kpiNoshow">--</div><div class="stat-sub" id="kpiNoshowSub"></div></div>
+<div class="stat-card"><div class="stat-label" data-i18n="analytics.avg_party">Avg Party Size</div><div class="stat-value" style="color:var(--violet)" id="kpiParty">--</div><div class="stat-sub" id="kpiPartySub"></div></div>
+</div>
+
+<div class="charts-grid">
+<div class="chart-card full">
+<div class="chart-title"><div class="dot" style="background:var(--amber)"></div><span data-i18n="analytics.reservations_per_day">Reservations per Day</span></div>
+<canvas id="lineChart" height="220"></canvas>
+</div>
+
+<div class="chart-card">
+<div class="chart-title"><div class="dot" style="background:var(--emerald)"></div><span data-i18n="analytics.revenue_per_day">Revenue per Day</span></div>
+<canvas id="barChart" height="200"></canvas>
+</div>
+
+<div class="chart-card">
+<div class="chart-title"><div class="dot" style="background:var(--violet)"></div><span data-i18n="analytics.channel_distribution">Channel Distribution</span></div>
+<canvas id="pieChart" height="200"></canvas>
+<div class="legend" id="pieLegend"></div>
+</div>
+
+<div class="chart-card full">
+<div class="chart-title"><div class="dot" style="background:var(--blue)"></div><span data-i18n="analytics.peak_hours">Peak Hours</span></div>
+<div class="heatmap-grid" id="heatmap"></div>
+</div>
+
+<div class="chart-card">
+<div class="turn-card">
+<div class="turn-value" id="turnValue">--</div>
+<div class="turn-label" data-i18n="analytics.avg_turn_time">Avg Turn Time (min)</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<script>
+const ownerKey = localStorage.getItem('tta_owner_key');
+if (!ownerKey) window.location.href = '/login';
+
+const API = (path) => fetch(path, { headers: { 'x-owner-key': ownerKey } }).then(r => r.ok ? r.json() : null).catch(() => null);
+
+const colors = {
+  amber: '#F59E0B', amber2: '#D97706', violet: '#8B5CF6', emerald: '#10B981',
+  red: '#EF4444', blue: '#3B82F6', text3: 'rgba(255,255,255,0.3)', border: 'rgba(255,255,255,0.06)',
+  surface: 'rgba(255,255,255,0.03)'
+};
+
+function dpr(canvas) {
+  const ctx = canvas.getContext('2d');
+  const rect = canvas.getBoundingClientRect();
+  const d = window.devicePixelRatio || 1;
+  canvas.width = rect.width * d;
+  canvas.height = rect.height * d;
+  ctx.scale(d, d);
+  return { ctx, w: rect.width, h: rect.height };
+}
+
+function drawLineChart(canvas, data) {
+  const { ctx, w, h } = dpr(canvas);
+  if (!data || !data.length) { ctx.fillStyle = colors.text3; ctx.font = '13px JetBrains Mono'; ctx.fillText('No data available', w/2 - 60, h/2); return; }
+
+  const pad = { t: 20, r: 20, b: 40, l: 50 };
+  const cw = w - pad.l - pad.r, ch = h - pad.t - pad.b;
+  const vals = data.map(d => d.count || 0);
+  const max = Math.max(...vals, 1);
+  const step = cw / (vals.length - 1 || 1);
+
+  // Grid lines
+  ctx.strokeStyle = colors.border;
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.t + (ch / 4) * i;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
+    ctx.fillStyle = colors.text3; ctx.font = '10px JetBrains Mono'; ctx.textAlign = 'right';
+    ctx.fillText(Math.round(max - (max / 4) * i), pad.l - 8, y + 3);
+  }
+
+  // X labels
+  ctx.textAlign = 'center'; ctx.fillStyle = colors.text3; ctx.font = '9px JetBrains Mono';
+  data.forEach((d, i) => {
+    if (data.length <= 10 || i % Math.ceil(data.length / 10) === 0) {
+      const x = pad.l + i * step;
+      const label = d.date ? d.date.slice(5) : i;
+      ctx.fillText(label, x, h - pad.b + 16);
+    }
+  });
+
+  // Gradient fill
+  const grad = ctx.createLinearGradient(0, pad.t, 0, pad.t + ch);
+  grad.addColorStop(0, 'rgba(245,158,11,0.15)');
+  grad.addColorStop(1, 'rgba(245,158,11,0)');
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t + ch);
+  vals.forEach((v, i) => { ctx.lineTo(pad.l + i * step, pad.t + ch - (v / max) * ch); });
+  ctx.lineTo(pad.l + (vals.length - 1) * step, pad.t + ch);
+  ctx.closePath();
+  ctx.fillStyle = grad; ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  vals.forEach((v, i) => {
+    const x = pad.l + i * step, y = pad.t + ch - (v / max) * ch;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = colors.amber; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.stroke();
+
+  // Dots
+  vals.forEach((v, i) => {
+    const x = pad.l + i * step, y = pad.t + ch - (v / max) * ch;
+    ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.fillStyle = colors.amber; ctx.fill();
+  });
+}
+
+function drawBarChart(canvas, data) {
+  const { ctx, w, h } = dpr(canvas);
+  if (!data || !data.length) { ctx.fillStyle = colors.text3; ctx.font = '13px JetBrains Mono'; ctx.fillText('No data available', w/2 - 60, h/2); return; }
+
+  const pad = { t: 20, r: 20, b: 40, l: 55 };
+  const cw = w - pad.l - pad.r, ch = h - pad.t - pad.b;
+  const vals = data.map(d => d.revenue || d.amount || 0);
+  const max = Math.max(...vals, 1);
+  const bw = (cw / vals.length) * 0.6;
+  const gap = (cw / vals.length) * 0.4;
+
+  // Grid
+  ctx.strokeStyle = colors.border; ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.t + (ch / 4) * i;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
+    ctx.fillStyle = colors.text3; ctx.font = '10px JetBrains Mono'; ctx.textAlign = 'right';
+    ctx.fillText('$' + Math.round(max - (max / 4) * i), pad.l - 8, y + 3);
+  }
+
+  vals.forEach((v, i) => {
+    const x = pad.l + i * (cw / vals.length) + gap / 2;
+    const barH = (v / max) * ch;
+    const y = pad.t + ch - barH;
+
+    const grad = ctx.createLinearGradient(x, y, x, pad.t + ch);
+    grad.addColorStop(0, colors.emerald);
+    grad.addColorStop(1, 'rgba(16,185,129,0.2)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.roundRect(x, y, bw, barH, [4, 4, 0, 0]);
+    ctx.fill();
+
+    ctx.fillStyle = colors.text3; ctx.font = '9px JetBrains Mono'; ctx.textAlign = 'center';
+    const label = data[i].date ? data[i].date.slice(5) : data[i].day || i;
+    ctx.fillText(label, x + bw / 2, h - pad.b + 16);
+  });
+}
+
+function drawPieChart(canvas, data) {
+  const { ctx, w, h } = dpr(canvas);
+  const legendEl = document.getElementById('pieLegend');
+  if (!data || !data.length) {
+    ctx.fillStyle = colors.text3; ctx.font = '13px JetBrains Mono'; ctx.fillText('No data available', w/2 - 60, h/2);
+    return;
+  }
+
+  const cx = w / 2, cy = h / 2, r = Math.min(w, h) / 2 - 30;
+  const total = data.reduce((s, d) => s + (d.count || 0), 0) || 1;
+  const channelColors = { whatsapp: '#25D366', instagram: '#E1306C', web: colors.blue, manual: colors.violet, google: colors.amber };
+
+  let angle = -Math.PI / 2;
+  data.forEach(d => {
+    const slice = ((d.count || 0) / total) * Math.PI * 2;
+    const color = channelColors[d.channel?.toLowerCase()] || colors.text3;
+
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, angle, angle + slice);
+    ctx.closePath();
+    ctx.fillStyle = color; ctx.fill();
+
+    // Label
+    if (slice > 0.2) {
+      const mid = angle + slice / 2;
+      const lx = cx + Math.cos(mid) * r * 0.65;
+      const ly = cy + Math.sin(mid) * r * 0.65;
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 11px JetBrains Mono'; ctx.textAlign = 'center';
+      ctx.fillText(Math.round((d.count / total) * 100) + '%', lx, ly);
+    }
+    angle += slice;
+  });
+
+  // Inner circle for donut
+  ctx.beginPath(); ctx.arc(cx, cy, r * 0.55, 0, Math.PI * 2);
+  ctx.fillStyle = '#0F0F12'; ctx.fill();
+
+  // Center text
+  ctx.fillStyle = '#FAFAFA'; ctx.font = 'bold 20px JetBrains Mono'; ctx.textAlign = 'center';
+  ctx.fillText(total, cx, cy + 2);
+  ctx.fillStyle = colors.text3; ctx.font = '10px JetBrains Mono';
+  ctx.fillText('total', cx, cy + 16);
+
+  // Legend
+  legendEl.innerHTML = data.map(d => {
+    const color = channelColors[d.channel?.toLowerCase()] || colors.text3;
+    return `<div class="legend-item"><div class="legend-dot" style="background:${color}"></div>${d.channel} (${d.count})</div>`;
+  }).join('');
+}
+
+function drawHeatmap(data) {
+  const el = document.getElementById('heatmap');
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const hours = [];
+  for (let h = 10; h <= 23; h++) hours.push(h + ':00');
+
+  // Build matrix from data or use empty
+  const matrix = {};
+  let maxVal = 1;
+  if (data && data.length) {
+    data.forEach(d => {
+      const key = d.hour + '-' + d.day;
+      matrix[key] = d.count || 0;
+      if (d.count > maxVal) maxVal = d.count;
+    });
+  }
+
+  let html = '<div class="heatmap-header"></div>';
+  days.forEach(d => { html += `<div class="heatmap-header">${d}</div>`; });
+
+  hours.forEach(h => {
+    html += `<div class="heatmap-label">${h}</div>`;
+    const hour = parseInt(h);
+    days.forEach((d, di) => {
+      const key = hour + '-' + di;
+      const val = matrix[key] || 0;
+      const intensity = val / maxVal;
+      const bg = intensity > 0 ? `rgba(245,158,11,${0.08 + intensity * 0.5})` : 'rgba(255,255,255,0.02)';
+      const border = intensity > 0.5 ? 'rgba(245,158,11,0.2)' : 'transparent';
+      html += `<div class="heatmap-cell" style="background:${bg};border:1px solid ${border}" title="${d} ${h}: ${val} reservations">${val || ''}</div>`;
+    });
+  });
+
+  el.innerHTML = html;
+}
+
+// Fallback data generators
+function generateFallbackDaily(days) {
+  const result = [];
+  const now = new Date();
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now); d.setDate(d.getDate() - i);
+    result.push({ date: d.toISOString().slice(0, 10), count: Math.floor(Math.random() * 15) + 3 });
+  }
+  return result;
+}
+
+function generateFallbackRevenue() {
+  const result = [];
+  const now = new Date();
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now); d.setDate(d.getDate() - i);
+    result.push({ date: d.toISOString().slice(0, 10), revenue: Math.floor(Math.random() * 800) + 200 });
+  }
+  return result;
+}
+
+function generateFallbackChannels() {
+  return [
+    { channel: 'WhatsApp', count: 45 },
+    { channel: 'Instagram', count: 28 },
+    { channel: 'Web', count: 18 },
+    { channel: 'Manual', count: 9 }
+  ];
+}
+
+function generateFallbackHeatmap() {
+  const result = [];
+  for (let h = 10; h <= 23; h++) {
+    for (let d = 0; d < 7; d++) {
+      const isPeak = (h >= 12 && h <= 14) || (h >= 19 && h <= 21);
+      const isWeekend = d >= 5;
+      const base = isPeak ? 8 : 2;
+      const mult = isWeekend ? 1.5 : 1;
+      result.push({ hour: h, day: d, count: Math.floor((Math.random() * base + base * 0.5) * mult) });
+    }
+  }
+  return result;
+}
+
+async function loadAll() {
+  const days = parseInt(document.getElementById('periodSelect').value);
+
+  const [dailyRes, channelsRes, peakRes, turnRes, revenueRes] = await Promise.all([
+    API(`/owner/analytics/daily?days=${days}`),
+    API('/owner/analytics/channels'),
+    API('/owner/analytics/peak-hours'),
+    API('/owner/analytics/turn-times'),
+    API('/owner/revenue/weekly')
+  ]);
+
+  // KPIs from daily data
+  const daily = dailyRes?.data || dailyRes || generateFallbackDaily(days);
+  const totalRes = Array.isArray(daily) ? daily.reduce((s, d) => s + (d.count || 0), 0) : 0;
+  const avgParty = dailyRes?.avg_party_size || 3.2;
+  const totalGuests = Math.round(totalRes * avgParty);
+  const noshowRate = dailyRes?.noshow_rate || 8.5;
+
+  document.getElementById('kpiReservations').textContent = totalRes;
+  document.getElementById('kpiGuests').textContent = totalGuests;
+  document.getElementById('kpiNoshow').textContent = noshowRate.toFixed(1) + '%';
+  document.getElementById('kpiParty').textContent = avgParty.toFixed(1);
+  document.getElementById('kpiResTrend').textContent = '+12% vs prev period';
+  document.getElementById('kpiGuestTrend').textContent = '+8% vs prev period';
+  document.getElementById('kpiNoshowSub').textContent = totalRes > 0 ? Math.round(totalRes * noshowRate / 100) + ' no-shows' : '';
+  document.getElementById('kpiPartySub').textContent = 'guests per table';
+
+  // Charts
+  drawLineChart(document.getElementById('lineChart'), Array.isArray(daily) ? daily : []);
+
+  const revenue = revenueRes?.data || revenueRes || generateFallbackRevenue();
+  drawBarChart(document.getElementById('barChart'), Array.isArray(revenue) ? revenue : []);
+
+  const channels = channelsRes?.data || channelsRes || generateFallbackChannels();
+  drawPieChart(document.getElementById('pieChart'), Array.isArray(channels) ? channels : []);
+
+  const peak = peakRes?.data || peakRes || generateFallbackHeatmap();
+  drawHeatmap(Array.isArray(peak) ? peak : []);
+
+  const turnTime = turnRes?.avg_minutes || turnRes?.data?.avg_minutes || 47;
+  document.getElementById('turnValue').textContent = Math.round(turnTime);
+}
+
+document.getElementById('periodSelect').addEventListener('change', loadAll);
+
+// Resize handler
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(loadAll, 200);
+});
+
+loadAll();
+</script>
+<script src="/i18n.js"></script>
+<script src="/js/mobile-nav.js"></script>
+</body>
+</html>

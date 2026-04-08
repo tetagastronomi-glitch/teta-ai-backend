@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>404 — Page not found</title>
+  <style>
+    :root { --bg:#09090B; --bg2:#111114; --text:#FAFAFA; --muted:#A1A1AA; --accent:#F59E0B; --border:rgba(255,255,255,.08); }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; display:grid; place-items:center; background:radial-gradient(circle at 20% 20%, rgba(245,158,11,.12), transparent 40%), var(--bg); color:var(--text); font-family: "Plus Jakarta Sans", system-ui, sans-serif; }
+    .card { width:min(560px,92vw); background:var(--bg2); border:1px solid var(--border); border-radius:16px; padding:32px; text-align:center; }
+    h1 { margin:0 0 10px; font-size:2rem; }
+    p { margin:0 0 22px; color:var(--muted); }
+    a { display:inline-block; text-decoration:none; color:#111; font-weight:700; background:linear-gradient(135deg,#D97706,#F59E0B); padding:10px 16px; border-radius:10px; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1 data-i18n="error.not_found_title">Page not found</h1>
+    <p data-i18n="error.not_found_desc">The page you are looking for does not exist or has moved.</p>
+    <a href="/" data-i18n="error.go_home">Go back home</a>
+  </main>
+<script src="/i18n.js"></script>
+</body>
+</html>

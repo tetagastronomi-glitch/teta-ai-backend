@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Te Ta AI — Guest Profiles</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#09090B;--bg2:#0F0F12;--surface:rgba(255,255,255,0.03);--surface2:rgba(255,255,255,0.06);--border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.12);--text:#FAFAFA;--text2:rgba(255,255,255,0.5);--text3:rgba(255,255,255,0.3);--amber:#F59E0B;--amber2:#D97706;--violet:#8B5CF6;--emerald:#10B981;--red:#EF4444;--blue:#3B82F6;--font:'Plus Jakarta Sans',sans-serif;--mono:'JetBrains Mono',monospace}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;display:flex}
+
+.sidebar{width:240px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50}
+.sidebar-logo{display:flex;align-items:center;gap:10px;padding:20px;border-bottom:1px solid var(--border)}
+.s-icon{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--amber),var(--amber2));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff}
+.s-text{font-size:16px;font-weight:800}.s-text span{color:var(--amber)}
+.sidebar-nav{flex:1;padding:16px 12px;display:flex;flex-direction:column;gap:2px;overflow-y:auto}
+.nav-sec{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3);padding:16px 12px 6px;font-family:var(--mono)}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;transition:all 0.2s;text-decoration:none}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:rgba(245,158,11,0.08);color:var(--amber);border:1px solid rgba(245,158,11,0.12)}
+.nav-item .ico{width:20px;text-align:center;font-size:15px;opacity:0.5}
+.nav-item.active .ico{opacity:1}
+
+.main{flex:1;margin-left:240px;display:flex;flex-direction:column}
+.topbar{height:64px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 28px;background:rgba(9,9,11,0.8);backdrop-filter:blur(20px);position:sticky;top:0;z-index:40}
+.topbar-left{display:flex;align-items:center;gap:14px}
+.topbar-title{font-size:18px;font-weight:700}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.export-wrap{position:relative}
+.export-btn{height:38px;padding:0 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text2);font-size:12px;font-weight:600;cursor:pointer}
+.export-btn:hover{border-color:var(--border-h);color:var(--text)}
+.export-menu{position:absolute;top:42px;right:0;min-width:190px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;box-shadow:0 16px 40px rgba(0,0,0,0.45);display:none;overflow:hidden;z-index:20}
+.export-menu.show{display:block}
+.export-item{width:100%;text-align:left;padding:10px 12px;background:none;border:0;border-bottom:1px solid var(--border);color:var(--text2);font-size:12px;cursor:pointer}
+.export-item:last-child{border-bottom:0}
+.export-item:hover{background:var(--surface);color:var(--text)}
+.search-input{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:8px 14px 8px 36px;color:var(--text);font-family:var(--font);font-size:13px;outline:none;width:260px;transition:border-color 0.2s}
+.search-input:focus{border-color:var(--amber)}
+.search-wrap{position:relative}
+.search-wrap::before{content:'🔍';position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:13px;opacity:0.4}
+
+.content{padding:28px;flex:1;display:flex;flex-direction:column;min-height:0}
+
+.filter-tabs{display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap}
+.filter-tab{padding:7px 16px;border-radius:8px;font-size:12px;font-weight:600;color:var(--text2);background:var(--surface2);border:1px solid var(--border);cursor:pointer;transition:all 0.2s;font-family:var(--font)}
+.filter-tab:hover{color:var(--text);border-color:var(--border2)}
+.filter-tab.active{background:rgba(245,158,11,0.08);color:var(--amber);border-color:rgba(245,158,11,0.15)}
+.filter-count{font-size:10px;font-family:var(--mono);margin-left:4px;opacity:0.6}
+
+.guests-table{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;flex:1;display:flex;flex-direction:column}
+.table-header{display:grid;grid-template-columns:2fr 1.2fr 0.8fr 1fr 0.8fr 1fr;padding:12px 20px;border-bottom:1px solid var(--border);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);font-family:var(--mono)}
+.table-body{flex:1;overflow-y:auto}
+.table-row{display:grid;grid-template-columns:2fr 1.2fr 0.8fr 1fr 0.8fr 1fr;padding:14px 20px;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;transition:all 0.2s}
+.table-row:hover{background:var(--surface2)}
+.table-row:last-child{border-bottom:none}
+.guest-name{font-size:14px;font-weight:600;display:flex;align-items:center;gap:10px}
+.guest-avatar{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+.guest-phone{font-size:12px;color:var(--text2);font-family:var(--mono)}
+.guest-visits{font-size:14px;font-weight:700;font-family:var(--mono)}
+.guest-spend{font-size:13px;font-weight:600;font-family:var(--mono);color:var(--emerald)}
+.guest-date{font-size:12px;color:var(--text2);font-family:var(--mono)}
+.badge{padding:4px 10px;border-radius:6px;font-size:10px;font-weight:700;font-family:var(--mono);text-transform:uppercase;display:inline-block}
+.b-vip{background:rgba(139,92,246,0.1);color:var(--violet);border:1px solid rgba(139,92,246,0.15)}
+.b-loyal{background:rgba(16,185,129,0.1);color:var(--emerald);border:1px solid rgba(16,185,129,0.15)}
+.b-regular{background:rgba(59,130,246,0.1);color:var(--blue);border:1px solid rgba(59,130,246,0.15)}
+.b-new{background:rgba(245,158,11,0.1);color:var(--amber);border:1px solid rgba(245,158,11,0.15)}
+
+.empty-state{text-align:center;padding:60px 20px;color:var(--text3)}
+.empty-state .icon{font-size:48px;margin-bottom:12px;opacity:0.3}
+.empty-state .msg{font-size:14px;margin-bottom:4px}
+.empty-state .sub{font-size:12px;font-family:var(--mono)}
+
+/* Side Panel */
+.panel-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);z-index:100}
+.panel-overlay.show{display:block}
+.side-panel{position:fixed;top:0;right:-480px;bottom:0;width:480px;background:var(--bg2);border-left:1px solid var(--border);z-index:101;transition:right 0.3s ease;display:flex;flex-direction:column;overflow:hidden}
+.side-panel.show{right:0}
+.panel-header{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--border)}
+.panel-header h3{font-size:16px;font-weight:700}
+.panel-close{background:none;border:1px solid var(--border2);border-radius:8px;color:var(--text2);cursor:pointer;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:16px;transition:all 0.2s}
+.panel-close:hover{color:var(--text);background:var(--surface2)}
+.panel-body{flex:1;overflow-y:auto;padding:24px}
+.panel-section{margin-bottom:24px}
+.panel-section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);font-family:var(--mono);margin-bottom:10px}
+.panel-avatar{width:56px;height:56px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#fff;margin-bottom:12px}
+.field-group{margin-bottom:14px}
+.field-label{font-size:11px;font-weight:600;color:var(--text3);margin-bottom:4px;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em}
+.field-input{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:9px 12px;color:var(--text);font-family:var(--font);font-size:13px;outline:none;transition:border-color 0.2s}
+.field-input:focus{border-color:var(--amber)}
+.field-textarea{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:9px 12px;color:var(--text);font-family:var(--font);font-size:13px;outline:none;resize:vertical;min-height:60px;transition:border-color 0.2s}
+.field-textarea:focus{border-color:var(--amber)}
+.tags-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+
+.timeline{display:flex;flex-direction:column;gap:8px}
+.timeline-item{display:flex;gap:12px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;font-size:12px;align-items:center}
+.timeline-date{font-family:var(--mono);color:var(--text3);white-space:nowrap;font-size:11px}
+.timeline-info{flex:1;color:var(--text2)}
+.timeline-guests{font-family:var(--mono);color:var(--text3);font-size:11px}
+
+.panel-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
+.btn{padding:9px 20px;border-radius:8px;font-size:13px;font-weight:600;font-family:var(--font);cursor:pointer;transition:all 0.2s;border:1px solid var(--border2)}
+.btn-ghost{background:transparent;color:var(--text2)}
+.btn-ghost:hover{background:var(--surface2);color:var(--text)}
+.btn-primary{background:linear-gradient(135deg,var(--amber),var(--amber2));color:#fff;border-color:transparent}
+.btn-primary:hover{box-shadow:0 4px 15px rgba(245,158,11,0.25)}
+.btn-primary:disabled{opacity:0.5;cursor:not-allowed}
+
+.saving{position:relative;pointer-events:none;opacity:0.7}
+
+@media(max-width:768px){.main{margin-left:0}.table-header,.table-row{grid-template-columns:1.5fr 1fr 0.6fr 0.8fr}.table-header>:nth-child(5),.table-header>:nth-child(6),.table-row>:nth-child(5),.table-row>:nth-child(6){display:none}.side-panel{width:100%}}
+</style>
+</head>
+<body>
+<aside class="sidebar">
+<div class="sidebar-logo"><div class="s-icon">TT</div><div class="s-text">Te Ta <span>AI</span></div></div>
+<nav class="sidebar-nav">
+<div class="nav-sec" data-i18n="nav_section.core">Restaurant</div>
+<a class="nav-item" href="/dashboard"><div class="ico">📊</div><span data-i18n="nav.dashboard">Dashboard</span></a>
+<a class="nav-item" href="/analytics"><div class="ico">📈</div><span data-i18n="nav.analytics">Analytics</span></a>
+<a class="nav-item active" href="/guests"><div class="ico">👥</div><span data-i18n="nav.guests">Guests</span></a>
+<a class="nav-item" href="/messages"><div class="ico">💬</div><span data-i18n="nav.messages">Messages</span></a>
+<div class="nav-sec" data-i18n="nav_section.operations">Operations</div>
+<a class="nav-item" href="/floorplan"><div class="ico">🗺️</div><span data-i18n="nav.floor_plan">Floor Plan</span></a>
+<a class="nav-item" href="/menu"><div class="ico">🍽️</div><span data-i18n="nav.menu">Menu</span></a>
+<a class="nav-item" href="/waitlist"><div class="ico">⏳</div><span data-i18n="nav.waitlist">Waitlist</span></a>
+<div class="nav-sec" data-i18n="nav_section.marketing">Marketing</div>
+<a class="nav-item" href="/campaigns"><div class="ico">📢</div><span data-i18n="nav.campaigns">Campaigns</span></a>
+<div class="nav-sec" data-i18n="nav_section.system">System</div>
+<a class="nav-item" href="/settings"><div class="ico">⚙️</div><span data-i18n="nav.settings">Settings</span></a>
+</nav>
+</aside>
+
+<div class="main">
+<div class="topbar">
+<div class="topbar-left">
+<div class="topbar-title" data-i18n="guests.title">Guest Profiles</div>
+</div>
+<div class="topbar-right">
+<div class="export-wrap" id="exportWrap">
+<button class="export-btn" id="exportBtn" data-i18n="guests.export_csv">Export CSV</button>
+<div class="export-menu" id="exportMenu">
+<button class="export-item" data-export="reservations">Reservations CSV</button>
+<button class="export-item" data-export="customers">Customers CSV</button>
+</div>
+</div>
+<div class="search-wrap">
+<input type="text" class="search-input" id="searchInput" placeholder="Search guests by name or phone..." data-i18n-placeholder="guests.search_placeholder">
+</div>
+</div>
+</div>
+
+<div class="content">
+<div class="filter-tabs" id="filterTabs">
+<div class="filter-tab active" data-tag=""><span data-i18n="guests.filter_all">All</span><span class="filter-count" id="countAll"></span></div>
+<div class="filter-tab" data-tag="vip"><span data-i18n="guests.filter_vip">VIP</span><span class="filter-count" id="countVip"></span></div>
+<div class="filter-tab" data-tag="loyal"><span data-i18n="guests.filter_loyal">Loyal</span><span class="filter-count" id="countLoyal"></span></div>
+<div class="filter-tab" data-tag="regular"><span data-i18n="guests.filter_regular">Regular</span><span class="filter-count" id="countRegular"></span></div>
+<div class="filter-tab" data-tag="new"><span data-i18n="guests.filter_new">New</span><span class="filter-count" id="countNew"></span></div>
+</div>
+
+<div class="guests-table">
+<div class="table-header">
+<div data-i18n="guests.col_name">Name</div>
+<div data-i18n="guests.col_phone">Phone</div>
+<div data-i18n="guests.col_visits">Visits</div>
+<div data-i18n="guests.col_spend">Total Spend</div>
+<div data-i18n="guests.col_tag">Tag</div>
+<div data-i18n="guests.col_last_visit">Last Visit</div>
+</div>
+<div class="table-body" id="guestList"></div>
+</div>
+</div>
+</div>
+
+<div class="panel-overlay" id="panelOverlay"></div>
+<div class="side-panel" id="sidePanel">
+<div class="panel-header">
+<h3 id="panelTitle" data-i18n="guests.profile">Guest Profile</h3>
+<button class="panel-close" id="panelClose">&times;</button>
+</div>
+<div class="panel-body" id="panelBody"></div>
+<div class="panel-footer">
+<button class="btn btn-ghost" id="panelCancel" data-i18n="actions.cancel">Cancel</button>
+<button class="btn btn-primary" id="panelSave" data-i18n="settings.save_changes">Save Changes</button>
+</div>
+</div>
+
+<script>
+const ownerKey = localStorage.getItem('tta_owner_key');
+if (!ownerKey) window.location.href = '/login';
+
+const API = (path, opts = {}) => {
+  const headers = { 'x-owner-key': ownerKey, ...opts.headers };
+  if (opts.body) headers['Content-Type'] = 'application/json';
+  return fetch(path, { ...opts, headers }).then(r => r.ok ? r.json() : null).catch(() => null);
+};
+
+async function exportCsv(type) {
+  const endpoint = type === 'customers' ? '/owner/export/customers' : '/owner/export/reservations';
+  try {
+    const r = await fetch(endpoint, { headers: { 'x-owner-key': ownerKey } });
+    if (!r.ok) throw new Error('Export failed');
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = type === 'customers' ? 'customers.csv' : 'reservations.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (_e) {
+    alert('Export failed. Please try again.');
+  }
+}
+
+const avatarColors = ['linear-gradient(135deg,#F59E0B,#D97706)', 'linear-gradient(135deg,#8B5CF6,#7C3AED)', 'linear-gradient(135deg,#10B981,#059669)', 'linear-gradient(135deg,#3B82F6,#2563EB)', 'linear-gradient(135deg,#EF4444,#DC2626)', 'linear-gradient(135deg,#EC4899,#DB2777)'];
+
+function getInitials(name) {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/);
+  return parts.length >= 2 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : name.slice(0, 2).toUpperCase();
+}
+
+function getAvatarColor(name) {
+  let hash = 0;
+  for (let i = 0; i < (name || '').length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return avatarColors[Math.abs(hash) % avatarColors.length];
+}
+
+function tagBadge(tag) {
+  const t = (tag || '').toLowerCase();
+  const map = { vip: 'b-vip', loyal: 'b-loyal', regular: 'b-regular', new: 'b-new' };
+  return `<span class="badge ${map[t] || 'b-regular'}">${tag || 'Regular'}</span>`;
+}
+
+function formatDate(d) {
+  if (!d) return '-';
+  const date = new Date(d);
+  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+let allGuests = [];
+let currentTag = '';
+let selectedGuestId = null;
+
+async function loadGuests() {
+  const search = document.getElementById('searchInput').value.trim();
+  const params = new URLSearchParams();
+  if (search) params.set('search', search);
+  if (currentTag) params.set('tag', currentTag);
+
+  const res = await API(`/owner/guests?${params}`);
+  allGuests = res?.data || res || [];
+  if (!Array.isArray(allGuests)) allGuests = [];
+
+  renderGuests();
+  updateCounts();
+}
+
+function renderGuests() {
+  const el = document.getElementById('guestList');
+  if (!allGuests.length) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">👥</div><div class="msg">No guests yet</div><div class="sub">Guests will appear here as reservations come in</div></div>`;
+    return;
+  }
+
+  el.innerHTML = allGuests.map(g => `
+    <div class="table-row" data-id="${g.id}">
+      <div class="guest-name">
+        <div class="guest-avatar" style="background:${getAvatarColor(g.name)}">${getInitials(g.name)}</div>
+        ${g.name || 'Unknown'}
+      </div>
+      <div class="guest-phone">${g.phone || '-'}</div>
+      <div class="guest-visits">${g.visits || g.visit_count || 0}</div>
+      <div class="guest-spend">$${(g.total_spend || 0).toLocaleString()}</div>
+      <div>${tagBadge(g.tag)}</div>
+      <div class="guest-date">${formatDate(g.last_visit)}</div>
+    </div>
+  `).join('');
+
+  el.querySelectorAll('.table-row').forEach(row => {
+    row.addEventListener('click', () => openPanel(row.dataset.id));
+  });
+}
+
+function updateCounts() {
+  document.getElementById('countAll').textContent = allGuests.length ? ` (${allGuests.length})` : '';
+}
+
+async function openPanel(id) {
+  selectedGuestId = id;
+  const overlay = document.getElementById('panelOverlay');
+  const panel = document.getElementById('sidePanel');
+
+  overlay.classList.add('show');
+  panel.classList.add('show');
+
+  const body = document.getElementById('panelBody');
+  body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3);font-family:var(--mono);font-size:13px">Loading...</div>';
+
+  const res = await API(`/owner/guests/${id}`);
+  const g = res?.data || res || allGuests.find(x => String(x.id) === String(id)) || {};
+
+  const visits = g.reservations || g.visits_list || [];
+
+  body.innerHTML = `
+    <div class="panel-section">
+      <div class="panel-avatar" style="background:${getAvatarColor(g.name)}">${getInitials(g.name)}</div>
+      <div class="tags-row">${tagBadge(g.tag)}</div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-section-title">Contact Info</div>
+      <div class="field-group">
+        <div class="field-label">Name</div>
+        <input class="field-input" id="editName" value="${g.name || ''}">
+      </div>
+      <div class="field-group">
+        <div class="field-label">Phone</div>
+        <input class="field-input" id="editPhone" value="${g.phone || ''}">
+      </div>
+      <div class="field-group">
+        <div class="field-label">Email</div>
+        <input class="field-input" id="editEmail" value="${g.email || ''}" placeholder="guest@email.com">
+      </div>
+      <div class="field-group">
+        <div class="field-label">Birthday</div>
+        <input class="field-input" id="editBirthday" type="date" value="${g.birthday || ''}">
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-section-title">Preferences</div>
+      <div class="field-group">
+        <div class="field-label">Allergies</div>
+        <textarea class="field-textarea" id="editAllergies" placeholder="e.g. Gluten, Lactose...">${g.allergies || ''}</textarea>
+      </div>
+      <div class="field-group">
+        <div class="field-label">Preferences</div>
+        <textarea class="field-textarea" id="editPreferences" placeholder="e.g. Window seat, quiet area...">${g.preferences || ''}</textarea>
+      </div>
+      <div class="field-group">
+        <div class="field-label">Notes</div>
+        <textarea class="field-textarea" id="editNotes" placeholder="Internal notes about this guest...">${g.notes || ''}</textarea>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-section-title">Visit History</div>
+      <div class="timeline" id="visitTimeline">
+        ${visits.length ? visits.map(v => `
+          <div class="timeline-item">
+            <div class="timeline-date">${formatDate(v.date || v.reservation_date)}</div>
+            <div class="timeline-info">${v.area || 'Indoor'} · ${v.time || ''}</div>
+            <div class="timeline-guests">👥 ${v.guests || v.party_size || '-'}</div>
+          </div>
+        `).join('') : '<div style="font-size:12px;color:var(--text3);font-family:var(--mono);padding:8px">No visit history</div>'}
+      </div>
+    </div>
+  `;
+}
+
+function closePanel() {
+  document.getElementById('panelOverlay').classList.remove('show');
+  document.getElementById('sidePanel').classList.remove('show');
+  selectedGuestId = null;
+}
+
+async function saveGuest() {
+  if (!selectedGuestId) return;
+  const btn = document.getElementById('panelSave');
+  btn.disabled = true; btn.textContent = 'Saving...';
+
+  const payload = {
+    name: document.getElementById('editName')?.value || '',
+    phone: document.getElementById('editPhone')?.value || '',
+    email: document.getElementById('editEmail')?.value || '',
+    birthday: document.getElementById('editBirthday')?.value || '',
+    allergies: document.getElementById('editAllergies')?.value || '',
+    preferences: document.getElementById('editPreferences')?.value || '',
+    notes: document.getElementById('editNotes')?.value || ''
+  };
+
+  const res = await API(`/owner/guests/${selectedGuestId}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload)
+  });
+
+  btn.disabled = false; btn.textContent = 'Save Changes';
+
+  if (res) {
+    closePanel();
+    loadGuests();
+  } else {
+    btn.textContent = 'Error — Retry';
+    setTimeout(() => { btn.textContent = 'Save Changes'; }, 2000);
+  }
+}
+
+// Event listeners
+document.getElementById('panelOverlay').addEventListener('click', closePanel);
+document.getElementById('panelClose').addEventListener('click', closePanel);
+document.getElementById('panelCancel').addEventListener('click', closePanel);
+document.getElementById('panelSave').addEventListener('click', saveGuest);
+
+document.querySelectorAll('.filter-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentTag = tab.dataset.tag;
+    loadGuests();
+  });
+});
+
+let searchTimer;
+document.getElementById('searchInput').addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(loadGuests, 300);
+});
+
+// Escape key closes panel
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closePanel();
+});
+
+const exportBtn = document.getElementById('exportBtn');
+const exportMenu = document.getElementById('exportMenu');
+const exportWrap = document.getElementById('exportWrap');
+if (exportBtn && exportMenu && exportWrap) {
+  exportBtn.addEventListener('click', () => {
+    exportMenu.classList.toggle('show');
+  });
+  exportMenu.querySelectorAll('[data-export]').forEach((item) => {
+    item.addEventListener('click', () => {
+      exportMenu.classList.remove('show');
+      exportCsv(item.getAttribute('data-export'));
+    });
+  });
+  document.addEventListener('click', (e) => {
+    if (!exportWrap.contains(e.target)) exportMenu.classList.remove('show');
+  });
+}
+
+loadGuests();
+</script>
+<script src="/i18n.js"></script>
+<script src="/js/mobile-nav.js"></script>
+</body>
+</html>
+
+

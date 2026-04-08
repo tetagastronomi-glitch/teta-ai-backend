@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Te Ta AI Demo Bot</title>
+  <style>
+    :root { --bg:#09090B; --bg2:#111114; --surface:#18181B; --text:#FAFAFA; --muted:#A1A1AA; --amber:#F59E0B; --border:rgba(255,255,255,.08); }
+    * { box-sizing:border-box; }
+    body { margin:0; background:radial-gradient(circle at 10% 10%, rgba(245,158,11,.12), transparent 35%), var(--bg); color:var(--text); font-family:"Plus Jakarta Sans",system-ui,sans-serif; }
+    .wrap { width:min(920px,92vw); margin:28px auto; }
+    .top { margin-bottom:16px; }
+    .title { font-size:1.9rem; font-weight:800; margin:0 0 6px; }
+    .sub { margin:0; color:var(--muted); }
+    .chat { border:1px solid var(--border); background:var(--bg2); border-radius:16px; overflow:hidden; display:flex; flex-direction:column; min-height:68vh; }
+    .head { padding:14px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+    .status { font-size:.78rem; color:#10B981; background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.25); border-radius:999px; padding:4px 10px; }
+    .msgs { padding:14px; display:flex; flex-direction:column; gap:10px; overflow:auto; flex:1; }
+    .msg { max-width:min(80%,680px); padding:10px 12px; border-radius:12px; font-size:.94rem; line-height:1.45; white-space:pre-wrap; }
+    .msg.bot { background:var(--surface); border:1px solid var(--border); border-top-left-radius:4px; }
+    .msg.user { margin-left:auto; color:#111; background:linear-gradient(135deg,#D97706,#F59E0B); border-top-right-radius:4px; }
+    .composer { padding:12px; border-top:1px solid var(--border); display:flex; gap:8px; }
+    .composer input { flex:1; background:#0D0D10; color:var(--text); border:1px solid var(--border); border-radius:10px; padding:10px 12px; font:inherit; }
+    .composer button { border:0; border-radius:10px; font:inherit; font-weight:700; background:linear-gradient(135deg,#D97706,#F59E0B); color:#111; padding:10px 14px; cursor:pointer; }
+    .chips { display:flex; flex-wrap:wrap; gap:8px; padding:0 12px 12px; }
+    .chips button { background:rgba(255,255,255,.05); color:var(--text); border:1px solid var(--border); border-radius:999px; padding:6px 10px; cursor:pointer; font-size:.8rem; }
+    @media (max-width:700px){ .wrap{width:100vw;margin:0;} .chat{border-radius:0;min-height:100vh;border-left:0;border-right:0;} .msg{max-width:90%;} }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <div class="top">
+      <h1 class="title" data-i18n="demo.title">Live Demo Bot</h1>
+      <p class="sub" data-i18n="demo.subtitle">Try a real conversation. This is a simulation mode and does not create actual reservations.</p>
+    </div>
+    <section class="chat">
+      <div class="head">
+        <strong data-i18n="demo.assistant_name">Te Ta AI Assistant</strong>
+        <span class="status" data-i18n="demo.live_badge">Live Demo</span>
+      </div>
+      <div class="msgs" id="msgs"></div>
+      <div class="chips">
+        <button type="button" data-q="Hi, are you open today?" data-i18n="demo.chip_open">Are you open today?</button>
+        <button type="button" data-q="I want a table for 4 tomorrow at 20:00" data-i18n="demo.chip_book">Book tomorrow 20:00</button>
+        <button type="button" data-q="Can I reserve for today at 15:00?" data-i18n="demo.chip_reserve">Reserve today 15:00</button>
+      </div>
+      <form class="composer" id="form">
+        <input id="input" autocomplete="off" placeholder="Type your message..." data-i18n-placeholder="demo.input_placeholder" />
+        <button type="submit" data-i18n="demo.send">Send</button>
+      </form>
+    </section>
+  </main>
+  <script>
+    const msgs = document.getElementById('msgs');
+    const form = document.getElementById('form');
+    const input = document.getElementById('input');
+    const history = [];
+
+    function addMsg(role, text) {
+      const div = document.createElement('div');
+      div.className = `msg ${role}`;
+      div.textContent = text;
+      msgs.appendChild(div);
+      msgs.scrollTop = msgs.scrollHeight;
+      return div;
+    }
+
+    async function sendMessage(text) {
+      const clean = (text || '').trim();
+      if (!clean) return;
+      addMsg('user', clean);
+      history.push({ role: 'user', content: clean });
+      const typing = addMsg('bot', 'Typing...');
+      input.value = '';
+      try {
+        const r = await fetch('/demo/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: clean, history }),
+        });
+        const data = await r.json();
+        typing.remove();
+        const reply = data.reply || 'I could not respond right now. Please try again.';
+        addMsg('bot', reply);
+        history.push({ role: 'assistant', content: reply });
+      } catch (_e) {
+        typing.remove();
+        addMsg('bot', 'Connection issue. Please try again.');
+      }
+    }
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      sendMessage(input.value);
+    });
+
+    document.querySelectorAll('[data-q]').forEach((btn) => {
+      btn.addEventListener('click', () => sendMessage(btn.getAttribute('data-q')));
+    });
+
+    addMsg('bot', 'Welcome to Te Ta AI demo. Ask me about opening hours or make a sample reservation.');
+  </script>
+<script src="/i18n.js"></script>
+</body>
+</html>

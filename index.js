@@ -4326,7 +4326,7 @@ app.get('/platform', (_req, res) => {
 });
 
 app.get('/dashboard', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dashboard.html'));
+  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
 app.get('/onboarding', (req, res) => {
@@ -4336,6 +4336,18 @@ app.get('/onboarding', (req, res) => {
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'admin.html'));
 });
+
+// Dashboard sub-pages
+app.get('/guests', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'guests.html')));
+app.get('/analytics', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'analytics.html')));
+app.get('/messages', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'messages.html')));
+app.get('/settings', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'settings.html')));
+app.get('/campaigns', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'campaigns.html')));
+app.get('/menu', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'menu.html')));
+app.get('/floorplan', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'floorplan.html')));
+app.get('/waitlist', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'waitlist.html')));
+app.get('/demo', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'demo.html')));
+app.get('/setup', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'setup.html')));
 
 app.get('/test-wa', requireAdminKey, async (_req, res) => {
   try {
@@ -4858,6 +4870,304 @@ app.get('/admin/marketing/triggers/:restaurantId', requireAdminKey, requireDbRea
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log("✅ Server listening on", PORT));
 
+
+// ==================== OWNER GUESTS / SETTINGS / ANALYTICS / CONVERSATIONS ====================
+
+// GET /owner/guests — guest profiles with visit data
+app.get("/owner/guests", requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const { search, tag, page = 1, limit = 50 } = req.query;
+    const rid = req.restaurant_id;
+    let where = 'WHERE c.restaurant_id = $1';
+    const params = [rid];
+    let idx = 2;
+
+    if (search) {
+      where += ` AND (c.full_name ILIKE $${idx} OR c.phone ILIKE $${idx})`;
+      params.push(`%${search}%`);
+      idx++;
+    }
+    if (tag && tag !== 'all') {
+      where += ` AND $${idx} = ANY(c.tags)`;
+      params.push(tag);
+      idx++;
+    }
+
+    const offset = (Math.max(1, parseInt(page)) - 1) * parseInt(limit);
+    const result = await pool.query(`
+      SELECT c.id, c.full_name AS name, c.phone, c.tags, c.notes, c.created_at,
+             c.visits_count AS visits, c.last_seen_at AS last_visit, 0 AS total_spend
+      FROM public.customers c
+      ${where}
+      ORDER BY c.visits_count DESC, c.full_name ASC
+      LIMIT $${idx} OFFSET $${idx + 1}
+    `, [...params, parseInt(limit), offset]);
+
+    // Map tags array to single tag for frontend
+    const guests = result.rows.map(g => ({
+      ...g,
+      tag: (g.tags && g.tags.length > 0) ? g.tags[0] : 'regular'
+    }));
+
+    const countRes = await pool.query(`SELECT COUNT(*)::int AS total FROM public.customers c ${where}`, params);
+
+    return res.json({
+      success: true,
+      guests,
+      total: countRes.rows[0].total,
+      page: parseInt(page),
+      limit: parseInt(limit)
+    });
+  } catch (err) {
+    console.error("GET /owner/guests error:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /owner/guests/:id — single guest detail
+app.get("/owner/guests/:id", requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const guest = await pool.query(
+      `SELECT id, full_name AS name, phone, tags, notes, visits_count AS visits, last_seen_at AS last_visit, created_at
+       FROM public.customers WHERE id = $1 AND restaurant_id = $2`,
+      [req.params.id, req.restaurant_id]
+    );
+    if (guest.rows.length === 0) return res.status(404).json({ error: 'Guest not found' });
+
+    const g = guest.rows[0];
+    g.tag = (g.tags && g.tags.length > 0) ? g.tags[0] : 'regular';
+
+    const reservations = await pool.query(
+      `SELECT id, date, time, people, status, created_at FROM public.reservations
+       WHERE phone = $1 AND restaurant_id = $2 ORDER BY date DESC LIMIT 20`,
+      [g.phone, req.restaurant_id]
+    );
+
+    return res.json({ success: true, guest: g, reservations: reservations.rows });
+  } catch (err) {
+    console.error("GET /owner/guests/:id error:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// PUT /owner/guests/:id — update guest tag/notes
+app.put("/owner/guests/:id", requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const { tag, notes } = req.body || {};
+    const updates = [];
+    const params = [];
+    let idx = 1;
+    if (tag) { updates.push(`tags = ARRAY[$${idx}]::TEXT[]`); params.push(tag); idx++; }
+    if (notes !== undefined) { updates.push(`notes = $${idx}`); params.push(notes); idx++; }
+    if (updates.length === 0) return res.json({ success: true });
+    params.push(req.params.id, req.restaurant_id);
+    await pool.query(
+      `UPDATE public.customers SET ${updates.join(', ')} WHERE id = $${idx} AND restaurant_id = $${idx + 1}`,
+      params
+    );
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("PUT /owner/guests/:id error:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /owner/export/customers — CSV export
+app.get("/owner/export/customers", requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT c.full_name AS name, c.phone, c.tags, c.notes, c.created_at,
+              c.visits_count AS visits, c.last_seen_at AS last_visit
+       FROM public.customers c
+       WHERE c.restaurant_id = $1
+       ORDER BY c.full_name`,
+      [req.restaurant_id]
+    );
+    let csv = 'Name,Phone,Tags,Notes,Visits,Last Visit,Created\n';
+    for (const r of result.rows) {
+      const tags = Array.isArray(r.tags) ? r.tags.join(';') : '';
+      csv += `"${(r.name||'').replace(/"/g,'""')}","${r.phone}","${tags}","${(r.notes||'').replace(/"/g,'""')}",${r.visits||0},"${r.last_visit||''}","${r.created_at}"\n`;
+    }
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=customers.csv');
+    return res.send(csv);
+  } catch (err) {
+    console.error("GET /owner/export/customers error:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /owner/export/reservations — CSV export
+app.get("/owner/export/reservations", requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT customer_name, phone, date, time, people, status, channel, special_requests AS notes, created_at
+       FROM public.reservations WHERE restaurant_id = $1 ORDER BY date DESC LIMIT 1000`,
+      [req.restaurant_id]
+    );
+    let csv = 'Name,Phone,Date,Time,Guests,Status,Channel,Notes,Created\n';
+    for (const r of result.rows) {
+      csv += `"${(r.customer_name||'').replace(/"/g,'""')}","${r.phone}","${r.date}","${r.time}",${r.people},"${r.status}","${r.channel||''}","${(r.notes||'').replace(/"/g,'""')}","${r.created_at}"\n`;
+    }
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=reservations.csv');
+    return res.send(csv);
+  } catch (err) {
+    console.error("GET /owner/export/reservations error:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /owner/settings — restaurant settings
+app.get("/owner/settings", requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, name, phone, address, email, timezone,
+              opening_hours_start AS opening_hour, opening_hours_end AS closing_hour,
+              language, plan, is_active, ai_provider, ai_model
+       FROM public.restaurants WHERE id = $1`,
+      [req.restaurant_id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Restaurant not found' });
+    return res.json({ success: true, settings: result.rows[0] });
+  } catch (err) {
+    console.error("GET /owner/settings error:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// PUT /owner/settings — update restaurant settings
+app.put("/owner/settings", requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const { name, phone, address, email, timezone, opening_hour, closing_hour, language } = req.body || {};
+    await pool.query(
+      `UPDATE public.restaurants SET
+        name = COALESCE($1, name), phone = COALESCE($2, phone), address = COALESCE($3, address),
+        email = COALESCE($4, email), timezone = COALESCE($5, timezone),
+        opening_hours_start = COALESCE($6, opening_hours_start), opening_hours_end = COALESCE($7, opening_hours_end),
+        language = COALESCE($8, language)
+       WHERE id = $9`,
+      [name, phone, address, email, timezone, opening_hour, closing_hour, language, req.restaurant_id]
+    );
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("PUT /owner/settings error:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /owner/analytics/daily — reservations per day
+app.get("/owner/analytics/daily", requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const days = parseInt(req.query.days) || 30;
+    const result = await pool.query(`
+      SELECT date::text, COUNT(*)::int AS count, SUM(people)::int AS guests,
+             COUNT(*) FILTER (WHERE status = 'no_show')::int AS no_shows
+      FROM public.reservations
+      WHERE restaurant_id = $1 AND date >= CURRENT_DATE - $2::int
+      GROUP BY date ORDER BY date
+    `, [req.restaurant_id, days]);
+    return res.json({ success: true, data: result.rows });
+  } catch (err) {
+    console.error("GET /owner/analytics/daily error:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /owner/analytics/channels — source distribution
+app.get("/owner/analytics/channels", requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT COALESCE(channel, 'unknown') AS channel, COUNT(*)::int AS count
+      FROM public.reservations WHERE restaurant_id = $1 AND date >= CURRENT_DATE - 30
+      GROUP BY channel ORDER BY count DESC
+    `, [req.restaurant_id]);
+    return res.json({ success: true, data: result.rows });
+  } catch (err) {
+    console.error("GET /owner/analytics/channels error:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /owner/analytics/peak-hours
+app.get("/owner/analytics/peak-hours", requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT EXTRACT(HOUR FROM time::time)::int AS hour, COUNT(*)::int AS count
+      FROM public.reservations WHERE restaurant_id = $1 AND date >= CURRENT_DATE - 30
+      GROUP BY hour ORDER BY hour
+    `, [req.restaurant_id]);
+    return res.json({ success: true, data: result.rows });
+  } catch (err) {
+    console.error("GET /owner/analytics/peak-hours error:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /owner/analytics/turn-times (placeholder — requires check-in/out tracking)
+app.get("/owner/analytics/turn-times", requireOwnerKey, requireDbReady, async (_req, res) => {
+  return res.json({ success: true, data: { avg_minutes: null, message: "Turn time tracking coming soon" } });
+});
+
+// GET /owner/revenue/weekly
+app.get("/owner/revenue/weekly", requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT date::text, COALESCE(SUM(spend), 0)::numeric AS revenue
+      FROM public.reservations
+      WHERE restaurant_id = $1 AND date >= CURRENT_DATE - 7 AND status = 'completed'
+      GROUP BY date ORDER BY date
+    `, [req.restaurant_id]);
+    return res.json({ success: true, data: result.rows });
+  } catch (err) {
+    console.error("GET /owner/revenue/weekly error:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /owner/conversations — WhatsApp conversation threads
+app.get("/owner/conversations", requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT DISTINCT ON (m.phone) m.phone,
+             c.name AS customer_name,
+             m.body AS last_message,
+             m.direction,
+             m.created_at AS last_message_at
+      FROM public.messages m
+      LEFT JOIN public.customers c ON c.phone = m.phone AND c.restaurant_id = m.restaurant_id
+      WHERE m.restaurant_id = $1
+      ORDER BY m.phone, m.created_at DESC
+    `, [req.restaurant_id]);
+    return res.json({ success: true, conversations: result.rows });
+  } catch (err) {
+    // If messages table doesn't exist yet, return empty
+    if (err.message.includes('relation') && err.message.includes('does not exist')) {
+      return res.json({ success: true, conversations: [] });
+    }
+    console.error("GET /owner/conversations error:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /owner/conversations/:phone — messages for a specific phone
+app.get("/owner/conversations/:phone", requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT id, phone, body, direction, created_at
+      FROM public.messages
+      WHERE restaurant_id = $1 AND phone = $2
+      ORDER BY created_at ASC LIMIT 100
+    `, [req.restaurant_id, req.params.phone]);
+    return res.json({ success: true, messages: result.rows });
+  } catch (err) {
+    if (err.message.includes('relation') && err.message.includes('does not exist')) {
+      return res.json({ success: true, messages: [] });
+    }
+    console.error("GET /owner/conversations/:phone error:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 // ==================== ERROR HANDLER (LAST) ====================
 app.use((err, req, res, next) => {

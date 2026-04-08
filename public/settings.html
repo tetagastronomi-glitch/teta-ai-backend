@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Te Ta AI — Settings</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#09090B;--bg2:#0F0F12;--surface:rgba(255,255,255,0.03);--surface2:rgba(255,255,255,0.06);--border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.12);--text:#FAFAFA;--text2:rgba(255,255,255,0.5);--text3:rgba(255,255,255,0.3);--amber:#F59E0B;--amber2:#D97706;--violet:#8B5CF6;--emerald:#10B981;--red:#EF4444;--blue:#3B82F6;--font:'Plus Jakarta Sans',sans-serif;--mono:'JetBrains Mono',monospace}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;display:flex}
+a{text-decoration:none;color:inherit}
+
+.sidebar{width:240px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50}
+.sidebar-logo{display:flex;align-items:center;gap:10px;padding:20px;border-bottom:1px solid var(--border)}
+.s-icon{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--amber),var(--amber2));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff;box-shadow:0 0 20px rgba(245,158,11,0.15)}
+.s-text{font-size:16px;font-weight:800}.s-text span{color:var(--amber)}
+
+.sidebar-nav{flex:1;padding:16px 12px;display:flex;flex-direction:column;gap:2px;overflow-y:auto}
+.nav-sec{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3);padding:16px 12px 6px;font-family:var(--mono)}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;transition:all 0.2s;position:relative;border:1px solid transparent}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:rgba(245,158,11,0.08);color:var(--amber);border:1px solid rgba(245,158,11,0.12)}
+.nav-item .ico{width:20px;text-align:center;font-size:15px;opacity:0.5}
+.nav-item.active .ico{opacity:1}
+
+.main{flex:1;margin-left:240px;display:flex;flex-direction:column}
+.topbar{height:64px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 28px;background:rgba(9,9,11,0.8);backdrop-filter:blur(20px);position:sticky;top:0;z-index:40}
+.topbar-left{display:flex;align-items:center;gap:14px}
+.topbar-title{font-size:18px;font-weight:700}
+
+.content{padding:28px;flex:1;max-width:800px}
+
+.settings-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;margin-bottom:24px;transition:all 0.25s}
+.settings-card:hover{border-color:var(--border2)}
+.settings-card.danger{border-color:rgba(239,68,68,0.2)}
+.settings-card.danger:hover{border-color:rgba(239,68,68,0.35)}
+.card-header{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.card-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.card-icon.info{background:rgba(59,130,246,0.12)}
+.card-icon.ai{background:rgba(139,92,246,0.12)}
+.card-icon.notif{background:rgba(245,158,11,0.12)}
+.card-icon.danger{background:rgba(239,68,68,0.12)}
+.card-title{font-size:16px;font-weight:700}
+.card-desc{font-size:12px;color:var(--text3);margin-top:2px}
+
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.form-row.single{grid-template-columns:1fr}
+.form-group{margin-bottom:0}
+.form-label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);margin-bottom:6px;font-family:var(--mono)}
+.form-input{width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;color:var(--text);font-family:var(--font);font-size:13px;outline:none;transition:border-color 0.2s}
+.form-input:focus{border-color:var(--amber)}
+.form-input::placeholder{color:var(--text3)}
+select.form-input{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='rgba(255,255,255,0.3)' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
+select.form-input option{background:var(--bg2);color:var(--text)}
+
+.btn-save{padding:10px 24px;background:linear-gradient(135deg,var(--amber),var(--amber2));border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;font-family:var(--font);cursor:pointer;transition:all 0.2s;margin-top:8px}
+.btn-save:hover{box-shadow:0 4px 15px rgba(245,158,11,0.3)}
+.btn-save:disabled{opacity:0.4;cursor:not-allowed;box-shadow:none}
+
+.ai-info{display:flex;flex-direction:column;gap:12px}
+.ai-row{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--surface2);border-radius:10px;border:1px solid var(--border)}
+.ai-label{font-size:12px;color:var(--text3);font-family:var(--mono)}
+.ai-value{font-size:13px;font-weight:600}
+.ai-note{font-size:12px;color:var(--text3);line-height:1.6;padding:12px 16px;background:rgba(139,92,246,0.04);border:1px solid rgba(139,92,246,0.1);border-radius:10px}
+
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border)}
+.toggle-row:last-child{border-bottom:none}
+.toggle-info{flex:1}
+.toggle-label{font-size:14px;font-weight:600;margin-bottom:2px}
+.toggle-desc{font-size:12px;color:var(--text3)}
+.toggle{position:relative;width:44px;height:24px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0;position:absolute}
+.toggle .slider{position:absolute;cursor:pointer;inset:0;background:var(--surface2);border:1px solid var(--border2);border-radius:12px;transition:0.3s}
+.toggle .slider::before{content:'';position:absolute;height:18px;width:18px;left:2px;bottom:2px;background:var(--text3);border-radius:50%;transition:0.3s}
+.toggle input:checked+.slider{background:rgba(245,158,11,0.3);border-color:rgba(245,158,11,0.5)}
+.toggle input:checked+.slider::before{transform:translateX(20px);background:var(--amber)}
+
+.danger-actions{display:flex;flex-direction:column;gap:12px}
+.danger-row{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:rgba(239,68,68,0.04);border:1px solid rgba(239,68,68,0.1);border-radius:10px}
+.danger-label{font-size:14px;font-weight:600;color:var(--red)}
+.danger-desc{font-size:12px;color:var(--text3);margin-top:2px}
+.btn-danger{padding:8px 16px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:8px;color:var(--text3);font-size:12px;font-weight:600;font-family:var(--font);cursor:not-allowed;opacity:0.5;flex-shrink:0}
+.danger-warning{font-size:12px;color:var(--text3);line-height:1.6;padding:12px 16px;background:rgba(239,68,68,0.04);border:1px solid rgba(239,68,68,0.1);border-radius:10px;margin-top:4px}
+
+.toast{position:fixed;bottom:24px;right:24px;padding:14px 20px;border-radius:12px;font-size:13px;font-weight:600;z-index:300;transform:translateY(100px);opacity:0;transition:all 0.3s}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.success{background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);color:var(--emerald)}
+.toast.error{background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:var(--red)}
+
+@media(max-width:768px){.main{margin-left:0}.form-row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+<div class="sidebar-logo"><div class="s-icon">TT</div><div class="s-text">Te Ta <span>AI</span></div></div>
+<nav class="sidebar-nav">
+<div class="nav-sec" data-i18n="nav_section.core">Restaurant</div>
+<a class="nav-item" href="/dashboard"><div class="ico">📊</div><span data-i18n="nav.dashboard">Dashboard</span></a>
+<a class="nav-item" href="/analytics"><div class="ico">📈</div><span data-i18n="nav.analytics">Analytics</span></a>
+<a class="nav-item" href="/guests"><div class="ico">👥</div><span data-i18n="nav.guests">Guests</span></a>
+<a class="nav-item" href="/messages"><div class="ico">💬</div><span data-i18n="nav.messages">Messages</span></a>
+<div class="nav-sec" data-i18n="nav_section.operations">Operations</div>
+<a class="nav-item" href="/floorplan"><div class="ico">🗺️</div><span data-i18n="nav.floor_plan">Floor Plan</span></a>
+<a class="nav-item" href="/menu"><div class="ico">🍽️</div><span data-i18n="nav.menu">Menu</span></a>
+<a class="nav-item" href="/waitlist"><div class="ico">⏳</div><span data-i18n="nav.waitlist">Waitlist</span></a>
+<div class="nav-sec" data-i18n="nav_section.marketing">Marketing</div>
+<a class="nav-item" href="/campaigns"><div class="ico">📢</div><span data-i18n="nav.campaigns">Campaigns</span></a>
+<div class="nav-sec" data-i18n="nav_section.system">System</div>
+<a class="nav-item active" href="/settings"><div class="ico">⚙️</div><span data-i18n="nav.settings">Settings</span></a>
+</nav>
+</aside>
+
+<div class="main">
+<div class="topbar">
+<div class="topbar-left">
+<div class="topbar-title" data-i18n="nav.settings">Settings</div>
+</div>
+</div>
+
+<div class="content">
+
+<!-- Restaurant Info -->
+<div class="settings-card">
+<div class="card-header">
+<div class="card-icon info">🏪</div>
+<div>
+<div class="card-title" data-i18n="settings.restaurant_info">Restaurant Information</div>
+<div class="card-desc" data-i18n="settings.restaurant_info_desc">Basic details about your restaurant</div>
+</div>
+</div>
+<div class="form-row">
+<div class="form-group"><label class="form-label" data-i18n="settings.restaurant_name">Restaurant Name</label><input class="form-input" id="setName" type="text" placeholder="Your Restaurant"></div>
+<div class="form-group"><label class="form-label" data-i18n="settings.phone">Phone</label><input class="form-input" id="setPhone" type="tel" placeholder="+355 69 123 4567"></div>
+</div>
+<div class="form-row single">
+<div class="form-group"><label class="form-label" data-i18n="settings.address">Address</label><input class="form-input" id="setAddress" type="text" placeholder="Street, City, Country"></div>
+</div>
+<div class="form-row">
+<div class="form-group"><label class="form-label" data-i18n="settings.email">Email</label><input class="form-input" id="setEmail" type="email" placeholder="info@restaurant.com"></div>
+<div class="form-group"><label class="form-label" data-i18n="settings.timezone">Timezone</label>
+<select class="form-input" id="setTimezone">
+<option value="Europe/Tirane">Europe/Tirane</option>
+<option value="Europe/Rome">Europe/Rome</option>
+<option value="Europe/Berlin">Europe/Berlin</option>
+<option value="Europe/London">Europe/London</option>
+<option value="Europe/Paris">Europe/Paris</option>
+<option value="Europe/Madrid">Europe/Madrid</option>
+<option value="Europe/Istanbul">Europe/Istanbul</option>
+<option value="America/New_York">America/New_York</option>
+<option value="America/Los_Angeles">America/Los_Angeles</option>
+<option value="Asia/Dubai">Asia/Dubai</option>
+</select>
+</div>
+</div>
+<div class="form-row">
+<div class="form-group"><label class="form-label" data-i18n="settings.opening_hour">Opening Hour</label><input class="form-input" id="setOpenHour" type="number" min="0" max="23" placeholder="9"></div>
+<div class="form-group"><label class="form-label" data-i18n="settings.closing_hour">Closing Hour</label><input class="form-input" id="setCloseHour" type="number" min="0" max="23" placeholder="23"></div>
+</div>
+<div class="form-row">
+<div class="form-group"><label class="form-label" data-i18n="settings.language">Language</label>
+<select class="form-input" id="setLanguage">
+<option value="sq">Shqip</option>
+<option value="en">English</option>
+<option value="it">Italiano</option>
+<option value="de">Deutsch</option>
+<option value="fr">Français</option>
+<option value="es">Español</option>
+<option value="pt">Português</option>
+<option value="tr">Türkçe</option>
+<option value="ar">العربية</option>
+</select>
+</div>
+<div></div>
+</div>
+<button class="btn-save" id="btnSaveInfo" onclick="saveSettings()" data-i18n="settings.save_changes">Save Changes</button>
+</div>
+
+<!-- AI Settings -->
+<div class="settings-card">
+<div class="card-header">
+<div class="card-icon ai">🤖</div>
+<div>
+<div class="card-title" data-i18n="settings.ai_settings">AI Settings</div>
+<div class="card-desc" data-i18n="settings.ai_settings_desc">Your restaurant's AI assistant configuration</div>
+</div>
+</div>
+<div class="ai-info">
+<div class="ai-row">
+<span class="ai-label" data-i18n="settings.provider">PROVIDER</span>
+<span class="ai-value" id="aiProvider">Claude (Anthropic)</span>
+</div>
+<div class="ai-row">
+<span class="ai-label" data-i18n="settings.model">MODEL</span>
+<span class="ai-value" id="aiModel">claude-sonnet-4-20250514</span>
+</div>
+<div class="ai-row">
+<span class="ai-label" data-i18n="settings.status">STATUS</span>
+<span class="ai-value" style="color:var(--emerald)" data-i18n="settings.active">Active</span>
+</div>
+<div class="ai-note" data-i18n="settings.ai_note">AI is managed by your platform. Your assistant handles reservations, customer queries, and reminders automatically 24/7. No configuration needed.</div>
+</div>
+</div>
+
+<!-- Notifications -->
+<div class="settings-card">
+<div class="card-header">
+<div class="card-icon notif">🔔</div>
+<div>
+<div class="card-title" data-i18n="settings.notifications">Notifications</div>
+<div class="card-desc" data-i18n="settings.notifications_desc">Control how and when you receive alerts</div>
+</div>
+</div>
+<div class="toggle-row">
+<div class="toggle-info">
+<div class="toggle-label" data-i18n="settings.email_notif">Email Notifications</div>
+<div class="toggle-desc" data-i18n="settings.email_notif_desc">Receive daily summaries and important alerts via email</div>
+</div>
+<label class="toggle"><input type="checkbox" id="notifEmail" checked><span class="slider"></span></label>
+</div>
+<div class="toggle-row">
+<div class="toggle-info">
+<div class="toggle-label" data-i18n="settings.whatsapp_reminders">WhatsApp Reminders</div>
+<div class="toggle-desc" data-i18n="settings.whatsapp_reminders_desc">Send reservation reminders to guests via WhatsApp</div>
+</div>
+<label class="toggle"><input type="checkbox" id="notifWhatsApp" checked><span class="slider"></span></label>
+</div>
+<div class="toggle-row">
+<div class="toggle-info">
+<div class="toggle-label" data-i18n="settings.daily_report">Daily Report</div>
+<div class="toggle-desc" data-i18n="settings.daily_report_desc">Get a daily summary of reservations and performance metrics</div>
+</div>
+<label class="toggle"><input type="checkbox" id="notifDailyReport"><span class="slider"></span></label>
+</div>
+<div class="toggle-row">
+<div class="toggle-info">
+<div class="toggle-label" data-i18n="settings.feedback_requests">Feedback Requests</div>
+<div class="toggle-desc" data-i18n="settings.feedback_requests_desc">Automatically ask guests for feedback after their visit</div>
+</div>
+<label class="toggle"><input type="checkbox" id="notifFeedback" checked><span class="slider"></span></label>
+</div>
+</div>
+
+<!-- Danger Zone -->
+<div class="settings-card danger">
+<div class="card-header">
+<div class="card-icon danger">⚠️</div>
+<div>
+<div class="card-title" style="color:var(--red)" data-i18n="settings.danger_zone">Danger Zone</div>
+<div class="card-desc" data-i18n="settings.danger_zone_desc">Irreversible actions — proceed with caution</div>
+</div>
+</div>
+<div class="danger-actions">
+<div class="danger-row">
+<div>
+<div class="danger-label" data-i18n="settings.reset_data">Reset All Data</div>
+<div class="danger-desc" data-i18n="settings.reset_data_desc">Remove all reservations, customers, and campaign data</div>
+</div>
+<button class="btn-danger" disabled>Contact Admin</button>
+</div>
+<div class="danger-row">
+<div>
+<div class="danger-label" data-i18n="settings.delete_restaurant">Delete Restaurant</div>
+<div class="danger-desc" data-i18n="settings.delete_restaurant_desc">Permanently delete this restaurant and all associated data</div>
+</div>
+<button class="btn-danger" disabled>Contact Admin</button>
+</div>
+<div class="danger-warning" data-i18n="settings.danger_warning">These actions are permanent and cannot be undone. Please contact your platform administrator to request data reset or account deletion.</div>
+</div>
+</div>
+
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const ownerKey = localStorage.getItem('tta_owner_key');
+if (!ownerKey) window.location.href = '/login';
+
+const API = (path, opts = {}) => fetch('/owner' + path, {
+  ...opts,
+  headers: { 'Content-Type': 'application/json', 'x-owner-key': ownerKey, ...(opts.headers || {}) }
+});
+
+async function loadSettings() {
+  try {
+    const res = await API('/settings');
+    if (!res.ok) throw new Error('Failed to load settings');
+    const data = await res.json();
+    const s = data.settings || data;
+
+    if (s.name) document.getElementById('setName').value = s.name;
+    if (s.address) document.getElementById('setAddress').value = s.address;
+    if (s.phone) document.getElementById('setPhone').value = s.phone;
+    if (s.email) document.getElementById('setEmail').value = s.email;
+    if (s.open_hour !== undefined) document.getElementById('setOpenHour').value = s.open_hour;
+    if (s.close_hour !== undefined) document.getElementById('setCloseHour').value = s.close_hour;
+    if (s.timezone) document.getElementById('setTimezone').value = s.timezone;
+    if (s.language) document.getElementById('setLanguage').value = s.language;
+
+    if (s.ai_provider) document.getElementById('aiProvider').textContent = s.ai_provider;
+    if (s.ai_model) document.getElementById('aiModel').textContent = s.ai_model;
+
+    if (s.notif_email !== undefined) document.getElementById('notifEmail').checked = s.notif_email;
+    if (s.notif_whatsapp !== undefined) document.getElementById('notifWhatsApp').checked = s.notif_whatsapp;
+    if (s.notif_daily_report !== undefined) document.getElementById('notifDailyReport').checked = s.notif_daily_report;
+    if (s.notif_feedback !== undefined) document.getElementById('notifFeedback').checked = s.notif_feedback;
+  } catch (e) {
+    console.error('Load settings error:', e);
+  }
+}
+
+async function saveSettings() {
+  const btn = document.getElementById('btnSaveInfo');
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+
+  const payload = {
+    name: document.getElementById('setName').value.trim(),
+    address: document.getElementById('setAddress').value.trim(),
+    phone: document.getElementById('setPhone').value.trim(),
+    email: document.getElementById('setEmail').value.trim(),
+    open_hour: parseInt(document.getElementById('setOpenHour').value) || 9,
+    close_hour: parseInt(document.getElementById('setCloseHour').value) || 23,
+    timezone: document.getElementById('setTimezone').value,
+    language: document.getElementById('setLanguage').value,
+    notif_email: document.getElementById('notifEmail').checked,
+    notif_whatsapp: document.getElementById('notifWhatsApp').checked,
+    notif_daily_report: document.getElementById('notifDailyReport').checked,
+    notif_feedback: document.getElementById('notifFeedback').checked
+  };
+
+  try {
+    const res = await API('/settings', {
+      method: 'PUT',
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error('Failed to save');
+    showToast('Settings saved successfully!', 'success');
+  } catch (e) {
+    showToast('Failed to save settings: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save Changes';
+  }
+}
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + type + ' show';
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+loadSettings();
+</script>
+<script src="/i18n.js"></script>
+<script src="/js/mobile-nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Te Ta AI — Campaigns</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#09090B;--bg2:#0F0F12;--surface:rgba(255,255,255,0.03);--surface2:rgba(255,255,255,0.06);--border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.12);--text:#FAFAFA;--text2:rgba(255,255,255,0.5);--text3:rgba(255,255,255,0.3);--amber:#F59E0B;--amber2:#D97706;--violet:#8B5CF6;--emerald:#10B981;--red:#EF4444;--blue:#3B82F6;--font:'Plus Jakarta Sans',sans-serif;--mono:'JetBrains Mono',monospace}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;display:flex}
+a{text-decoration:none;color:inherit}
+
+.sidebar{width:240px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50}
+.sidebar-logo{display:flex;align-items:center;gap:10px;padding:20px;border-bottom:1px solid var(--border)}
+.s-icon{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--amber),var(--amber2));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff;box-shadow:0 0 20px rgba(245,158,11,0.15)}
+.s-text{font-size:16px;font-weight:800}.s-text span{color:var(--amber)}
+
+.sidebar-nav{flex:1;padding:16px 12px;display:flex;flex-direction:column;gap:2px;overflow-y:auto}
+.nav-sec{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3);padding:16px 12px 6px;font-family:var(--mono)}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;transition:all 0.2s;position:relative;border:1px solid transparent}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:rgba(245,158,11,0.08);color:var(--amber);border:1px solid rgba(245,158,11,0.12)}
+.nav-item .ico{width:20px;text-align:center;font-size:15px;opacity:0.5}
+.nav-item.active .ico{opacity:1}
+
+.main{flex:1;margin-left:240px;display:flex;flex-direction:column}
+.topbar{height:64px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 28px;background:rgba(9,9,11,0.8);backdrop-filter:blur(20px);position:sticky;top:0;z-index:40}
+.topbar-left{display:flex;align-items:center;gap:14px}
+.topbar-title{font-size:18px;font-weight:700}
+.topbar-right{display:flex;align-items:center;gap:10px}
+
+.content{padding:28px;flex:1}
+
+.action-btn{padding:7px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:12px;font-weight:600;font-family:var(--font);cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:5px}
+.action-btn:hover{background:rgba(255,255,255,0.08);color:var(--text)}
+.action-btn.primary{background:linear-gradient(135deg,var(--amber),var(--amber2));color:#fff;border-color:transparent}
+.action-btn.primary:hover{box-shadow:0 4px 15px rgba(245,158,11,0.25)}
+
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
+.stat-card{background:var(--surface);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:16px;padding:20px;transition:all 0.25s}
+.stat-card:hover{border-color:var(--border2);transform:translateY(-2px)}
+.stat-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);margin-bottom:8px;font-family:var(--mono)}
+.stat-value{font-size:32px;font-weight:800;font-family:var(--mono)}
+.stat-icon{font-size:20px;margin-bottom:8px}
+
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.section-title{font-size:16px;font-weight:700}
+
+.campaign-list{display:flex;flex-direction:column;gap:12px;margin-bottom:36px}
+.campaign-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;display:flex;align-items:center;justify-content:space-between;transition:all 0.25s;cursor:pointer}
+.campaign-card:hover{border-color:var(--border2);transform:translateY(-1px)}
+.campaign-left{display:flex;align-items:center;gap:16px;flex:1}
+.campaign-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.campaign-icon.wa{background:rgba(37,211,102,0.12);color:#25D366}
+.campaign-icon.email{background:rgba(59,130,246,0.12);color:var(--blue)}
+.campaign-icon.both{background:rgba(139,92,246,0.12);color:var(--violet)}
+.campaign-info{flex:1}
+.campaign-name{font-size:14px;font-weight:700;margin-bottom:4px}
+.campaign-meta{font-size:11px;color:var(--text3);font-family:var(--mono);display:flex;gap:12px;align-items:center}
+.campaign-right{display:flex;align-items:center;gap:12px}
+
+.badge{padding:4px 10px;border-radius:6px;font-size:10px;font-weight:700;font-family:var(--mono);text-transform:uppercase}
+.b-draft{background:rgba(255,255,255,0.06);color:var(--text3);border:1px solid var(--border2)}
+.b-scheduled{background:rgba(59,130,246,0.1);color:var(--blue);border:1px solid rgba(59,130,246,0.15)}
+.b-sent{background:rgba(16,185,129,0.1);color:var(--emerald);border:1px solid rgba(16,185,129,0.15)}
+.b-active{background:rgba(245,158,11,0.1);color:var(--amber);border:1px solid rgba(245,158,11,0.15)}
+
+.del-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all 0.2s;opacity:0}
+.campaign-card:hover .del-btn{opacity:1}
+.del-btn:hover{background:rgba(239,68,68,0.15);border-color:rgba(239,68,68,0.3);color:var(--red)}
+
+.templates-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:28px}
+.template-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;cursor:pointer;transition:all 0.25s}
+.template-card:hover{border-color:rgba(245,158,11,0.2);transform:translateY(-2px);background:rgba(245,158,11,0.03)}
+.template-icon{font-size:28px;margin-bottom:12px}
+.template-name{font-size:14px;font-weight:700;margin-bottom:6px}
+.template-desc{font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:12px}
+.template-use{font-size:11px;color:var(--amber);font-weight:600;font-family:var(--mono)}
+
+.empty-state{text-align:center;padding:80px 20px}
+.empty-icon{font-size:48px;margin-bottom:16px;opacity:0.3}
+.empty-title{font-size:18px;font-weight:700;margin-bottom:8px;color:var(--text2)}
+.empty-desc{font-size:13px;color:var(--text3);margin-bottom:24px}
+
+/* Modal */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);z-index:200;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:20px;padding:32px;max-width:520px;width:90%;max-height:90vh;overflow-y:auto}
+.modal h3{font-size:20px;font-weight:700;margin-bottom:20px}
+.form-group{margin-bottom:18px}
+.form-label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);margin-bottom:6px;font-family:var(--mono)}
+.form-input{width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;color:var(--text);font-family:var(--font);font-size:13px;outline:none;transition:border-color 0.2s}
+.form-input:focus{border-color:var(--amber)}
+.form-input::placeholder{color:var(--text3)}
+textarea.form-input{resize:vertical;min-height:80px}
+select.form-input{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='rgba(255,255,255,0.3)' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
+select.form-input option{background:var(--bg2);color:var(--text)}
+.schedule-row{display:flex;gap:12px;align-items:center}
+.schedule-row label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text2);cursor:pointer}
+.schedule-row input[type="radio"]{accent-color:var(--amber)}
+.schedule-datetime{margin-top:10px;display:none}
+.schedule-datetime.show{display:block}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:24px}
+.btn-cancel{padding:10px 20px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;color:var(--text2);font-size:13px;font-weight:600;font-family:var(--font);cursor:pointer;transition:all 0.2s}
+.btn-cancel:hover{color:var(--text);background:rgba(255,255,255,0.08)}
+.btn-create{padding:10px 24px;background:linear-gradient(135deg,var(--amber),var(--amber2));border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;font-family:var(--font);cursor:pointer;transition:all 0.2s}
+.btn-create:hover{box-shadow:0 4px 15px rgba(245,158,11,0.3)}
+.btn-create:disabled{opacity:0.4;cursor:not-allowed;box-shadow:none}
+
+.toast{position:fixed;bottom:24px;right:24px;padding:14px 20px;border-radius:12px;font-size:13px;font-weight:600;z-index:300;transform:translateY(100px);opacity:0;transition:all 0.3s}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.success{background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);color:var(--emerald)}
+.toast.error{background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:var(--red)}
+
+@media(max-width:768px){.main{margin-left:0}.stats-grid{grid-template-columns:repeat(2,1fr)}.templates-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+<div class="sidebar-logo"><div class="s-icon">TT</div><div class="s-text">Te Ta <span>AI</span></div></div>
+<nav class="sidebar-nav">
+<div class="nav-sec" data-i18n="nav_section.core">Restaurant</div>
+<a class="nav-item" href="/dashboard"><div class="ico">📊</div><span data-i18n="nav.dashboard">Dashboard</span></a>
+<a class="nav-item" href="/analytics"><div class="ico">📈</div><span data-i18n="nav.analytics">Analytics</span></a>
+<a class="nav-item" href="/guests"><div class="ico">👥</div><span data-i18n="nav.guests">Guests</span></a>
+<a class="nav-item" href="/messages"><div class="ico">💬</div><span data-i18n="nav.messages">Messages</span></a>
+<div class="nav-sec" data-i18n="nav_section.operations">Operations</div>
+<a class="nav-item" href="/floorplan"><div class="ico">🗺️</div><span data-i18n="nav.floor_plan">Floor Plan</span></a>
+<a class="nav-item" href="/menu"><div class="ico">🍽️</div><span data-i18n="nav.menu">Menu</span></a>
+<a class="nav-item" href="/waitlist"><div class="ico">⏳</div><span data-i18n="nav.waitlist">Waitlist</span></a>
+<div class="nav-sec" data-i18n="nav_section.marketing">Marketing</div>
+<a class="nav-item active" href="/campaigns"><div class="ico">📢</div><span data-i18n="nav.campaigns">Campaigns</span></a>
+<div class="nav-sec" data-i18n="nav_section.system">System</div>
+<a class="nav-item" href="/settings"><div class="ico">⚙️</div><span data-i18n="nav.settings">Settings</span></a>
+</nav>
+</aside>
+
+<div class="main">
+<div class="topbar">
+<div class="topbar-left">
+<div class="topbar-title" data-i18n="nav.campaigns">Campaigns</div>
+</div>
+<div class="topbar-right">
+<button class="action-btn primary" onclick="openModal()" data-i18n="campaigns.new_campaign">+ New Campaign</button>
+</div>
+</div>
+
+<div class="content">
+<div class="stats-grid">
+<div class="stat-card"><div class="stat-icon">📢</div><div class="stat-label" data-i18n="campaigns.total">Total Campaigns</div><div class="stat-value" id="statTotal">0</div></div>
+<div class="stat-card"><div class="stat-icon">🟢</div><div class="stat-label" data-i18n="campaigns.active">Active</div><div class="stat-value" id="statActive">0</div></div>
+<div class="stat-card"><div class="stat-icon">📅</div><div class="stat-label" data-i18n="campaigns.scheduled">Scheduled</div><div class="stat-value" id="statScheduled">0</div></div>
+<div class="stat-card"><div class="stat-icon">✅</div><div class="stat-label" data-i18n="campaigns.sent">Sent</div><div class="stat-value" id="statSent">0</div></div>
+</div>
+
+<div class="section-header">
+<div class="section-title" data-i18n="campaigns.all_campaigns">All Campaigns</div>
+</div>
+<div id="campaignList" class="campaign-list"></div>
+
+<div class="section-header">
+<div class="section-title" data-i18n="campaigns.quick_templates">Quick Templates</div>
+</div>
+<div class="templates-grid">
+<div class="template-card" onclick="useTemplate('Weekend Special','🎉 This weekend only! Get 20% off on all main courses. Reserve your table now and enjoy a special dining experience. Valid Fri-Sun.','All')">
+<div class="template-icon">🎉</div>
+<div class="template-name" data-i18n="campaigns.tpl_weekend">Weekend Special</div>
+<div class="template-desc" data-i18n="campaigns.tpl_weekend_desc">Promote weekend deals and limited-time offers to drive traffic during peak days.</div>
+<div class="template-use">USE TEMPLATE →</div>
+</div>
+<div class="template-card" onclick="useTemplate('Birthday Offer','🎂 Happy Birthday! As a special gift from us, enjoy a complimentary dessert on your birthday visit. Book your celebration table today!','Birthday this month')">
+<div class="template-icon">🎂</div>
+<div class="template-name" data-i18n="campaigns.tpl_birthday">Birthday Offer</div>
+<div class="template-desc" data-i18n="campaigns.tpl_birthday_desc">Automatically wish happy birthday and offer a complimentary treat to loyal guests.</div>
+<div class="template-use">USE TEMPLATE →</div>
+</div>
+<div class="template-card" onclick="useTemplate('Loyalty Reward','⭐ You are one of our most valued guests! Enjoy a free appetizer on your next visit as a thank you for your loyalty. See you soon!','VIP')">
+<div class="template-icon">⭐</div>
+<div class="template-name" data-i18n="campaigns.tpl_loyalty">Loyalty Reward</div>
+<div class="template-desc" data-i18n="campaigns.tpl_loyalty_desc">Reward your VIP customers with exclusive perks to keep them coming back.</div>
+<div class="template-use">USE TEMPLATE →</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- New Campaign Modal -->
+<div class="modal-overlay" id="campaignModal">
+<div class="modal">
+<h3 data-i18n="campaigns.new_campaign_title">New Campaign</h3>
+<div class="form-group">
+<label class="form-label" data-i18n="campaigns.name_label">Campaign Name</label>
+<input class="form-input" id="campName" type="text" placeholder="e.g. Weekend Special Promo">
+</div>
+<div class="form-group">
+<label class="form-label" data-i18n="campaigns.message_label">Message</label>
+<textarea class="form-input" id="campMessage" placeholder="Write your campaign message..."></textarea>
+</div>
+<div class="form-group">
+<label class="form-label" data-i18n="campaigns.audience_label">Audience</label>
+<select class="form-input" id="campAudience">
+<option value="All">All Customers</option>
+<option value="VIP">VIP Guests</option>
+<option value="Regular">Regular Guests</option>
+<option value="New">New Customers</option>
+<option value="Birthday this month">Birthday This Month</option>
+</select>
+</div>
+<div class="form-group">
+<label class="form-label" data-i18n="campaigns.channel_label">Channel</label>
+<select class="form-input" id="campChannel">
+<option value="WhatsApp">WhatsApp</option>
+<option value="Email">Email</option>
+<option value="Both">Both</option>
+</select>
+</div>
+<div class="form-group">
+<label class="form-label" data-i18n="campaigns.schedule_label">Schedule</label>
+<div class="schedule-row">
+<label><input type="radio" name="schedule" value="now" checked onchange="toggleSchedule()"> Send Now</label>
+<label><input type="radio" name="schedule" value="later" onchange="toggleSchedule()"> Schedule</label>
+</div>
+<div class="schedule-datetime" id="scheduleDateTime">
+<input class="form-input" id="campScheduleDate" type="datetime-local" style="margin-top:10px">
+</div>
+</div>
+<div class="modal-actions">
+<button class="btn-cancel" onclick="closeModal()" data-i18n="actions.cancel">Cancel</button>
+<button class="btn-create" id="btnCreate" onclick="createCampaign()" data-i18n="campaigns.create">Create Campaign</button>
+</div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const ownerKey = localStorage.getItem('tta_owner_key');
+if (!ownerKey) window.location.href = '/login';
+
+const API = (path, opts = {}) => fetch('/owner' + path, {
+  ...opts,
+  headers: { 'Content-Type': 'application/json', 'x-owner-key': ownerKey, ...(opts.headers || {}) }
+});
+
+let campaigns = [];
+
+async function loadCampaigns() {
+  try {
+    const res = await API('/campaigns');
+    if (!res.ok) throw new Error('Failed to load');
+    const data = await res.json();
+    campaigns = Array.isArray(data) ? data : (data.campaigns || []);
+    renderCampaigns();
+    updateStats();
+  } catch (e) {
+    console.error('Load campaigns error:', e);
+    campaigns = [];
+    renderCampaigns();
+    updateStats();
+  }
+}
+
+function updateStats() {
+  document.getElementById('statTotal').textContent = campaigns.length;
+  document.getElementById('statActive').textContent = campaigns.filter(c => c.status === 'active' || c.status === 'Active').length;
+  document.getElementById('statScheduled').textContent = campaigns.filter(c => c.status === 'scheduled' || c.status === 'Scheduled').length;
+  document.getElementById('statSent').textContent = campaigns.filter(c => c.status === 'sent' || c.status === 'Sent').length;
+}
+
+function getChannelClass(ch) {
+  if (!ch) return 'wa';
+  const c = ch.toLowerCase();
+  if (c === 'whatsapp') return 'wa';
+  if (c === 'email') return 'email';
+  return 'both';
+}
+
+function getChannelIcon(ch) {
+  if (!ch) return '💬';
+  const c = ch.toLowerCase();
+  if (c === 'whatsapp') return '💬';
+  if (c === 'email') return '✉️';
+  return '📨';
+}
+
+function getStatusClass(s) {
+  if (!s) return 'b-draft';
+  const st = s.toLowerCase();
+  if (st === 'sent') return 'b-sent';
+  if (st === 'scheduled') return 'b-scheduled';
+  if (st === 'active') return 'b-active';
+  return 'b-draft';
+}
+
+function formatDate(d) {
+  if (!d) return '—';
+  const dt = new Date(d);
+  return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function renderCampaigns() {
+  const el = document.getElementById('campaignList');
+  if (campaigns.length === 0) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">📢</div><div class="empty-title">No campaigns yet</div><div class="empty-desc">Start engaging your customers! Create your first campaign or use a template below.</div><button class="action-btn primary" onclick="openModal()" style="margin:0 auto">+ Create First Campaign</button></div>`;
+    return;
+  }
+  el.innerHTML = campaigns.map(c => `
+    <div class="campaign-card">
+      <div class="campaign-left">
+        <div class="campaign-icon ${getChannelClass(c.channel)}">${getChannelIcon(c.channel)}</div>
+        <div class="campaign-info">
+          <div class="campaign-name">${esc(c.name || 'Untitled')}</div>
+          <div class="campaign-meta">
+            <span>${esc(c.audience || 'All')}</span>
+            <span>·</span>
+            <span>${esc(c.channel || 'WhatsApp')}</span>
+            <span>·</span>
+            <span>${formatDate(c.created_at || c.scheduled_at)}</span>
+          </div>
+        </div>
+      </div>
+      <div class="campaign-right">
+        <span class="badge ${getStatusClass(c.status)}">${esc(c.status || 'Draft')}</span>
+        <button class="del-btn" onclick="event.stopPropagation();deleteCampaign(${c.id})" title="Delete">🗑️</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function openModal() {
+  document.getElementById('campaignModal').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('campaignModal').classList.remove('show');
+  document.getElementById('campName').value = '';
+  document.getElementById('campMessage').value = '';
+  document.getElementById('campAudience').value = 'All';
+  document.getElementById('campChannel').value = 'WhatsApp';
+  document.querySelector('input[name="schedule"][value="now"]').checked = true;
+  document.getElementById('scheduleDateTime').classList.remove('show');
+}
+
+function toggleSchedule() {
+  const val = document.querySelector('input[name="schedule"]:checked').value;
+  document.getElementById('scheduleDateTime').classList.toggle('show', val === 'later');
+}
+
+function useTemplate(name, message, audience) {
+  openModal();
+  document.getElementById('campName').value = name;
+  document.getElementById('campMessage').value = message;
+  document.getElementById('campAudience').value = audience;
+}
+
+async function createCampaign() {
+  const name = document.getElementById('campName').value.trim();
+  const message = document.getElementById('campMessage').value.trim();
+  const audience = document.getElementById('campAudience').value;
+  const channel = document.getElementById('campChannel').value;
+  const scheduleType = document.querySelector('input[name="schedule"]:checked').value;
+  const scheduledAt = document.getElementById('campScheduleDate').value;
+
+  if (!name || !message) {
+    showToast('Please fill in campaign name and message', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('btnCreate');
+  btn.disabled = true;
+  btn.textContent = 'Creating...';
+
+  try {
+    const body = { name, message, audience, channel };
+    if (scheduleType === 'later' && scheduledAt) {
+      body.scheduled_at = new Date(scheduledAt).toISOString();
+      body.status = 'Scheduled';
+    } else {
+      body.status = 'Sent';
+    }
+
+    const res = await API('/campaigns', {
+      method: 'POST',
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) throw new Error('Failed to create');
+    showToast('Campaign created successfully!', 'success');
+    closeModal();
+    loadCampaigns();
+  } catch (e) {
+    showToast('Failed to create campaign: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Create Campaign';
+  }
+}
+
+async function deleteCampaign(id) {
+  if (!confirm('Delete this campaign?')) return;
+  try {
+    const res = await API('/campaigns/' + id, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to delete');
+    showToast('Campaign deleted', 'success');
+    loadCampaigns();
+  } catch (e) {
+    showToast('Failed to delete campaign', 'error');
+  }
+}
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + type + ' show';
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// Close modal on overlay click
+document.getElementById('campaignModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal();
+});
+
+loadCampaigns();
+</script>
+<script src="/i18n.js"></script>
+<script src="/js/mobile-nav.js"></script>
+</body>
+</html>

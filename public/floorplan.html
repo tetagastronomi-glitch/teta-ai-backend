@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Te Ta AI — Floor Plan</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#09090B;--bg2:#0F0F12;--surface:rgba(255,255,255,0.03);--surface2:rgba(255,255,255,0.06);--border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.12);--text:#FAFAFA;--text2:rgba(255,255,255,0.5);--text3:rgba(255,255,255,0.3);--amber:#F59E0B;--amber2:#D97706;--violet:#8B5CF6;--emerald:#10B981;--red:#EF4444;--blue:#3B82F6;--font:'Plus Jakarta Sans',sans-serif;--mono:'JetBrains Mono',monospace}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;display:flex}
+a{text-decoration:none;color:inherit}
+
+.sidebar{width:240px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50}
+.sidebar-logo{display:flex;align-items:center;gap:10px;padding:20px;border-bottom:1px solid var(--border)}
+.s-icon{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--amber),var(--amber2));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff;box-shadow:0 0 20px rgba(245,158,11,0.15)}
+.s-text{font-size:16px;font-weight:800}.s-text span{color:var(--amber)}
+
+.sidebar-nav{flex:1;padding:16px 12px;display:flex;flex-direction:column;gap:2px;overflow-y:auto}
+.nav-sec{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3);padding:16px 12px 6px;font-family:var(--mono)}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;transition:all 0.2s;position:relative}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:rgba(245,158,11,0.08);color:var(--amber);border:1px solid rgba(245,158,11,0.12)}
+.nav-item .ico{width:20px;text-align:center;font-size:15px;opacity:0.5}
+.nav-item.active .ico{opacity:1}
+
+.main{flex:1;margin-left:240px;display:flex;flex-direction:column}
+.topbar{height:64px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 28px;background:rgba(9,9,11,0.8);backdrop-filter:blur(20px);position:sticky;top:0;z-index:40}
+.topbar-left{display:flex;align-items:center;gap:14px}
+.topbar-title{font-size:18px;font-weight:700}
+
+.content{padding:28px;flex:1}
+
+.zone-filters{display:flex;gap:8px}
+.zone-btn{padding:7px 16px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:12px;font-weight:600;font-family:var(--font);cursor:pointer;transition:all 0.2s}
+.zone-btn:hover{background:rgba(255,255,255,0.08);color:var(--text)}
+.zone-btn.active{background:rgba(245,158,11,0.08);color:var(--amber);border-color:rgba(245,158,11,0.2)}
+
+.action-btn{padding:7px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:12px;font-weight:600;font-family:var(--font);cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:5px}
+.action-btn:hover{background:rgba(255,255,255,0.08);color:var(--text)}
+.action-btn.primary{background:linear-gradient(135deg,var(--amber),var(--amber2));color:#fff;border-color:transparent}
+.action-btn.primary:hover{box-shadow:0 4px 15px rgba(245,158,11,0.25)}
+
+.floor-container{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;min-height:500px;position:relative;margin-bottom:24px}
+.floor-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.floor-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:16px}
+
+.table-el{width:110px;height:110px;border-radius:16px;background:var(--bg2);border:2px solid var(--border2);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:all 0.25s;position:relative}
+.table-el:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,0.3)}
+.table-el.free{border-color:var(--emerald);box-shadow:0 0 12px rgba(16,185,129,0.1)}
+.table-el.reserved{border-color:var(--amber);box-shadow:0 0 12px rgba(245,158,11,0.1)}
+.table-el.occupied{border-color:var(--red);box-shadow:0 0 12px rgba(239,68,68,0.1)}
+.table-el.oos{border-color:rgba(255,255,255,0.1);opacity:0.4}
+.table-num{font-size:22px;font-weight:800;font-family:var(--mono)}
+.table-cap{font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:2px}
+.table-zone{font-size:9px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;margin-top:4px;padding:2px 8px;background:var(--surface2);border-radius:4px}
+.table-status{position:absolute;top:8px;right:8px;width:8px;height:8px;border-radius:50%}
+.table-el.free .table-status{background:var(--emerald);box-shadow:0 0 6px var(--emerald)}
+.table-el.reserved .table-status{background:var(--amber);box-shadow:0 0 6px var(--amber)}
+.table-el.occupied .table-status{background:var(--red);box-shadow:0 0 6px var(--red)}
+.table-el.oos .table-status{background:rgba(255,255,255,0.2)}
+
+.legend{display:flex;gap:24px;padding:16px 20px;background:var(--surface);border:1px solid var(--border);border-radius:12px}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2);font-weight:500}
+.legend-dot{width:10px;height:10px;border-radius:50%}
+.legend-dot.free{background:var(--emerald)}
+.legend-dot.reserved{background:var(--amber)}
+.legend-dot.occupied{background:var(--red)}
+.legend-dot.oos{background:rgba(255,255,255,0.2)}
+
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.stat-card{background:var(--surface);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:16px;padding:20px;transition:all 0.25s}
+.stat-card:hover{border-color:var(--border2);transform:translateY(-2px)}
+.stat-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);margin-bottom:8px;font-family:var(--mono)}
+.stat-value{font-size:28px;font-weight:800;font-family:var(--mono)}
+
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);z-index:200;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:20px;padding:32px;max-width:440px;width:90%}
+.modal h3{font-size:18px;font-weight:700;margin-bottom:20px}
+.form-group{margin-bottom:16px}
+.form-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);margin-bottom:6px;display:block;font-family:var(--mono)}
+.form-input{width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;color:var(--text);font-family:var(--font);font-size:14px;outline:none;transition:border-color 0.2s}
+.form-input:focus{border-color:var(--amber)}
+.form-select{width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;color:var(--text);font-family:var(--font);font-size:14px;outline:none;appearance:none;cursor:pointer}
+.form-select:focus{border-color:var(--amber)}
+.form-select option{background:var(--bg2);color:var(--text)}
+.modal-actions{display:flex;gap:10px;margin-top:24px}
+.modal-actions .action-btn{flex:1;justify-content:center;padding:12px}
+.btn-danger{background:rgba(239,68,68,0.1);color:var(--red);border:1px solid rgba(239,68,68,0.2);padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;font-family:var(--font);cursor:pointer;transition:all 0.2s}
+.btn-danger:hover{background:rgba(239,68,68,0.2)}
+
+.res-info-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-top:12px;margin-bottom:8px}
+.res-info-box .label{font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;margin-bottom:4px}
+.res-info-box .value{font-size:13px;font-weight:600}
+
+.empty-state{text-align:center;padding:80px 40px;color:var(--text3)}
+.empty-state .icon{font-size:48px;margin-bottom:16px}
+.empty-state .title{font-size:16px;font-weight:600;color:var(--text2);margin-bottom:8px}
+.empty-state .desc{font-size:13px}
+
+@media(max-width:768px){.main{margin-left:0}.stats-row{grid-template-columns:repeat(2,1fr)}.floor-grid{grid-template-columns:repeat(auto-fill,minmax(90px,1fr))}.zone-filters{flex-wrap:wrap}}
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+<div class="sidebar-logo"><div class="s-icon">TT</div><div class="s-text">Te Ta <span>AI</span></div></div>
+<nav class="sidebar-nav">
+<div class="nav-sec" data-i18n="nav_section.core">Restaurant</div>
+<a class="nav-item" href="/dashboard"><div class="ico">📊</div><span data-i18n="nav.dashboard">Dashboard</span></a>
+<a class="nav-item" href="/analytics"><div class="ico">📈</div><span data-i18n="nav.analytics">Analytics</span></a>
+<a class="nav-item" href="/guests"><div class="ico">👥</div><span data-i18n="nav.guests">Guests</span></a>
+<a class="nav-item" href="/messages"><div class="ico">💬</div><span data-i18n="nav.messages">Messages</span></a>
+<div class="nav-sec" data-i18n="nav_section.operations">Operations</div>
+<a class="nav-item active" href="/floorplan"><div class="ico">🗺️</div><span data-i18n="nav.floor_plan">Floor Plan</span></a>
+<a class="nav-item" href="/menu"><div class="ico">🍽️</div><span data-i18n="nav.menu">Menu</span></a>
+<a class="nav-item" href="/waitlist"><div class="ico">⏳</div><span data-i18n="nav.waitlist">Waitlist</span></a>
+<div class="nav-sec" data-i18n="nav_section.marketing">Marketing</div>
+<a class="nav-item" href="/campaigns"><div class="ico">📢</div><span data-i18n="nav.campaigns">Campaigns</span></a>
+<div class="nav-sec" data-i18n="nav_section.system">System</div>
+<a class="nav-item" href="/settings"><div class="ico">⚙️</div><span data-i18n="nav.settings">Settings</span></a>
+</nav>
+</aside>
+
+<div class="main">
+<div class="topbar">
+<div class="topbar-left">
+<div class="topbar-title" data-i18n="nav.floor_plan">Floor Plan</div>
+<div class="zone-filters">
+<button class="zone-btn active" onclick="filterZone('all')" data-i18n="floorplan.zone_all">All</button>
+<button class="zone-btn" onclick="filterZone('indoor')" data-i18n="floorplan.zone_indoor">Indoor</button>
+<button class="zone-btn" onclick="filterZone('terrace')" data-i18n="floorplan.zone_terrace">Terrace</button>
+<button class="zone-btn" onclick="filterZone('bar')" data-i18n="floorplan.zone_bar">Bar</button>
+</div>
+</div>
+<div>
+<button class="action-btn primary" onclick="openAddModal()" data-i18n="floorplan.add_table">+ Add Table</button>
+</div>
+</div>
+
+<div class="content">
+<div class="stats-row" id="statsRow">
+<div class="stat-card"><div class="stat-label" data-i18n="floorplan.total_tables">Total Tables</div><div class="stat-value" style="color:var(--amber)" id="statTotal">0</div></div>
+<div class="stat-card"><div class="stat-label" data-i18n="floorplan.free">Free</div><div class="stat-value" style="color:var(--emerald)" id="statFree">0</div></div>
+<div class="stat-card"><div class="stat-label" data-i18n="floorplan.reserved">Reserved</div><div class="stat-value" style="color:var(--amber)" id="statReserved">0</div></div>
+<div class="stat-card"><div class="stat-label" data-i18n="floorplan.occupied">Occupied</div><div class="stat-value" style="color:var(--red)" id="statOccupied">0</div></div>
+</div>
+
+<div class="floor-container">
+<div class="floor-grid" id="floorGrid"></div>
+<div class="empty-state" id="emptyState" style="display:none">
+<div class="icon">🗺️</div>
+<div class="title" data-i18n="floorplan.empty_title">No tables yet</div>
+<div class="desc" data-i18n="floorplan.empty_desc">Add your first table to start managing your floor plan.</div>
+</div>
+</div>
+
+<div class="legend">
+<div class="legend-item"><div class="legend-dot free"></div><span data-i18n="floorplan.free">Free</span></div>
+<div class="legend-item"><div class="legend-dot reserved"></div><span data-i18n="floorplan.reserved">Reserved</span></div>
+<div class="legend-item"><div class="legend-dot occupied"></div><span data-i18n="floorplan.occupied">Occupied</span></div>
+<div class="legend-item"><div class="legend-dot oos"></div><span data-i18n="floorplan.out_of_service">Out of Service</span></div>
+</div>
+</div>
+</div>
+
+<!-- Add Table Modal -->
+<div class="modal-overlay" id="addModal">
+<div class="modal">
+<h3 id="addModalTitle" data-i18n="floorplan.add_table_title">Add Table</h3>
+<div class="form-group">
+<label class="form-label" data-i18n="floorplan.table_number">Table Number</label>
+<input type="number" class="form-input" id="addNumber" placeholder="e.g. 1" min="1">
+</div>
+<div class="form-group">
+<label class="form-label" data-i18n="floorplan.capacity">Capacity (seats)</label>
+<input type="number" class="form-input" id="addCapacity" placeholder="e.g. 4" min="1" max="20">
+</div>
+<div class="form-group">
+<label class="form-label" data-i18n="floorplan.zone">Zone</label>
+<select class="form-select" id="addZone">
+<option value="indoor">Indoor</option>
+<option value="terrace">Terrace</option>
+<option value="bar">Bar</option>
+</select>
+</div>
+<div class="modal-actions">
+<button class="action-btn" onclick="closeAddModal()" data-i18n="actions.cancel">Cancel</button>
+<button class="action-btn primary" onclick="saveTable()" data-i18n="floorplan.save_table">Save Table</button>
+</div>
+</div>
+</div>
+
+<!-- Table Detail Modal -->
+<div class="modal-overlay" id="detailModal">
+<div class="modal">
+<h3 id="detailTitle">Table #1</h3>
+<div class="form-group">
+<label class="form-label">Zone</label>
+<div id="detailZone" style="font-size:14px;font-weight:600;text-transform:capitalize;margin-top:2px"></div>
+</div>
+<div class="form-group">
+<label class="form-label">Capacity</label>
+<div id="detailCap" style="font-size:14px;font-weight:600;margin-top:2px"></div>
+</div>
+<div id="detailResBox"></div>
+<div class="form-group">
+<label class="form-label" data-i18n="floorplan.change_status">Change Status</label>
+<select class="form-select" id="detailStatus">
+<option value="free">Free</option>
+<option value="reserved">Reserved</option>
+<option value="occupied">Occupied</option>
+<option value="oos">Out of Service</option>
+</select>
+</div>
+<div class="modal-actions">
+<button class="btn-danger" onclick="deleteTable()" data-i18n="actions.delete">Delete</button>
+<button class="action-btn" onclick="closeDetailModal()" data-i18n="actions.cancel">Cancel</button>
+<button class="action-btn primary" onclick="updateTableStatus()" data-i18n="floorplan.update">Update</button>
+</div>
+</div>
+</div>
+
+<script>
+const ownerKey = localStorage.getItem('tta_owner_key');
+if (!ownerKey) window.location.href = '/login';
+
+const API = (path, opts = {}) => fetch('/owner' + path, {
+  ...opts,
+  headers: { 'Content-Type': 'application/json', 'x-owner-key': ownerKey, ...(opts.headers || {}) },
+  body: opts.body ? JSON.stringify(opts.body) : undefined
+}).then(r => r.json());
+
+let tables = [];
+let currentZone = 'all';
+let selectedTable = null;
+
+async function loadTables() {
+  try {
+    const res = await API('/floor/tables');
+    tables = Array.isArray(res) ? res : (res.tables || res.data || []);
+  } catch (e) {
+    console.error('Failed to load tables:', e);
+    tables = [];
+  }
+  renderTables();
+  renderStats();
+}
+
+function renderStats() {
+  const filtered = currentZone === 'all' ? tables : tables.filter(t => t.zone === currentZone);
+  document.getElementById('statTotal').textContent = filtered.length;
+  document.getElementById('statFree').textContent = filtered.filter(t => t.status === 'free').length;
+  document.getElementById('statReserved').textContent = filtered.filter(t => t.status === 'reserved').length;
+  document.getElementById('statOccupied').textContent = filtered.filter(t => t.status === 'occupied').length;
+}
+
+function renderTables() {
+  const grid = document.getElementById('floorGrid');
+  const empty = document.getElementById('emptyState');
+  const filtered = currentZone === 'all' ? tables : tables.filter(t => t.zone === currentZone);
+
+  if (filtered.length === 0) {
+    grid.style.display = 'none';
+    empty.style.display = 'block';
+    return;
+  }
+  grid.style.display = 'grid';
+  empty.style.display = 'none';
+
+  grid.innerHTML = filtered.map(t => {
+    const cls = t.status || 'free';
+    return `<div class="table-el ${cls}" onclick="openDetail(${t.id})">
+      <div class="table-status"></div>
+      <div class="table-num">${t.table_number || t.number}</div>
+      <div class="table-cap">👥 ${t.capacity}</div>
+      <div class="table-zone">${t.zone}</div>
+    </div>`;
+  }).join('');
+}
+
+function filterZone(zone) {
+  currentZone = zone;
+  document.querySelectorAll('.zone-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  renderTables();
+  renderStats();
+}
+
+function openAddModal() {
+  document.getElementById('addModalTitle').textContent = 'Add Table';
+  document.getElementById('addNumber').value = '';
+  document.getElementById('addCapacity').value = '';
+  document.getElementById('addZone').value = 'indoor';
+  document.getElementById('addModal').classList.add('show');
+}
+
+function closeAddModal() {
+  document.getElementById('addModal').classList.remove('show');
+}
+
+async function saveTable() {
+  const number = parseInt(document.getElementById('addNumber').value);
+  const capacity = parseInt(document.getElementById('addCapacity').value);
+  const zone = document.getElementById('addZone').value;
+
+  if (!number || !capacity) return;
+
+  try {
+    await API('/floor/tables', {
+      method: 'POST',
+      body: { table_number: number, capacity, zone, status: 'free' }
+    });
+    closeAddModal();
+    loadTables();
+  } catch (e) {
+    console.error('Failed to add table:', e);
+  }
+}
+
+function openDetail(id) {
+  selectedTable = tables.find(t => t.id === id);
+  if (!selectedTable) return;
+
+  document.getElementById('detailTitle').textContent = `Table #${selectedTable.table_number || selectedTable.number}`;
+  document.getElementById('detailZone').textContent = selectedTable.zone;
+  document.getElementById('detailCap').textContent = `${selectedTable.capacity} seats`;
+  document.getElementById('detailStatus').value = selectedTable.status || 'free';
+
+  const resBox = document.getElementById('detailResBox');
+  if (selectedTable.status === 'reserved' && selectedTable.reservation) {
+    const r = selectedTable.reservation;
+    resBox.innerHTML = `<div class="res-info-box">
+      <div class="label">Current Reservation</div>
+      <div class="value">${r.customer_name || r.name || 'Guest'} — ${r.time || ''} — ${r.guests || r.party_size || '?'} guests</div>
+    </div>`;
+  } else {
+    resBox.innerHTML = '';
+  }
+
+  document.getElementById('detailModal').classList.add('show');
+}
+
+function closeDetailModal() {
+  document.getElementById('detailModal').classList.remove('show');
+  selectedTable = null;
+}
+
+async function updateTableStatus() {
+  if (!selectedTable) return;
+  const status = document.getElementById('detailStatus').value;
+  try {
+    await API(`/floor/tables/${selectedTable.id}`, {
+      method: 'PUT',
+      body: { status }
+    });
+    closeDetailModal();
+    loadTables();
+  } catch (e) {
+    console.error('Failed to update table:', e);
+  }
+}
+
+async function deleteTable() {
+  if (!selectedTable) return;
+  if (!confirm('Delete this table?')) return;
+  try {
+    await API(`/floor/tables/${selectedTable.id}`, { method: 'DELETE' });
+    closeDetailModal();
+    loadTables();
+  } catch (e) {
+    console.error('Failed to delete table:', e);
+  }
+}
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('show'); });
+});
+
+loadTables();
+</script>
+<script src="/i18n.js"></script>
+<script src="/js/mobile-nav.js"></script>
+</body>
+</html>

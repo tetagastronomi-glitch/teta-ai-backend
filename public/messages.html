@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Te Ta AI — Messages</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#09090B;--bg2:#0F0F12;--surface:rgba(255,255,255,0.03);--surface2:rgba(255,255,255,0.06);--border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.12);--text:#FAFAFA;--text2:rgba(255,255,255,0.5);--text3:rgba(255,255,255,0.3);--amber:#F59E0B;--amber2:#D97706;--violet:#8B5CF6;--emerald:#10B981;--red:#EF4444;--blue:#3B82F6;--font:'Plus Jakarta Sans',sans-serif;--mono:'JetBrains Mono',monospace}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;display:flex}
+
+.sidebar{width:240px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50}
+.sidebar-logo{display:flex;align-items:center;gap:10px;padding:20px;border-bottom:1px solid var(--border)}
+.s-icon{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--amber),var(--amber2));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff}
+.s-text{font-size:16px;font-weight:800}.s-text span{color:var(--amber)}
+.sidebar-nav{flex:1;padding:16px 12px;display:flex;flex-direction:column;gap:2px;overflow-y:auto}
+.nav-sec{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3);padding:16px 12px 6px;font-family:var(--mono)}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;transition:all 0.2s;text-decoration:none}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:rgba(245,158,11,0.08);color:var(--amber);border:1px solid rgba(245,158,11,0.12)}
+.nav-item .ico{width:20px;text-align:center;font-size:15px;opacity:0.5}
+.nav-item.active .ico{opacity:1}
+
+.main{flex:1;margin-left:240px;display:flex;flex-direction:column;height:100vh}
+.topbar{height:64px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 28px;background:rgba(9,9,11,0.8);backdrop-filter:blur(20px);position:sticky;top:0;z-index:40;flex-shrink:0}
+.topbar-left{display:flex;align-items:center;gap:14px}
+.topbar-title{font-size:18px;font-weight:700}
+
+.chat-layout{flex:1;display:flex;min-height:0;overflow:hidden}
+
+/* Conversation List */
+.conv-sidebar{width:340px;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg2);flex-shrink:0}
+.conv-filters{display:flex;gap:4px;padding:12px 12px 8px;flex-wrap:nowrap;overflow-x:auto}
+.conv-filter{padding:5px 12px;border-radius:6px;font-size:11px;font-weight:600;color:var(--text3);background:transparent;border:1px solid transparent;cursor:pointer;transition:all 0.2s;white-space:nowrap;font-family:var(--font)}
+.conv-filter:hover{color:var(--text2);background:var(--surface2)}
+.conv-filter.active{color:var(--amber);background:rgba(245,158,11,0.08);border-color:rgba(245,158,11,0.12)}
+.conv-search{padding:0 12px 12px}
+.conv-search input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:12px;font-family:var(--font);outline:none;transition:border-color 0.2s}
+.conv-search input:focus{border-color:var(--amber)}
+.conv-list{flex:1;overflow-y:auto}
+.conv-item{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;transition:all 0.2s;border-bottom:1px solid var(--border)}
+.conv-item:hover{background:var(--surface2)}
+.conv-item.active{background:rgba(245,158,11,0.05);border-left:2px solid var(--amber)}
+.conv-avatar{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0}
+.conv-info{flex:1;min-width:0}
+.conv-name{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;margin-bottom:2px}
+.conv-preview{font-size:12px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.conv-meta{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
+.conv-time{font-size:10px;color:var(--text3);font-family:var(--mono)}
+.conv-unread{width:18px;height:18px;border-radius:50%;background:var(--amber);color:#000;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.channel-badge{width:18px;height:18px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;flex-shrink:0}
+.ch-whatsapp{background:rgba(37,211,102,0.15);color:#25D366}
+.ch-instagram{background:rgba(225,48,108,0.15);color:#E1306C}
+.ch-messenger{background:rgba(0,132,255,0.15);color:#0084FF}
+.ch-web{background:rgba(59,130,246,0.15);color:var(--blue)}
+
+/* Chat Area */
+.chat-area{flex:1;display:flex;flex-direction:column;min-width:0}
+.chat-header{height:60px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 20px;flex-shrink:0}
+.chat-header-avatar{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff}
+.chat-header-info{flex:1}
+.chat-header-name{font-size:14px;font-weight:600}
+.chat-header-sub{font-size:11px;color:var(--text3);font-family:var(--mono);display:flex;align-items:center;gap:6px}
+
+.chat-messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:8px}
+.msg-row{display:flex;max-width:70%}
+.msg-row.user{align-self:flex-start}
+.msg-row.bot{align-self:flex-end}
+.msg-bubble{padding:10px 14px;border-radius:14px;font-size:13px;line-height:1.5;word-break:break-word}
+.msg-row.user .msg-bubble{background:var(--surface2);border:1px solid var(--border);border-bottom-left-radius:4px;color:var(--text)}
+.msg-row.bot .msg-bubble{background:linear-gradient(135deg,rgba(245,158,11,0.12),rgba(217,119,6,0.08));border:1px solid rgba(245,158,11,0.15);border-bottom-right-radius:4px;color:var(--text)}
+.msg-time{font-size:9px;color:var(--text3);font-family:var(--mono);margin-top:4px;padding:0 4px}
+.msg-row.bot .msg-time{text-align:right}
+.msg-sender{font-size:9px;color:var(--text3);font-family:var(--mono);margin-bottom:2px;padding:0 4px}
+
+.chat-empty{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--text3)}
+.chat-empty .icon{font-size:48px;opacity:0.2}
+.chat-empty .msg{font-size:14px}
+.chat-empty .sub{font-size:12px;font-family:var(--mono);opacity:0.6}
+
+.conv-empty{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;padding:40px;text-align:center;color:var(--text3)}
+.conv-empty .icon{font-size:36px;opacity:0.2}
+.conv-empty .msg{font-size:13px}
+
+@media(max-width:768px){.main{margin-left:0}.conv-sidebar{width:100%;position:absolute;z-index:30;height:100%}.conv-sidebar.hidden{display:none}.chat-area{width:100%}}
+</style>
+</head>
+<body>
+<aside class="sidebar">
+<div class="sidebar-logo"><div class="s-icon">TT</div><div class="s-text">Te Ta <span>AI</span></div></div>
+<nav class="sidebar-nav">
+<div class="nav-sec" data-i18n="nav_section.core">Restaurant</div>
+<a class="nav-item" href="/dashboard"><div class="ico">📊</div><span data-i18n="nav.dashboard">Dashboard</span></a>
+<a class="nav-item" href="/analytics"><div class="ico">📈</div><span data-i18n="nav.analytics">Analytics</span></a>
+<a class="nav-item" href="/guests"><div class="ico">��</div><span data-i18n="nav.guests">Guests</span></a>
+<a class="nav-item active" href="/messages"><div class="ico">💬</div><span data-i18n="nav.messages">Messages</span></a>
+<div class="nav-sec" data-i18n="nav_section.operations">Operations</div>
+<a class="nav-item" href="/floorplan"><div class="ico">🗺️</div><span data-i18n="nav.floor_plan">Floor Plan</span></a>
+<a class="nav-item" href="/menu"><div class="ico">🍽️</div><span data-i18n="nav.menu">Menu</span></a>
+<a class="nav-item" href="/waitlist"><div class="ico">⏳</div><span data-i18n="nav.waitlist">Waitlist</span></a>
+<div class="nav-sec" data-i18n="nav_section.marketing">Marketing</div>
+<a class="nav-item" href="/campaigns"><div class="ico">📢</div><span data-i18n="nav.campaigns">Campaigns</span></a>
+<div class="nav-sec" data-i18n="nav_section.system">System</div>
+<a class="nav-item" href="/settings"><div class="ico">⚙️</div><span data-i18n="nav.settings">Settings</span></a>
+</nav>
+</aside>
+
+<div class="main">
+<div class="topbar">
+<div class="topbar-left">
+<div class="topbar-title" data-i18n="nav.messages">Messages</div>
+</div>
+</div>
+
+<div class="chat-layout">
+<div class="conv-sidebar" id="convSidebar">
+<div class="conv-filters" id="channelFilters">
+<div class="conv-filter active" data-channel="" data-i18n="messages.filter_all">All</div>
+<div class="conv-filter" data-channel="whatsapp" data-i18n="messages.filter_whatsapp">WhatsApp</div>
+<div class="conv-filter" data-channel="instagram" data-i18n="messages.filter_instagram">Instagram</div>
+<div class="conv-filter" data-channel="messenger" data-i18n="messages.filter_messenger">Messenger</div>
+<div class="conv-filter" data-channel="web" data-i18n="messages.filter_web">Web</div>
+</div>
+<div class="conv-search">
+<input type="text" id="convSearch" placeholder="Search conversations..." data-i18n-placeholder="messages.search_placeholder">
+</div>
+<div class="conv-list" id="convList"></div>
+</div>
+
+<div class="chat-area" id="chatArea">
+<div class="chat-empty" id="chatEmpty">
+<div class="icon">💬</div>
+<div class="msg" data-i18n="messages.select_conversation">Select a conversation</div>
+<div class="sub" data-i18n="messages.select_hint">Choose from the list to view messages</div>
+</div>
+<div id="chatContent" style="display:none;flex:1;display:none;flex-direction:column;min-height:0">
+<div class="chat-header" id="chatHeader"></div>
+<div class="chat-messages" id="chatMessages"></div>
+</div>
+</div>
+</div>
+</div>
+
+<script>
+const ownerKey = localStorage.getItem('tta_owner_key');
+if (!ownerKey) window.location.href = '/login';
+
+const API = (path) => fetch(path, { headers: { 'x-owner-key': ownerKey } }).then(r => r.ok ? r.json() : null).catch(() => null);
+
+const avatarColors = ['linear-gradient(135deg,#F59E0B,#D97706)', 'linear-gradient(135deg,#8B5CF6,#7C3AED)', 'linear-gradient(135deg,#10B981,#059669)', 'linear-gradient(135deg,#3B82F6,#2563EB)', 'linear-gradient(135deg,#EF4444,#DC2626)', 'linear-gradient(135deg,#EC4899,#DB2777)'];
+
+function getInitials(name) {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/);
+  return parts.length >= 2 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : name.slice(0, 2).toUpperCase();
+}
+
+function getAvatarColor(name) {
+  let hash = 0;
+  for (let i = 0; i < (name || '').length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return avatarColors[Math.abs(hash) % avatarColors.length];
+}
+
+function channelBadge(ch) {
+  const c = (ch || '').toLowerCase();
+  const map = {
+    whatsapp: { cls: 'ch-whatsapp', letter: 'W' },
+    instagram: { cls: 'ch-instagram', letter: 'I' },
+    messenger: { cls: 'ch-messenger', letter: 'M' },
+    web: { cls: 'ch-web', letter: 'G' },
+    google: { cls: 'ch-web', letter: 'G' }
+  };
+  const info = map[c] || { cls: 'ch-web', letter: c[0]?.toUpperCase() || '?' };
+  return `<div class="channel-badge ${info.cls}">${info.letter}</div>`;
+}
+
+function formatTime(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  const now = new Date();
+  const diff = now - d;
+  if (diff < 86400000 && d.getDate() === now.getDate()) {
+    return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  }
+  if (diff < 604800000) {
+    return d.toLocaleDateString('en-GB', { weekday: 'short' });
+  }
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+}
+
+function formatMsgTime(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
+
+let allConversations = [];
+let currentChannel = '';
+let selectedConvId = null;
+
+async function loadConversations() {
+  const res = await API('/owner/conversations');
+  allConversations = res?.data || res || [];
+  if (!Array.isArray(allConversations)) allConversations = [];
+  renderConversations();
+}
+
+function renderConversations() {
+  const el = document.getElementById('convList');
+  const search = document.getElementById('convSearch').value.toLowerCase().trim();
+
+  let filtered = allConversations;
+  if (currentChannel) {
+    filtered = filtered.filter(c => (c.channel || '').toLowerCase() === currentChannel);
+  }
+  if (search) {
+    filtered = filtered.filter(c =>
+      (c.customer_name || c.name || '').toLowerCase().includes(search) ||
+      (c.phone || '').includes(search)
+    );
+  }
+
+  if (!filtered.length) {
+    el.innerHTML = `<div class="conv-empty"><div class="icon">💬</div><div class="msg">${allConversations.length ? 'No matching conversations' : 'No conversations yet'}</div></div>`;
+    return;
+  }
+
+  el.innerHTML = filtered.map(c => {
+    const name = c.customer_name || c.name || 'Unknown';
+    const isActive = String(c.id) === String(selectedConvId);
+    return `
+      <div class="conv-item${isActive ? ' active' : ''}" data-id="${c.id}">
+        <div class="conv-avatar" style="background:${getAvatarColor(name)}">${getInitials(name)}</div>
+        <div class="conv-info">
+          <div class="conv-name">${channelBadge(c.channel)} ${name}</div>
+          <div class="conv-preview">${c.last_message || c.preview || 'No messages'}</div>
+        </div>
+        <div class="conv-meta">
+          <div class="conv-time">${formatTime(c.last_message_at || c.updated_at)}</div>
+          ${c.unread_count ? `<div class="conv-unread">${c.unread_count}</div>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  el.querySelectorAll('.conv-item').forEach(item => {
+    item.addEventListener('click', () => openConversation(item.dataset.id));
+  });
+}
+
+async function openConversation(id) {
+  selectedConvId = id;
+  renderConversations();
+
+  const conv = allConversations.find(c => String(c.id) === String(id));
+  const name = conv?.customer_name || conv?.name || 'Unknown';
+  const channel = conv?.channel || 'web';
+
+  document.getElementById('chatEmpty').style.display = 'none';
+  const content = document.getElementById('chatContent');
+  content.style.display = 'flex';
+
+  document.getElementById('chatHeader').innerHTML = `
+    <div class="chat-header-avatar" style="background:${getAvatarColor(name)}">${getInitials(name)}</div>
+    <div class="chat-header-info">
+      <div class="chat-header-name">${name}</div>
+      <div class="chat-header-sub">${conv?.phone || ''} ${channelBadge(channel)}</div>
+    </div>
+  `;
+
+  const msgsEl = document.getElementById('chatMessages');
+  msgsEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3);font-size:12px;font-family:var(--mono)">Loading messages...</div>';
+
+  const res = await API(`/owner/conversations/${id}`);
+  const messages = res?.messages || res?.data?.messages || res?.data || [];
+
+  if (!messages.length) {
+    msgsEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);font-size:13px">No messages in this conversation</div>';
+    return;
+  }
+
+  msgsEl.innerHTML = messages.map(m => {
+    const isBot = m.role === 'bot' || m.role === 'assistant' || m.sender === 'bot' || m.from === 'bot';
+    const rowClass = isBot ? 'bot' : 'user';
+    return `
+      <div class="msg-row ${rowClass}">
+        <div>
+          <div class="msg-sender">${isBot ? 'Jerry AI' : name}</div>
+          <div class="msg-bubble">${escapeHtml(m.content || m.text || m.message || '')}</div>
+          <div class="msg-time">${formatMsgTime(m.created_at || m.timestamp)}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  msgsEl.scrollTop = msgsEl.scrollHeight;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// Channel filter
+document.querySelectorAll('.conv-filter').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.conv-filter').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentChannel = btn.dataset.channel;
+    renderConversations();
+  });
+});
+
+// Search
+let searchTimer;
+document.getElementById('convSearch').addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(renderConversations, 200);
+});
+
+loadConversations();
+</script>
+<script src="/i18n.js"></script>
+<script src="/js/mobile-nav.js"></script>
+</body>
+</html>

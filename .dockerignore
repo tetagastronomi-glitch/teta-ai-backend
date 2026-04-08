@@ -1,0 +1,11 @@
+node_modules
+.git
+.github
+tests
+docs
+*.md
+.env
+.env.*
+index.legacy.js
+index.new.js
+.claude

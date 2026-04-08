@@ -1,0 +1,50 @@
+/* Te Ta AI — Mobile Navigation (< 768px) */
+
+/* Hamburger button in topbar */
+.hamburger{display:none;background:none;border:none;color:var(--text);font-size:22px;cursor:pointer;padding:6px;margin-right:8px;line-height:1;border-radius:8px;transition:background 0.2s}
+.hamburger:hover{background:var(--surface2)}
+
+/* Sidebar overlay on mobile */
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:49;opacity:0;transition:opacity 0.3s}
+.sidebar-overlay.show{opacity:1}
+
+/* Bottom navigation bar */
+.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-top:1px solid var(--border);z-index:45;padding:6px 0 env(safe-area-inset-bottom,6px);backdrop-filter:blur(20px)}
+.bottom-nav-inner{display:flex;justify-content:space-around;align-items:center}
+.bottom-nav-item{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 12px;border-radius:10px;cursor:pointer;text-decoration:none;transition:all 0.2s;-webkit-tap-highlight-color:transparent}
+.bottom-nav-item .bnav-icon{font-size:20px;line-height:1}
+.bottom-nav-item .bnav-label{font-size:9px;font-weight:700;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.04em;color:var(--text3)}
+.bottom-nav-item.active .bnav-label{color:var(--amber)}
+.bottom-nav-item:active{background:var(--surface2)}
+
+@media(max-width:768px){
+  .hamburger{display:flex;align-items:center;justify-content:center}
+  .sidebar{transform:translateX(-100%);transition:transform 0.3s ease}
+  .sidebar.open{transform:translateX(0)}
+  .sidebar-overlay.show{display:block}
+  .main{margin-left:0!important}
+  .bottom-nav{display:block}
+  /* Reserve space for bottom nav */
+  .content{padding-bottom:80px!important}
+  /* Hide Jerry FAB on mobile — bottom nav takes the space */
+  .jerry-fab{bottom:76px}
+  /* Stat grids 2 columns */
+  .stats-grid,.kpi-grid{grid-template-columns:repeat(2,1fr)!important}
+  /* Table horizontal scroll */
+  .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table{min-width:600px}
+  /* Reservation items stack better */
+  .res-details{flex-wrap:wrap;gap:6px!important}
+  .res-actions{opacity:1!important}
+  /* Topbar adjustments */
+  .topbar{padding:0 16px!important}
+  .topbar-title{font-size:15px!important}
+}
+
+@media(max-width:480px){
+  .stats-grid,.kpi-grid{grid-template-columns:1fr!important}
+  .content{padding:16px!important;padding-bottom:80px!important}
+  .res-item{padding:12px 14px!important;flex-wrap:wrap;gap:8px}
+  .res-div{display:none}
+  .res-time{width:auto}
+}

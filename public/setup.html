@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Te Ta AI — Setup</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#09090B;--surface:rgba(255,255,255,0.03);--surface2:rgba(255,255,255,0.06);--border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.12);--text:#FAFAFA;--text2:rgba(255,255,255,0.5);--text3:rgba(255,255,255,0.3);--amber:#F59E0B;--amber2:#D97706;--violet:#8B5CF6;--violet2:#7C3AED;--emerald:#10B981;--red:#EF4444;--blue:#3B82F6;--font:'Plus Jakarta Sans',sans-serif;--mono:'JetBrains Mono',monospace}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;position:relative}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 600px 400px at 70% 20%,rgba(245,158,11,0.06),transparent),radial-gradient(ellipse 500px 500px at 20% 80%,rgba(139,92,246,0.04),transparent);pointer-events:none}
+.grid-bg{position:fixed;inset:0;background-image:linear-gradient(rgba(255,255,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.02) 1px,transparent 1px);background-size:64px 64px}
+.wrapper{position:relative;z-index:1;width:100%;max-width:560px;padding:0 24px}
+.logo{display:flex;align-items:center;gap:12px;justify-content:center;margin-bottom:32px}
+.logo-icon{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--amber),var(--amber2));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#fff;box-shadow:0 0 30px rgba(245,158,11,0.2)}
+.logo-text{font-size:22px;font-weight:800;letter-spacing:-0.5px}.logo-text span{color:var(--amber)}
+
+.progress{display:flex;align-items:center;gap:0;margin-bottom:36px;padding:0 20px}
+.step-dot{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;transition:all 0.4s;flex-shrink:0}
+.step-dot.active{background:linear-gradient(135deg,var(--amber),var(--amber2));color:#fff;box-shadow:0 0 20px rgba(245,158,11,0.3)}
+.step-dot.done{background:var(--emerald);color:#fff}
+.step-dot.pending{background:rgba(255,255,255,0.06);color:var(--text3);border:1px solid var(--border2)}
+.step-line{flex:1;height:2px;background:var(--border2);margin:0 8px;transition:background 0.4s}
+.step-line.done{background:linear-gradient(90deg,var(--emerald),var(--amber))}
+.step-label{font-size:11px;font-weight:600;color:var(--text3);text-align:center;margin-top:6px;transition:color 0.3s}
+.step-label.active{color:var(--amber)}
+.step-label.done{color:var(--emerald)}
+.step-item{display:flex;flex-direction:column;align-items:center;flex-shrink:0}
+.step-wrap{display:flex;align-items:center;width:100%}
+
+.card{background:var(--surface);backdrop-filter:blur(40px);border:1px solid var(--border);border-radius:20px;padding:40px 36px;box-shadow:0 0 80px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.04)}
+
+.jerry{display:flex;align-items:flex-start;gap:14px;margin-bottom:28px;padding:16px 18px;background:rgba(139,92,246,0.06);border:1px solid rgba(139,92,246,0.12);border-radius:14px}
+.jerry-icon{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,var(--violet),var(--violet2));display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 0 20px rgba(139,92,246,0.2)}
+.jerry-icon svg{width:20px;height:20px;fill:none;stroke:#fff;stroke-width:2}
+.jerry-text{font-size:14px;line-height:1.6;color:var(--text2)}
+.jerry-text strong{color:var(--text);font-weight:600}
+
+.section-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text2);margin-bottom:16px;font-family:var(--mono)}
+
+.providers{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}
+.provider{padding:20px 12px;background:rgba(255,255,255,0.03);border:1.5px solid var(--border2);border-radius:14px;text-align:center;cursor:pointer;transition:all 0.25s}
+.provider:hover{border-color:rgba(255,255,255,0.2);background:rgba(255,255,255,0.05)}
+.provider.selected{border-color:var(--amber);background:rgba(245,158,11,0.06);box-shadow:0 0 20px rgba(245,158,11,0.1)}
+.provider-icon{width:48px;height:48px;border-radius:14px;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:20px}
+.provider-icon.anthropic{background:linear-gradient(135deg,#D97757,#C4613F)}
+.provider-icon.openai{background:linear-gradient(135deg,#10A37F,#0D8A6A)}
+.provider-icon.google{background:linear-gradient(135deg,#4285F4,#3367D6)}
+.provider-name{font-size:14px;font-weight:700;margin-bottom:2px}
+.provider-model{font-size:11px;font-family:var(--mono);color:var(--text3)}
+
+.form-group{margin-bottom:20px}
+.form-label{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.form-label-text{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text2)}
+.form-badge{font-size:10px;font-family:var(--mono);color:var(--emerald);letter-spacing:0.05em;text-transform:uppercase}
+.form-input{width:100%;padding:14px 16px;background:rgba(255,255,255,0.04);border:1.5px solid var(--border2);border-radius:12px;font-size:14px;font-family:var(--mono);color:var(--text);outline:none;transition:all 0.2s}
+.form-input:focus{border-color:var(--amber);box-shadow:0 0 20px rgba(245,158,11,0.1);background:rgba(245,158,11,0.03)}
+.form-input::placeholder{color:var(--text3)}
+.form-input-row{display:flex;gap:10px}
+.form-input-row .form-input{flex:1}
+.form-select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.3)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center}
+
+.form-textarea{min-height:100px;resize:vertical;line-height:1.6;font-family:var(--font)}
+
+.test-btn{padding:10px 20px;background:rgba(255,255,255,0.06);border:1px solid var(--border2);border-radius:10px;color:var(--text);font-size:13px;font-weight:600;font-family:var(--font);cursor:pointer;transition:all 0.2s;flex-shrink:0}
+.test-btn:hover{background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2)}
+.test-btn.success{background:rgba(16,185,129,0.1);border-color:rgba(16,185,129,0.3);color:var(--emerald)}
+.test-btn.fail{background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.3);color:var(--red)}
+.form-hint{font-size:12px;color:var(--text3);margin-top:8px}.form-hint a{color:var(--amber);text-decoration:none}.form-hint a:hover{text-decoration:underline}
+
+.wa-section{padding:20px;background:rgba(16,185,129,0.04);border:1px solid rgba(16,185,129,0.1);border-radius:14px;margin-bottom:20px}
+.wa-title{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;margin-bottom:8px}.wa-title svg{width:20px;height:20px}
+.wa-desc{font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.5}
+.wa-btn{padding:10px 20px;background:linear-gradient(135deg,#25D366,#128C7E);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;font-family:var(--font);cursor:pointer;transition:all 0.2s}
+.wa-btn:hover{transform:translateY(-1px);box-shadow:0 4px 15px rgba(37,211,102,0.3)}
+.wa-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+.checks{display:flex;flex-direction:column;gap:14px;margin-bottom:28px}
+.check-item{display:flex;align-items:center;gap:12px;padding:14px 16px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:12px;transition:all 0.4s}
+.check-item.pass{border-color:rgba(16,185,129,0.2);background:rgba(16,185,129,0.04)}
+.check-item.fail{border-color:rgba(239,68,68,0.2);background:rgba(239,68,68,0.04)}
+.check-icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.check-item.pass .check-icon{background:rgba(16,185,129,0.15);color:var(--emerald)}
+.check-item.fail .check-icon{background:rgba(239,68,68,0.15);color:var(--red)}
+.check-item .check-icon{background:rgba(255,255,255,0.06);color:var(--text3)}
+.check-text{font-size:14px;font-weight:500}
+.check-text span{color:var(--text3);font-size:12px;margin-left:6px}
+
+.pin-reveal{text-align:center;padding:28px;background:rgba(245,158,11,0.04);border:1px solid rgba(245,158,11,0.15);border-radius:16px;margin-bottom:24px}
+.pin-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--amber);margin-bottom:12px;font-family:var(--mono)}
+.pin-code{font-size:48px;font-weight:800;font-family:var(--mono);letter-spacing:12px;color:var(--text);text-shadow:0 0 30px rgba(245,158,11,0.3)}
+.pin-warn{font-size:12px;color:var(--text2);margin-top:10px}
+
+.btn{width:100%;padding:15px;border:none;border-radius:14px;font-size:15px;font-weight:700;font-family:var(--font);cursor:pointer;transition:all 0.25s}
+.btn-amber{background:linear-gradient(135deg,var(--amber),var(--amber2));color:#fff;box-shadow:0 4px 20px rgba(245,158,11,0.2)}
+.btn-amber:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(245,158,11,0.3)}
+.btn-amber:active{transform:translateY(0)}
+.btn-amber:disabled{opacity:0.4;cursor:not-allowed;transform:none;box-shadow:none}
+.btn-glass{background:rgba(255,255,255,0.06);border:1px solid var(--border2);color:var(--text);box-shadow:none}
+.btn-glass:hover{background:rgba(255,255,255,0.1)}
+.btn-row{display:flex;gap:12px;margin-top:8px}
+.btn-row .btn{flex:1}
+
+.step-page{display:none}.step-page.active{display:block}
+.version{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);font-size:11px;font-family:var(--mono);color:var(--text3)}
+@media(max-width:480px){.card{padding:28px 20px}.providers{grid-template-columns:1fr}.pin-code{font-size:36px}}
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+<div class="wrapper">
+<div class="logo"><div class="logo-icon">TT</div><div class="logo-text">Te Ta <span>AI</span></div></div>
+
+<div class="progress">
+<div class="step-wrap">
+  <div class="step-item"><div class="step-dot active" id="dot1">1</div><div class="step-label active" id="lbl1">Welcome</div></div>
+  <div class="step-line" id="line1"></div>
+  <div class="step-item"><div class="step-dot pending" id="dot2">2</div><div class="step-label" id="lbl2">Business</div></div>
+  <div class="step-line" id="line2"></div>
+  <div class="step-item"><div class="step-dot pending" id="dot3">3</div><div class="step-label" id="lbl3">Ready!</div></div>
+</div>
+</div>
+
+<div class="card">
+<!-- STEP 1 -->
+<div class="step-page active" id="step1">
+<div class="jerry">
+  <div class="jerry-icon"><svg viewBox="0 0 24 24"><path d="M12 2a4 4 0 014 4v2h2a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V10a2 2 0 012-2h2V6a4 4 0 014-4zm0 2a2 2 0 00-2 2v2h4V6a2 2 0 00-2-2z" stroke-linecap="round"/></svg></div>
+  <div class="jerry-text"><strong>Hi, I'm Jerry — your AI assistant.</strong><br>I'll help you set up your platform. It only takes 2 minutes. Let's start with your AI engine.</div>
+</div>
+
+<div class="section-title" data-i18n="setup.ai_provider">Choose AI Provider</div>
+<div class="providers">
+  <div class="provider selected" onclick="selectProvider(this,'anthropic')"><div class="provider-icon anthropic">✦</div><div class="provider-name">Anthropic</div><div class="provider-model">Claude 3.5</div></div>
+  <div class="provider" onclick="selectProvider(this,'openai')"><div class="provider-icon openai">✦</div><div class="provider-name">OpenAI</div><div class="provider-model">GPT-4o</div></div>
+  <div class="provider" onclick="selectProvider(this,'google')"><div class="provider-icon google">✦</div><div class="provider-name">Google</div><div class="provider-model">Gemini 1.5</div></div>
+</div>
+
+<div class="form-group">
+  <div class="form-label"><span class="form-label-text" data-i18n="setup.api_key">API Key</span><span class="form-badge">● <span data-i18n="login.secure">Secure Encryption Active</span></span></div>
+  <div class="form-input-row">
+    <input type="password" class="form-input" id="apiKey" placeholder="Paste your key here...">
+    <button class="test-btn" id="testBtn" onclick="testKey()">Test</button>
+  </div>
+  <div class="form-hint">Get your key from <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> → API Keys</div>
+</div>
+
+<button class="btn btn-amber" id="btn1" onclick="goStep(2)" disabled>Continue →</button>
+</div>
+
+<!-- STEP 2 -->
+<div class="step-page" id="step2">
+<div class="jerry">
+  <div class="jerry-icon"><svg viewBox="0 0 24 24"><path d="M12 2a4 4 0 014 4v2h2a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V10a2 2 0 012-2h2V6a4 4 0 014-4zm0 2a2 2 0 00-2 2v2h4V6a2 2 0 00-2-2z" stroke-linecap="round"/></svg></div>
+  <div class="jerry-text"><strong>Great! Now tell me about your business.</strong><br>This helps your AI bot understand your restaurant and talk to customers naturally.</div>
+</div>
+
+<div class="form-group">
+  <div class="form-label"><span class="form-label-text" data-i18n="setup.restaurant_name">Restaurant Name</span></div>
+  <input type="text" class="form-input" id="bizName" placeholder="e.g. Pizza Roma">
+</div>
+
+<div class="form-group">
+  <div class="form-label"><span class="form-label-text">Hours</span></div>
+  <div class="form-input-row">
+    <input type="time" class="form-input" id="openTime" value="11:00">
+    <input type="time" class="form-input" id="closeTime" value="23:00">
+  </div>
+</div>
+
+<div class="form-group">
+  <div class="form-label"><span class="form-label-text" data-i18n="setup.language">Language</span></div>
+  <select class="form-input form-select" id="lang">
+    <option value="en">English</option><option value="sq">Shqip</option><option value="es">Español</option><option value="pt">Português</option><option value="tr">Türkçe</option><option value="de">Deutsch</option><option value="fr">Français</option><option value="ar">العربية</option>
+  </select>
+</div>
+
+<div class="wa-section">
+  <div class="wa-title"><svg viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.832-1.438A9.955 9.955 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2z"/></svg>WhatsApp Connection</div>
+  <div class="wa-desc">Fill WhatsApp Cloud API details, then save your setup and connect in one step.</div>
+  <div class="wa-grid">
+    <input type="text" class="form-input" id="waPhone" placeholder="Phone Number (e.g. 35569...)">
+    <input type="text" class="form-input" id="waAppId" placeholder="Meta App ID">
+    <input type="text" class="form-input" id="waAppSecret" placeholder="Meta App Secret">
+    <input type="text" class="form-input" id="waWebhookToken" placeholder="Webhook Token">
+  </div>
+  <div style="margin-top:10px;font-size:12px;color:var(--text3);font-family:var(--mono)" id="waStatus">Not connected yet</div>
+</div>
+
+<div class="form-group">
+  <div class="form-label"><span class="form-label-text">Train Your Bot</span></div>
+  <textarea class="form-input form-textarea" id="botRules" placeholder="Tell your bot about your business. Example:&#10;&#10;We are an Italian seafood restaurant. 12 tables, max 8 people per group. We don't accept reservations for less than 2 hours before closing. Our specialty is fresh fish and homemade pasta. We have a terrace for summer dining."></textarea>
+  <div class="form-hint">Your bot will learn these rules and use them in every conversation.</div>
+</div>
+
+<div class="btn-row">
+  <button class="btn btn-glass" onclick="goStep(1)">← Back</button>
+  <button class="btn btn-amber" id="saveConnectBtn" onclick="saveAndConnect()">Save & Connect →</button>
+</div>
+</div>
+
+<!-- STEP 3 -->
+<div class="step-page" id="step3">
+<div class="jerry">
+  <div class="jerry-icon"><svg viewBox="0 0 24 24"><path d="M12 2a4 4 0 014 4v2h2a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V10a2 2 0 012-2h2V6a4 4 0 014-4zm0 2a2 2 0 00-2 2v2h4V6a2 2 0 00-2-2z" stroke-linecap="round"/></svg></div>
+  <div class="jerry-text"><strong>Almost there! Let me run a few checks...</strong></div>
+</div>
+
+<div class="checks">
+  <div class="check-item" id="chk1"><div class="check-icon">○</div><div class="check-text">Database Connection <span>checking...</span></div></div>
+  <div class="check-item" id="chk2"><div class="check-icon">○</div><div class="check-text">AI Provider <span>checking...</span></div></div>
+  <div class="check-item" id="chk3"><div class="check-icon">○</div><div class="check-text">Business Profile <span>checking...</span></div></div>
+  <div class="check-item" id="chk4"><div class="check-icon">○</div><div class="check-text">WhatsApp <span>checking...</span></div></div>
+</div>
+
+<div class="pin-reveal" id="pinReveal" style="display:none">
+  <div class="pin-label">Your Access Code</div>
+  <div class="pin-code" id="pinCode">——</div>
+  <div class="pin-warn">⚠ Save this code — it will only be shown once.</div>
+</div>
+
+<button class="btn btn-amber" id="btnFinal" onclick="window.location.href='/dashboard'" style="display:none">Enter Dashboard →</button>
+</div>
+</div>
+</div>
+<div class="version">Te Ta AI v1.0.0</div>
+
+<script>
+let currentStep = 1, selectedProvider = 'anthropic', apiKeyValid = false, waConfigured = false, setupCompleted = false, setupResult = null;
+
+function selectProvider(el, p) {
+  document.querySelectorAll('.provider').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedProvider = p;
+  apiKeyValid = false;
+  document.getElementById('btn1').disabled = true;
+  document.getElementById('testBtn').textContent = 'Test';
+  document.getElementById('testBtn').className = 'test-btn';
+  const labels = { anthropic: 'console.anthropic.com', openai: 'platform.openai.com', google: 'aistudio.google.com' };
+  document.querySelector('.form-hint a').textContent = labels[p];
+  document.querySelector('.form-hint a').href = 'https://' + labels[p];
+}
+
+var _testingKey = false;
+async function testKey() {
+  if (_testingKey) return;
+  var btn = document.getElementById('testBtn');
+  var key = document.getElementById('apiKey').value.trim();
+  if (!key) { btn.textContent = 'Empty!'; btn.className = 'test-btn fail'; return; }
+
+  _testingKey = true;
+  btn.textContent = 'Testing...';
+  btn.className = 'test-btn';
+  btn.disabled = true;
+
+  try {
+    var resp = await fetch('/setup/test-api-key', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider: selectedProvider, api_key: key })
+    });
+    var data = await resp.json();
+    if (data.ok) {
+      btn.textContent = '\u2713 Valid';
+      btn.className = 'test-btn success';
+      apiKeyValid = true;
+      document.getElementById('btn1').disabled = false;
+    } else {
+      btn.textContent = '\u2717 Invalid';
+      btn.className = 'test-btn fail';
+      apiKeyValid = false;
+      document.getElementById('btn1').disabled = true;
+    }
+  } catch (err) {
+    btn.textContent = '\u2717 Error';
+    btn.className = 'test-btn fail';
+    apiKeyValid = false;
+    document.getElementById('btn1').disabled = true;
+  }
+  btn.disabled = false;
+  _testingKey = false;
+}
+
+async function saveAndConnect() {
+  var btn = document.getElementById('saveConnectBtn');
+  var waStatus = document.getElementById('waStatus');
+  var bizName = document.getElementById('bizName').value.trim();
+  var waPhone = document.getElementById('waPhone').value.trim();
+  var waAppId = document.getElementById('waAppId').value.trim();
+  var waAppSecret = document.getElementById('waAppSecret').value.trim();
+  var waWebhookToken = document.getElementById('waWebhookToken').value.trim();
+
+  hideSetupError();
+  if (!apiKeyValid) {
+    showSetupError('Please test and validate your AI API key first.');
+    return;
+  }
+  if (!bizName) {
+    showSetupError('Restaurant name is required.');
+    return;
+  }
+  if (!waPhone || !waAppId || !waAppSecret || !waWebhookToken) {
+    showSetupError('Please fill all WhatsApp fields before Save & Connect.');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+  waStatus.textContent = 'Connecting...';
+
+  try {
+    var resp = await fetch('/setup/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: bizName,
+        phone: waPhone,
+        address: '',
+        open: document.getElementById('openTime').value || '11:00',
+        close: document.getElementById('closeTime').value || '23:00',
+        lang: document.getElementById('lang').value || 'en',
+        ai_provider: selectedProvider,
+        ai_api_key: document.getElementById('apiKey').value.trim(),
+        custom_prompt: document.getElementById('botRules').value.trim(),
+        wa_app_id: waAppId,
+        wa_app_secret: waAppSecret,
+        wa_webhook_token: waWebhookToken
+      })
+    });
+    var data = await resp.json();
+    if (!resp.ok || !data.success) {
+      throw new Error(data.error || 'Setup failed');
+    }
+
+    setupCompleted = true;
+    setupResult = data.data || null;
+    waConfigured = true;
+    waStatus.textContent = 'Connected and saved.';
+    goStep(3);
+  } catch (err) {
+    setupCompleted = false;
+    waConfigured = false;
+    waStatus.textContent = 'Connection failed. Please check details.';
+    showSetupError(err.message || 'Could not save setup.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save & Connect →';
+  }
+}
+
+function goStep(n) {
+  if (n === 2 && !apiKeyValid) return;
+  document.querySelectorAll('.step-page').forEach(s => s.classList.remove('active'));
+  document.getElementById('step' + n).classList.add('active');
+  for (let i = 1; i <= 3; i++) {
+    const dot = document.getElementById('dot' + i);
+    const lbl = document.getElementById('lbl' + i);
+    dot.className = 'step-dot ' + (i < n ? 'done' : i === n ? 'active' : 'pending');
+    lbl.className = 'step-label ' + (i < n ? 'done' : i === n ? 'active' : '');
+  }
+  document.getElementById('line1').className = 'step-line' + (n > 1 ? ' done' : '');
+  document.getElementById('line2').className = 'step-line' + (n > 2 ? ' done' : '');
+  if (n === 3) runChecks();
+  currentStep = n;
+}
+
+var _setupRunning = false;
+async function runChecks() {
+  if (_setupRunning) return;
+  _setupRunning = true;
+
+  var checks = [
+    { id: 'chk1', label: 'Database Connection' },
+    { id: 'chk2', label: 'AI Provider' },
+    { id: 'chk3', label: 'Business Profile' },
+    { id: 'chk4', label: 'WhatsApp' }
+  ];
+
+  // Reset all checks to pending
+  checks.forEach(function(c) {
+    var el = document.getElementById(c.id);
+    el.className = 'check-item';
+    el.querySelector('.check-icon').textContent = '\u25CB';
+    el.querySelector('.check-text').innerHTML = c.label + ' <span>checking...</span>';
+  });
+  document.getElementById('pinReveal').style.display = 'none';
+  document.getElementById('btnFinal').style.display = 'none';
+  // Remove previous credentials box if re-running
+  var prev = document.getElementById('credentialsBox');
+  if (prev) prev.remove();
+  hideSetupError();
+
+  // Check 1: Database
+  var dbOk = false;
+  try {
+    var dbResp = await fetch('/health/db');
+    var dbData = await dbResp.json();
+    dbOk = dbData.db === 'ok';
+    setCheck('chk1', 'Database Connection', dbOk);
+  } catch (e) { setCheck('chk1', 'Database Connection', false); }
+
+  // Check 2: AI Provider — validated at step 1
+  setCheck('chk2', 'AI Provider', apiKeyValid);
+
+  // Check 3: Business profile — check form fields
+  var bizName = document.getElementById('bizName').value.trim();
+  setCheck('chk3', 'Business Profile', !!bizName);
+
+  // Check 4: WhatsApp
+  setCheckOptional('chk4', 'WhatsApp', waConfigured);
+
+  // Guard: DB must be connected
+  if (!dbOk) {
+    showSetupError('Database connection failed. Check your DATABASE_URL and try again.');
+    _setupRunning = false;
+    return;
+  }
+  if (!bizName) {
+    showSetupError('Restaurant name is required. Go back to Step 2.');
+    _setupRunning = false;
+    return;
+  }
+  if (!setupCompleted || !setupResult) {
+    showSetupError('Go back to Step 2 and click "Save & Connect" first.');
+    _setupRunning = false;
+    return;
+  }
+
+  document.getElementById('pinReveal').style.display = 'block';
+  document.getElementById('pinCode').textContent = setupResult.pin_code || '----';
+  document.getElementById('btnFinal').style.display = 'block';
+
+  // Show credentials safely (textContent, no innerHTML for user data)
+  var info = document.createElement('div');
+  info.id = 'credentialsBox';
+  info.style.cssText = 'margin-top:16px;padding:16px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:12px;font-size:12px;font-family:var(--mono);line-height:2;color:var(--text2)';
+  var hdr = document.createElement('div');
+  hdr.style.cssText = 'font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--amber);margin-bottom:8px';
+  hdr.textContent = 'Save These Credentials';
+  info.appendChild(hdr);
+  var lines = [
+    ['PIN', setupResult.pin_code],
+    ['API Key', setupResult.api_key],
+    ['Owner Key', setupResult.owner_key]
+  ];
+  lines.forEach(function(pair) {
+    var row = document.createElement('div');
+    row.style.cssText = 'word-break:break-all';
+    var lbl = document.createTextNode(pair[0] + ': ');
+    var val = document.createElement('strong');
+    val.style.color = 'var(--text)';
+    val.textContent = pair[1] || '';
+    row.appendChild(lbl);
+    row.appendChild(val);
+    info.appendChild(row);
+  });
+  document.getElementById('pinReveal').after(info);
+  _setupRunning = false;
+}
+
+function setCheck(id, label, ok) {
+  const el = document.getElementById(id);
+  el.className = 'check-item ' + (ok ? 'pass' : 'fail');
+  el.querySelector('.check-icon').textContent = ok ? '\u2713' : '\u2717';
+  el.querySelector('.check-text').innerHTML = label +
+    (ok ? ' <span style="color:var(--emerald)">connected</span>' : ' <span style="color:var(--red)">failed</span>');
+}
+
+function setCheckOptional(id, label, ok) {
+  const el = document.getElementById(id);
+  el.className = 'check-item ' + (ok ? 'pass' : '');
+  el.querySelector('.check-icon').textContent = ok ? '\u2713' : '\u2014';
+  el.querySelector('.check-text').innerHTML = label +
+    (ok ? ' <span style="color:var(--emerald)">configured</span>' : ' <span style="color:var(--text3)">skipped (configure later in Settings)</span>');
+}
+
+function showSetupError(msg) {
+  var errEl = document.getElementById('setupError');
+  if (!errEl) {
+    errEl = document.createElement('div');
+    errEl.id = 'setupError';
+    errEl.style.cssText = 'padding:14px 18px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:12px;margin-bottom:16px;font-size:13px;color:var(--red)';
+    document.getElementById('btnFinal').before(errEl);
+  }
+  errEl.textContent = msg;
+  errEl.style.display = 'block';
+}
+function hideSetupError() {
+  var errEl = document.getElementById('setupError');
+  if (errEl) errEl.style.display = 'none';
+}
+
+// Save language selection to localStorage for i18n
+const langSelect = document.getElementById('lang');
+if (langSelect) {
+  langSelect.addEventListener('change', function() {
+    localStorage.setItem('tta_lang', this.value);
+    if (typeof window.applyI18n === 'function') {
+      // Reload locale
+      location.reload();
+    }
+  });
+}
+</script>
+<script src="/i18n.js"></script>
+</body>
+</html>
