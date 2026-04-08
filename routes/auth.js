@@ -53,10 +53,11 @@ router.post('/auth/pin-login', loginLimiter, requireDbReady, async (req, res) =>
       return res.status(401).json({ error: 'Kodi nuk është i saktë' });
     }
     const row = result.rows[0];
-    // Generate fresh owner_key, deactivate old pin-login keys, insert new one
+    // Generate fresh owner_key — keep old keys active so existing sessions survive
     const owner_key = 'own_' + crypto.randomBytes(8).toString('hex');
+    // Clean up keys older than 30 days only
     await pool.query(
-      `UPDATE public.owner_keys SET is_active=FALSE WHERE restaurant_id=$1 AND label='pin-login'`,
+      `DELETE FROM public.owner_keys WHERE restaurant_id=$1 AND label='pin-login' AND created_at < NOW() - INTERVAL '30 days'`,
       [row.id]
     );
     await pool.query(

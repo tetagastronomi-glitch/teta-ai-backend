@@ -988,9 +988,20 @@
   let allCustomers = [];
 
   // ===== AUTO-LOGIN from PIN login =====
-  (function autoLogin() {
+  (async function autoLogin() {
     const savedKey = localStorage.getItem('tta_owner_key') || localStorage.getItem('ownerKey');
-    if (savedKey) {
+    if (!savedKey) return;
+    // Verify key is still valid before showing dashboard
+    try {
+      const res = await fetch('/owner/reservations?limit=1', {
+        headers: { 'Content-Type': 'application/json', 'x-owner-key': savedKey }
+      });
+      if (!res.ok) {
+        // Key expired/invalid — clear and show login
+        localStorage.removeItem('tta_owner_key');
+        localStorage.removeItem('ownerKey');
+        return;
+      }
       OWNER_KEY = savedKey;
       const loginScreen = document.getElementById('login-screen');
       const app = document.getElementById('app');
@@ -1003,6 +1014,8 @@
       updateHeaderDate();
       loadAll();
       checkBotStatus();
+    } catch (_e) {
+      // Network error — show login form
     }
   })();
 
