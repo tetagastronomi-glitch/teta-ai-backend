@@ -1,0 +1,81 @@
+/* ═══════════════════════════════════════════════════════════════
+   TE TA AI — Dashboard Theme Overrides
+   Two CSS variable systems coexist across dashboard pages:
+     A) dashboard.html (light-default): --bg, --surface, --border, --text,
+        --text-muted, --text-light, --sidebar-bg, --shadow, --shadow-md
+     B) analytics/settings/menu/messages/guests/floorplan/campaigns
+        (dark-default): --bg, --bg2, --surface, --surface2, --border,
+        --border2, --text, --text2, --text3
+   This file defines BOTH the dark counterpart for system A and the
+   light counterpart for system B, so a single theme.js toggle drives
+   every dashboard page consistently.
+
+   Selectors use html[data-theme="..."] for higher specificity than
+   the inline :root{...} blocks already shipped on each page.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── DARK overrides for system A (dashboard.html) ── */
+html[data-theme="dark"] {
+  --sidebar-bg: #0F0F12;
+  --bg:         #09090B;
+  --surface:    #111114;
+  --border:     rgba(255,255,255,0.08);
+  --text:       #FAFAFA;
+  --text-muted: rgba(255,255,255,0.65);
+  --text-light: rgba(255,255,255,0.45);
+  --shadow:     0 1px 3px rgba(0,0,0,0.45);
+  --shadow-md:  0 4px 16px rgba(0,0,0,0.55);
+  color-scheme: dark;
+}
+
+/* ── LIGHT overrides for system B (analytics, settings, menu, ...) ── */
+html[data-theme="light"] {
+  --bg:       #FAFAF8;
+  --bg2:      #FFFFFF;
+  --surface:  rgba(0,0,0,0.025);
+  --surface2: rgba(0,0,0,0.05);
+  --border:   rgba(0,0,0,0.08);
+  --border2:  rgba(0,0,0,0.14);
+  --text:     #1A1A18;
+  --text2:    rgba(0,0,0,0.6);
+  --text3:    rgba(0,0,0,0.4);
+  color-scheme: light;
+}
+
+/* ── Smooth transitions when toggling ── */
+html[data-theme] body,
+html[data-theme] body * {
+  transition: background-color 0.25s ease,
+              color 0.25s ease,
+              border-color 0.25s ease;
+}
+
+/* ── Floating toggle button polish (theme.js fallback) ── */
+#tt-theme-toggle {
+  position: fixed !important;
+  top: 16px !important;
+  right: 16px !important;
+  z-index: 999 !important;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface, var(--bg));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  transition: transform 0.18s ease, background-color 0.25s ease, border-color 0.25s ease;
+}
+#tt-theme-toggle:hover {
+  transform: scale(1.05);
+}
+#tt-theme-toggle svg {
+  width: 18px;
+  height: 18px;
+}
