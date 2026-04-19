@@ -1,123 +1,136 @@
 <!DOCTYPE html>
-<html lang="sq">
+<html lang="sq" data-theme="dark">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+<meta name="theme-color" content="#09090B"/>
 <title>Te Ta — Admin</title>
+<script src="/js/theme.js"></script>
+<link rel="stylesheet" href="/css/theme.css"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet"/>
 <style>
+/* ═══ ADMIN OVERRIDES — Linear / Vercel inspired ═══ */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg:#ffffff;
-  --sb:#f9f9f9;
-  --surface:#f5f5f0;
-  --border:#e5e5e5;
-  --text:#1a1a1a;
-  --muted:#6b6b6b;
-  --faint:#a0a0a0;
-  --accent:#d97706;
-  --accent-bg:#fef3c7;
-  --accent-text:#92400e;
-  --red:#dc2626;
-  --red-bg:#fef2f2;
-  --green:#16a34a;
-  --green-bg:#f0fdf4;
-  --font:system-ui,-apple-system,'Segoe UI',sans-serif;
-}
-html,body{height:100%;overflow:hidden;font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
+html,body{height:100%;overflow:hidden;font-family:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;background:#09090B;color:#FAFAFA;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 
 /* ===== LOGIN ===== */
-#login-screen{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;align-items:center;justify-content:center}
-.login-box{width:360px;border:0.5px solid var(--border);border-radius:12px;padding:36px 32px;background:var(--bg)}
-.login-box h2{font-size:18px;font-weight:600;margin-bottom:4px}
-.login-box p{color:var(--muted);font-size:13px;margin-bottom:24px}
-.login-box input{width:100%;padding:9px 12px;border:0.5px solid var(--border);border-radius:6px;font-size:14px;font-family:var(--font);background:var(--bg);color:var(--text);margin-bottom:10px;transition:border-color .15s}
-.login-box input:focus{outline:none;border-color:var(--accent)}
-#login-err{font-size:12px;color:var(--red);margin-top:8px;display:none}
+#login-screen{position:fixed;inset:0;background:#09090B;z-index:999;display:flex;align-items:center;justify-content:center}
+#login-screen::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 600px 400px at 50% 40%,rgba(245,158,11,0.06),transparent 70%);pointer-events:none}
+.login-box{width:380px;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:40px 36px;background:rgba(255,255,255,0.03);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);position:relative;box-shadow:0 20px 60px rgba(0,0,0,0.5)}
+.login-box h2{font-size:20px;font-weight:700;margin-bottom:4px;letter-spacing:-0.02em;color:#FAFAFA}
+.login-box .login-label{color:rgba(245,158,11,0.9);font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:2px}
+.login-box p{color:#71717A;font-size:13px;margin-bottom:28px}
+.login-box input{width:100%;padding:10px 14px;border:1px solid rgba(255,255,255,0.06);border-radius:8px;font-size:14px;font-family:'Plus Jakarta Sans',sans-serif;background:rgba(255,255,255,0.04);color:#FAFAFA;margin-bottom:12px;transition:border-color .2s,box-shadow .2s;outline:none}
+.login-box input:focus{border-color:rgba(245,158,11,0.4);box-shadow:0 0 0 3px rgba(245,158,11,0.1)}
+.login-box input::placeholder{color:#52525B}
+.login-btn{width:100%;padding:11px 20px;border:none;border-radius:8px;font-size:14px;font-weight:600;font-family:'Plus Jakarta Sans',sans-serif;cursor:pointer;background:linear-gradient(135deg,#D97706,#F59E0B);color:#000;transition:all .2s;position:relative;overflow:hidden;box-shadow:0 0 20px rgba(245,158,11,0.15),0 4px 12px rgba(245,158,11,0.1)}
+.login-btn:hover{transform:translateY(-1px);box-shadow:0 0 40px rgba(245,158,11,0.25),0 8px 24px rgba(245,158,11,0.15)}
+.login-btn::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent 0%,rgba(255,255,255,0.15) 50%,transparent 100%);transform:translateX(-100%);transition:transform .5s ease}
+.login-btn:hover::after{transform:translateX(100%)}
+#login-err{font-size:12px;color:#EF4444;margin-top:8px;display:none}
 
 /* ===== LAYOUT ===== */
 .app{display:flex;height:100vh;overflow:hidden}
 
 /* ===== SIDEBAR ===== */
-.sidebar{width:220px;flex-shrink:0;background:var(--sb);border-right:0.5px solid var(--border);display:flex;flex-direction:column;overflow-y:auto}
-.sb-logo{padding:20px 16px 16px;border-bottom:0.5px solid var(--border)}
-.sb-logo-text{font-size:16px;font-weight:700;letter-spacing:-.3px;color:var(--text)}
-.sb-logo-text span{color:var(--accent)}
-.sb-logo-sub{font-size:11px;color:var(--faint);margin-top:1px}
-.sb-section{padding:16px 8px 4px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--faint)}
-.sb-item{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:6px;margin:1px 6px;cursor:pointer;font-size:13.5px;color:var(--muted);transition:all .1s;border:none;background:none;width:calc(100% - 12px);text-align:left}
-.sb-item:hover{background:#f0f0f0;color:var(--text)}
-.sb-item.active{background:var(--accent-bg);color:var(--accent-text);font-weight:500}
-.sb-item .dot{width:5px;height:5px;border-radius:50%;background:var(--accent);opacity:0;flex-shrink:0;margin-left:auto;transition:opacity .15s}
-.sb-item.active .dot{opacity:1}
-.sb-icon{font-size:14px;width:16px;text-align:center;flex-shrink:0}
-.sb-footer{margin-top:auto;padding:12px 8px;border-top:0.5px solid var(--border)}
+.sidebar{width:220px;flex-shrink:0;background:rgba(17,17,20,0.95);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-right:1px solid rgba(255,255,255,0.06);display:flex;flex-direction:column;overflow-y:auto}
+.sb-logo{padding:20px 16px 16px;border-bottom:1px solid rgba(255,255,255,0.06)}
+.sb-logo-row{display:flex;align-items:center;gap:10px}
+.sb-logo-icon{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#D97706,#F59E0B);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#000;flex-shrink:0}
+.sb-logo-text{font-size:15px;font-weight:700;letter-spacing:-.3px;color:#FAFAFA}
+.sb-logo-text span{color:#F59E0B}
+.sb-logo-sub{font-size:10px;font-weight:600;color:#52525B;margin-top:4px;letter-spacing:0.06em;text-transform:uppercase;padding-left:42px}
+.sb-section{padding:18px 12px 6px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:#52525B}
+.sb-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;margin:1px 6px;cursor:pointer;font-size:13px;color:#A1A1AA;transition:all .15s;border:1px solid transparent;background:none;width:calc(100% - 12px);text-align:left;font-family:'Plus Jakarta Sans',sans-serif;font-weight:500}
+.sb-item:hover{background:rgba(255,255,255,0.05);color:#FAFAFA}
+.sb-item.active{background:rgba(245,158,11,0.08);color:#F59E0B;border-color:rgba(245,158,11,0.2);font-weight:600}
+.sb-item .dot{width:5px;height:5px;border-radius:50%;background:#F59E0B;opacity:0;flex-shrink:0;margin-left:auto;transition:opacity .15s}
+.sb-item.active .dot{opacity:1;animation:pulse 2s ease-in-out infinite}
+.sb-icon{font-size:14px;width:16px;text-align:center;flex-shrink:0;opacity:0.5}
+.sb-item.active .sb-icon{opacity:1}
+.sb-footer{margin-top:auto;padding:12px 8px;border-top:1px solid rgba(255,255,255,0.06)}
+.sb-status{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:11px;color:#52525B}
+.sb-status .sb-status-dot{width:6px;height:6px;border-radius:50%;background:#52525B;transition:background .3s}
+.sb-status .sb-status-dot.on{background:#10B981;box-shadow:0 0 8px rgba(16,185,129,0.4)}
 
 /* ===== TOPBAR ===== */
-.topbar{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;border-bottom:0.5px solid var(--border);background:var(--bg);flex-shrink:0}
-.topbar-title{font-size:14px;font-weight:600;color:var(--text)}
+.topbar{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;border-bottom:1px solid rgba(255,255,255,0.06);background:rgba(17,17,20,0.6);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);flex-shrink:0}
+.topbar-title{font-size:14px;font-weight:600;color:#FAFAFA;letter-spacing:-0.01em}
 .topbar-right{display:flex;align-items:center;gap:8px}
-#live-clock{font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums;padding:4px 9px;background:var(--surface);border:0.5px solid var(--border);border-radius:5px}
-.status-pip{display:inline-block;width:6px;height:6px;border-radius:50%;background:#ccc;transition:background .3s}
-.status-pip.on{background:var(--green)}
+#live-clock{font-size:12px;font-family:'JetBrains Mono',monospace;color:#52525B;font-variant-numeric:tabular-nums;padding:4px 10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:6px}
+.status-pip{display:inline-block;width:6px;height:6px;border-radius:50%;background:#52525B;transition:background .3s,box-shadow .3s}
+.status-pip.on{background:#10B981;box-shadow:0 0 8px rgba(16,185,129,0.4)}
 
 /* ===== MAIN ===== */
-.main-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.main-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden;background:#09090B}
 .content{flex:1;overflow-y:auto;padding:32px}
 .panel{display:none}.panel.active{display:block}
 
+/* ===== SCROLLBAR ===== */
+.content::-webkit-scrollbar{width:6px}.content::-webkit-scrollbar-track{background:transparent}.content::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:3px}.content::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.14)}
+
 /* ===== PAGE HEADER ===== */
 .page-header{margin-bottom:24px}
-.page-header h1{font-size:20px;font-weight:600}
-.page-header p{font-size:13px;color:var(--muted);margin-top:2px}
+.page-header h1{font-size:22px;font-weight:700;letter-spacing:-0.02em;color:#FAFAFA}
+.page-header p{font-size:13px;color:#71717A;margin-top:3px}
 
 /* ===== KPI GRID ===== */
 .kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}
-.kpi-card{background:var(--surface);border:0.5px solid var(--border);border-radius:8px;padding:20px;cursor:default}
-.kpi-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--faint);margin-bottom:8px}
-.kpi-val{font-size:28px;font-weight:600;color:var(--text);line-height:1;font-variant-numeric:tabular-nums}
-.kpi-sub{font-size:12px;color:var(--faint);margin-top:6px}
+.kpi-card{background:rgba(255,255,255,0.03);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:20px;cursor:default;transition:all .3s ease}
+.kpi-card:hover{border-color:rgba(255,255,255,0.12);box-shadow:0 0 40px rgba(245,158,11,0.06)}
+.kpi-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#52525B;margin-bottom:8px}
+.kpi-val{font-size:28px;font-weight:700;color:#FAFAFA;line-height:1;font-family:'JetBrains Mono',monospace;letter-spacing:-0.03em}
+.kpi-sub{font-size:11px;color:#52525B;margin-top:6px;font-family:'JetBrains Mono',monospace}
 
 /* ===== TWO-COL ===== */
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
 
 /* ===== CARDS ===== */
-.card{background:var(--bg);border:0.5px solid var(--border);border-radius:8px;padding:20px 22px;margin-bottom:16px}
-.card-title{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--faint);margin-bottom:16px}
+.card{background:rgba(255,255,255,0.03);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:20px 22px;margin-bottom:16px;transition:all .3s ease}
+.card:hover{border-color:rgba(255,255,255,0.1)}
+.card-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#52525B;margin-bottom:16px}
 
 /* ===== BAR CHART ===== */
 .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:9px}
-.bar-lbl{font-size:12px;color:var(--muted);width:86px;flex-shrink:0}
-.bar-track{flex:1;height:5px;background:var(--surface);border-radius:3px;overflow:hidden;border:0.5px solid var(--border)}
-.bar-fill{height:100%;border-radius:3px;background:var(--accent);transition:width .5s ease}
-.bar-num{font-size:12px;color:var(--faint);width:28px;text-align:right;flex-shrink:0;font-variant-numeric:tabular-nums}
+.bar-lbl{font-size:12px;color:#A1A1AA;width:86px;flex-shrink:0}
+.bar-track{flex:1;height:5px;background:rgba(255,255,255,0.04);border-radius:3px;overflow:hidden;border:1px solid rgba(255,255,255,0.04)}
+.bar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#D97706,#F59E0B);transition:width .5s ease}
+.bar-num{font-size:12px;color:#52525B;width:28px;text-align:right;flex-shrink:0;font-variant-numeric:tabular-nums;font-family:'JetBrains Mono',monospace}
 
 /* ===== TABLES ===== */
-.tbl-wrap{border:0.5px solid var(--border);border-radius:8px;overflow:hidden;background:var(--bg)}
+.tbl-wrap{border:1px solid rgba(255,255,255,0.06);border-radius:12px;overflow:hidden;background:rgba(255,255,255,0.02)}
 table{width:100%;border-collapse:collapse;font-size:13px}
-thead tr{background:var(--surface)}
-th{padding:10px 14px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--faint)}
-td{padding:12px 14px;border-top:0.5px solid var(--border);color:var(--text);vertical-align:middle}
-tbody tr:hover td{background:#fafaf8}
-.empty-cell{text-align:center;padding:40px;color:var(--faint);font-size:13px}
+thead tr{background:rgba(255,255,255,0.04)}
+th{padding:10px 14px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#52525B}
+td{padding:12px 14px;border-top:1px solid rgba(255,255,255,0.04);color:#A1A1AA;vertical-align:middle}
+tbody tr{transition:background .15s ease}
+tbody tr:hover td{background:rgba(255,255,255,0.03)}
+.empty-cell{text-align:center;padding:40px;color:#52525B;font-size:13px}
 
 /* ===== BADGES ===== */
-.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
-.b-pro{background:var(--accent-bg);color:var(--accent-text)}
-.b-free{background:#f5f5f5;color:var(--muted)}
-.b-active{background:var(--green-bg);color:var(--green)}
-.b-inactive{background:var(--red-bg);color:var(--red)}
-.b-confirmed{background:#f0fdf4;color:#15803d}
-.b-pending{background:#fffbeb;color:#b45309}
-.b-completed{background:#eff6ff;color:#1d4ed8}
-.b-cancelled{background:#f5f5f5;color:var(--muted)}
-.b-noshow{background:var(--red-bg);color:var(--red)}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600}
+.b-pro{background:rgba(245,158,11,0.08);color:#FBBF24;border:1px solid rgba(245,158,11,0.2)}
+.b-free{background:rgba(255,255,255,0.04);color:#71717A;border:1px solid rgba(255,255,255,0.06)}
+.b-active{background:rgba(16,185,129,0.08);color:#34D399;border:1px solid rgba(16,185,129,0.2)}
+.b-inactive{background:rgba(239,68,68,0.08);color:#FCA5A5;border:1px solid rgba(239,68,68,0.2)}
+.b-confirmed{background:rgba(16,185,129,0.08);color:#34D399;border:1px solid rgba(16,185,129,0.2)}
+.b-pending{background:rgba(245,158,11,0.08);color:#FBBF24;border:1px solid rgba(245,158,11,0.2)}
+.b-completed{background:rgba(59,130,246,0.08);color:#93C5FD;border:1px solid rgba(59,130,246,0.2)}
+.b-cancelled{background:rgba(255,255,255,0.04);color:#71717A;border:1px solid rgba(255,255,255,0.06)}
+.b-noshow{background:rgba(239,68,68,0.08);color:#FCA5A5;border:1px solid rgba(239,68,68,0.2)}
 
 /* ===== BUTTONS ===== */
-.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:6px;font-size:13px;font-weight:500;font-family:var(--font);cursor:pointer;border:0.5px solid var(--border);background:var(--bg);color:var(--text);transition:all .1s;white-space:nowrap}
-.btn:hover{background:#f5f5f5}.btn:active{background:#efefef}.btn:disabled{opacity:.4;cursor:default}
-.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}.btn-primary:hover{background:#c06706}
-.btn-danger{background:var(--red);color:#fff;border-color:var(--red)}.btn-danger:hover{background:#b91c1c}
-.btn-sm{padding:5px 11px;font-size:12px;border-radius:5px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:500;font-family:'Plus Jakarta Sans',sans-serif;cursor:pointer;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.04);color:#FAFAFA;transition:all .2s;white-space:nowrap}
+.btn:hover{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.12);transform:translateY(-1px)}
+.btn:active{transform:translateY(0)}
+.btn:disabled{opacity:.4;cursor:default;transform:none!important}
+.btn-primary{background:linear-gradient(135deg,#D97706,#F59E0B);color:#000;border-color:transparent;box-shadow:0 0 20px rgba(245,158,11,0.12)}
+.btn-primary:hover{box-shadow:0 0 30px rgba(245,158,11,0.2);border-color:transparent}
+.btn-danger{background:rgba(239,68,68,0.1);color:#FCA5A5;border-color:rgba(239,68,68,0.2)}
+.btn-danger:hover{background:rgba(239,68,68,0.15);border-color:rgba(239,68,68,0.3)}
+.btn-sm{padding:5px 11px;font-size:12px;border-radius:6px}
 
 /* ===== SECTION HEADER ===== */
 .sec-header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:20px}
@@ -127,115 +140,126 @@ tbody tr:hover td{background:#fafaf8}
 .form-grid.g3{grid-template-columns:1fr 1fr 1fr}
 .fg{display:flex;flex-direction:column;gap:5px}
 .fg.full{grid-column:1/-1}
-.fg label{font-size:12px;font-weight:500;color:var(--muted)}
-.fg input,.fg select,.fg textarea{padding:8px 11px;border:0.5px solid var(--border);border-radius:6px;font-size:13.5px;font-family:var(--font);background:var(--bg);color:var(--text);width:100%;transition:border-color .15s}
-.fg input:focus,.fg select:focus,.fg textarea:focus{outline:none;border-color:var(--accent)}
+.fg label{font-size:11px;font-weight:600;color:#71717A;letter-spacing:0.02em}
+.fg input,.fg select,.fg textarea{padding:9px 12px;border:1px solid rgba(255,255,255,0.06);border-radius:8px;font-size:13.5px;font-family:'Plus Jakarta Sans',sans-serif;background:rgba(255,255,255,0.04);color:#FAFAFA;width:100%;transition:border-color .2s,box-shadow .2s;outline:none}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:rgba(245,158,11,0.4);box-shadow:0 0 0 3px rgba(245,158,11,0.1)}
+.fg input::placeholder,.fg textarea::placeholder{color:#52525B}
+.fg select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2371717A' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:30px}
+.fg select option{background:#18181B;color:#FAFAFA}
 .form-actions{display:flex;gap:8px;margin-top:16px}
 
 /* ===== KEY BOX ===== */
 .key-block{margin-bottom:12px}
-.key-lbl{font-size:11px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
-.key-box{position:relative;padding:10px 44px 10px 12px;background:#fafaf8;border:0.5px solid var(--border);border-radius:6px;font-family:ui-monospace,monospace;font-size:12px;color:var(--text);word-break:break-all}
-.key-copy{position:absolute;right:7px;top:50%;transform:translateY(-50%);background:var(--bg);border:0.5px solid var(--border);color:var(--muted);border-radius:4px;padding:3px 8px;font-size:11px;font-family:var(--font);cursor:pointer;transition:all .1s}
-.key-copy:hover{background:#f0f0f0;color:var(--text)}
+.key-lbl{font-size:10px;font-weight:600;color:#52525B;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+.key-box{position:relative;padding:10px 44px 10px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#A1A1AA;word-break:break-all}
+.key-copy{position:absolute;right:7px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:#71717A;border-radius:6px;padding:3px 8px;font-size:11px;font-family:'Plus Jakarta Sans',sans-serif;cursor:pointer;transition:all .15s}
+.key-copy:hover{background:rgba(255,255,255,0.1);color:#FAFAFA;border-color:rgba(255,255,255,0.15)}
 
 /* ===== DRAWER ===== */
-.drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.15);z-index:150;display:none;justify-content:flex-end}
+.drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);z-index:150;display:none;justify-content:flex-end}
 .drawer-overlay.open{display:flex}
-.drawer{width:480px;max-width:96vw;background:var(--bg);border-left:0.5px solid var(--border);height:100vh;overflow-y:auto;padding:24px}
-.drawer-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:16px;border-bottom:0.5px solid var(--border)}
-.drawer-title{font-size:16px;font-weight:600}
-.drawer-close{background:none;border:none;color:var(--faint);font-size:18px;cursor:pointer;padding:4px 8px;border-radius:4px;transition:all .1s}
-.drawer-close:hover{background:var(--surface);color:var(--text)}
+.drawer{width:480px;max-width:96vw;background:#111114;border-left:1px solid rgba(255,255,255,0.06);height:100vh;overflow-y:auto;padding:24px}
+.drawer-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid rgba(255,255,255,0.06)}
+.drawer-title{font-size:16px;font-weight:600;color:#FAFAFA}
+.drawer-close{background:none;border:1px solid rgba(255,255,255,0.06);color:#71717A;font-size:16px;cursor:pointer;padding:4px 10px;border-radius:6px;transition:all .15s}
+.drawer-close:hover{background:rgba(255,255,255,0.06);color:#FAFAFA;border-color:rgba(255,255,255,0.12)}
 
 /* ===== MODAL ===== */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.2);z-index:200;display:none;align-items:center;justify-content:center}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:200;display:none;align-items:center;justify-content:center}
 .modal-overlay.open{display:flex}
-.modal{background:var(--bg);border:0.5px solid var(--border);border-radius:10px;padding:28px;width:440px;max-width:94vw}
-.modal-title{font-size:16px;font-weight:600;margin-bottom:4px}
-.modal-sub{font-size:13px;color:var(--muted);margin-bottom:20px}
+.modal{background:#111114;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:28px;width:440px;max-width:94vw;box-shadow:0 20px 60px rgba(0,0,0,0.5)}
+.modal-title{font-size:16px;font-weight:600;margin-bottom:4px;color:#FAFAFA}
+.modal-sub{font-size:13px;color:#71717A;margin-bottom:20px}
 .modal-footer{display:flex;gap:8px;margin-top:20px}
 
 /* ===== TOASTS ===== */
 #toast-wrap{position:fixed;bottom:20px;right:20px;z-index:500;display:flex;flex-direction:column;gap:7px}
-.toast{padding:10px 16px;border-radius:7px;font-size:13px;border:0.5px solid;display:flex;align-items:center;gap:8px;animation:tIn .2s ease}
+.toast{padding:10px 16px;border-radius:8px;font-size:13px;border:1px solid;display:flex;align-items:center;gap:8px;animation:tIn .25s ease;backdrop-filter:blur(12px);font-family:'Plus Jakarta Sans',sans-serif}
 @keyframes tIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-.t-ok{background:var(--green-bg);border-color:#bbf7d0;color:#15803d}
-.t-err{background:var(--red-bg);border-color:#fecaca;color:var(--red)}
-.t-info{background:var(--accent-bg);border-color:#fde68a;color:var(--accent-text)}
+.t-ok{background:rgba(16,185,129,0.1);border-color:rgba(16,185,129,0.2);color:#34D399}
+.t-err{background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.2);color:#FCA5A5}
+.t-info{background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.2);color:#FBBF24}
 
 /* ===== ENV ===== */
 .env-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.env-row{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--surface);border:0.5px solid var(--border);border-radius:6px}
-.env-key{font-family:ui-monospace,monospace;font-size:12px;color:var(--muted)}
+.env-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;transition:border-color .2s}
+.env-row:hover{border-color:rgba(255,255,255,0.1)}
+.env-key{font-family:'JetBrains Mono',monospace;font-size:12px;color:#A1A1AA}
 .env-dot{width:8px;height:8px;border-radius:50%}
-.env-dot.on{background:var(--green)}.env-dot.off{background:var(--red)}
+.env-dot.on{background:#10B981;box-shadow:0 0 8px rgba(16,185,129,0.4)}
+.env-dot.off{background:#EF4444;box-shadow:0 0 8px rgba(239,68,68,0.3)}
 
 /* ===== CRON ===== */
-.cron-row{display:flex;justify-content:space-between;align-items:center;padding:16px 18px;border:0.5px solid var(--border);border-radius:8px;margin-bottom:10px;background:var(--bg)}
+.cron-row{display:flex;justify-content:space-between;align-items:center;padding:16px 18px;border:1px solid rgba(255,255,255,0.06);border-radius:12px;margin-bottom:10px;background:rgba(255,255,255,0.02);transition:border-color .2s}
+.cron-row:hover{border-color:rgba(255,255,255,0.1)}
 .cron-info{}
-.cron-name{font-size:14px;font-weight:500;margin-bottom:2px}
-.cron-desc{font-size:12px;color:var(--muted)}
-.cron-last{font-size:11px;color:var(--faint);margin-top:4px;font-variant-numeric:tabular-nums}
+.cron-name{font-size:14px;font-weight:600;margin-bottom:2px;color:#FAFAFA}
+.cron-desc{font-size:12px;color:#71717A}
+.cron-last{font-size:11px;color:#52525B;margin-top:4px;font-variant-numeric:tabular-nums;font-family:'JetBrains Mono',monospace}
 
 /* ===== DANGER ===== */
-.danger-row{display:flex;justify-content:space-between;align-items:center;padding:16px 18px;border:0.5px solid #fecaca;border-radius:8px;margin-bottom:10px;background:var(--red-bg)}
-.danger-info .danger-name{font-size:14px;font-weight:500;margin-bottom:2px}
-.danger-info .danger-desc{font-size:12px;color:var(--muted)}
+.danger-row{display:flex;justify-content:space-between;align-items:center;padding:16px 18px;border:1px solid rgba(239,68,68,0.15);border-radius:12px;margin-bottom:10px;background:rgba(239,68,68,0.04)}
+.danger-row:hover{border-color:rgba(239,68,68,0.25)}
+.danger-info .danger-name{font-size:14px;font-weight:600;margin-bottom:2px;color:#FAFAFA}
+.danger-info .danger-desc{font-size:12px;color:#71717A}
 
 /* ===== LOG ===== */
-.log-row{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-bottom:0.5px solid var(--border);font-size:13px}
+.log-row{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-bottom:1px solid rgba(255,255,255,0.04);font-size:13px}
 .log-row:last-child{border-bottom:none}
 .log-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
-.log-msg{flex:1;margin:0 10px;color:var(--text)}
-.log-ts{font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums;white-space:nowrap}
+.log-msg{flex:1;margin:0 10px;color:#A1A1AA}
+.log-ts{font-size:11px;color:#52525B;font-variant-numeric:tabular-nums;white-space:nowrap;font-family:'JetBrains Mono',monospace}
 
 /* ===== DIVIDER ===== */
-hr{border:none;border-top:0.5px solid var(--border);margin:18px 0}
+hr{border:none;border-top:1px solid rgba(255,255,255,0.06);margin:18px 0}
 .mt{margin-top:14px}
-.spinner{display:inline-block;width:13px;height:13px;border:1.5px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+.spinner{display:inline-block;width:13px;height:13px;border:1.5px solid rgba(255,255,255,0.06);border-top-color:#F59E0B;border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ===== MARKETING ===== */
+.tab-bar{display:flex;gap:2px;border-bottom:1px solid rgba(255,255,255,0.06);margin-bottom:24px}
+.tab-btn{padding:8px 16px;font-size:13px;font-weight:500;color:#71717A;background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;transition:all .15s;margin-bottom:-1px}
+.tab-btn:hover{color:#FAFAFA}
+.tab-btn.active{color:#F59E0B;border-bottom-color:#F59E0B}
+.tab-panel{display:none}.tab-panel.active{display:block}
+.audience-preview{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:16px;margin:12px 0}
+.audience-preview .aud-count{font-size:22px;font-weight:700;margin-bottom:6px;color:#FAFAFA;font-family:'JetBrains Mono',monospace}
+.audience-preview .aud-segs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.aud-seg-pill{padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid}
+.seg-vip{background:rgba(245,158,11,0.08);color:#FBBF24;border-color:rgba(245,158,11,0.2)}
+.seg-active{background:rgba(16,185,129,0.08);color:#34D399;border-color:rgba(16,185,129,0.2)}
+.seg-warm{background:rgba(245,158,11,0.06);color:#D97706;border-color:rgba(245,158,11,0.15)}
+.seg-cold{background:rgba(255,255,255,0.04);color:#71717A;border-color:rgba(255,255,255,0.06)}
+.seg-auto{background:rgba(59,130,246,0.08);color:#93C5FD;border-color:rgba(59,130,246,0.2)}
+.tpl-btns{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.tpl-btn{padding:5px 12px;border-radius:999px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.03);font-size:12px;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;transition:all .15s;color:#A1A1AA}
+.tpl-btn:hover{background:rgba(255,255,255,0.06);border-color:rgba(245,158,11,0.3);color:#FAFAFA}
+.char-counter{font-size:11px;color:#52525B;text-align:right;margin-top:3px;font-family:'JetBrains Mono',monospace}
+.mkt-send-btn{width:100%;padding:12px;font-size:14px;font-weight:600;margin-top:16px;justify-content:center}
+.campaign-result{background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.15);border-radius:10px;padding:16px;margin-top:16px;display:none}
+.b-vip{background:rgba(245,158,11,0.08);color:#FBBF24;border:1px solid rgba(245,158,11,0.2)}
+.b-warm{background:rgba(245,158,11,0.06);color:#D97706;border:1px solid rgba(245,158,11,0.15)}
+.b-auto-trigger{background:rgba(59,130,246,0.08);color:#93C5FD;border:1px solid rgba(59,130,246,0.2)}
 
 @media(max-width:768px){
-  .sidebar{display:none}
+  .main{margin-left:0}
   .kpi-grid,.two-col,.form-grid,.env-grid{grid-template-columns:1fr}
 }
-/* ===== MARKETING ===== */
-.tab-bar{display:flex;gap:2px;border-bottom:0.5px solid var(--border);margin-bottom:24px}
-.tab-btn{padding:8px 16px;font-size:13px;font-weight:500;color:var(--muted);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;font-family:var(--font);transition:all .15s;margin-bottom:-0.5px}
-.tab-btn:hover{color:var(--text)}
-.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
-.tab-panel{display:none}.tab-panel.active{display:block}
-.audience-preview{background:var(--surface);border:0.5px solid var(--border);border-radius:8px;padding:16px;margin:12px 0}
-.audience-preview .aud-count{font-size:22px;font-weight:600;margin-bottom:6px}
-.audience-preview .aud-segs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
-.aud-seg-pill{padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500}
-.seg-vip{background:#fef3c7;color:#92400e}
-.seg-active{background:#f0fdf4;color:#15803d}
-.seg-warm{background:#fffbeb;color:#b45309}
-.seg-cold{background:#f5f5f5;color:var(--muted)}
-.seg-auto{background:#eff6ff;color:#1d4ed8}
-.tpl-btns{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
-.tpl-btn{padding:5px 12px;border-radius:20px;border:0.5px solid var(--border);background:var(--bg);font-size:12px;cursor:pointer;font-family:var(--font);transition:all .1s}
-.tpl-btn:hover{background:var(--surface);border-color:var(--accent)}
-.char-counter{font-size:11px;color:var(--faint);text-align:right;margin-top:3px}
-.mkt-send-btn{width:100%;padding:12px;font-size:14px;font-weight:600;margin-top:16px;justify-content:center}
-.campaign-result{background:var(--green-bg);border:0.5px solid #bbf7d0;border-radius:8px;padding:16px;margin-top:16px;display:none}
-.b-vip{background:#fef3c7;color:#92400e}
-.b-warm{background:#fffbeb;color:#b45309}
-.b-auto-trigger{background:#eff6ff;color:#1d4ed8}
 </style>
+  <link rel="stylesheet" href="/hd.css">
 </head>
 <body>
 
 <!-- LOGIN -->
 <div id="login-screen">
   <div class="login-box">
-    <h2>Te Ta Admin</h2>
-    <p>Fut admin key për të aksesuar panelin</p>
+    <div class="login-label" data-i18n="admin.panel_label">Admin Panel</div>
+    <h2 data-i18n="admin.title">Te Ta Admin</h2>
+    <p data-i18n="admin.login_desc">Fut admin key per te aksesuar panelin</p>
     <input type="password" id="key-in" placeholder="admin-key-..." autocomplete="off"/>
-    <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="doLogin()">Hyr →</button>
-    <div id="login-err">Key i gabuar ose serveri nuk është aktiv</div>
+    <button class="login-btn" onclick="doLogin()" data-i18n="admin.login_btn">Hyr</button>
+    <div id="login-err" data-i18n="admin.login_error">Key i gabuar ose serveri nuk eshte aktiv</div>
   </div>
 </div>
 
@@ -245,37 +269,58 @@ hr{border:none;border-top:0.5px solid var(--border);margin:18px 0}
   <!-- SIDEBAR -->
   <div class="sidebar">
     <div class="sb-logo">
-      <div class="sb-logo-text">Te <span>Ta</span></div>
-      <div class="sb-logo-sub">Admin Panel</div>
+      <div class="sb-logo-row">
+        <div class="sb-logo-icon">TT</div>
+        <div class="sb-logo-text">Te <span>Ta</span></div>
+      </div>
+      <div class="sb-logo-sub" data-i18n="admin.panel_label">Admin Panel</div>
     </div>
 
-    <div class="sb-section">Kryesore</div>
+    <div class="sb-section" data-i18n="nav_section.core">Kryesore</div>
     <button class="sb-item active" onclick="nav('p-overview',this)">
-      <span class="sb-icon">▦</span>Overview<span class="dot"></span>
+      <span class="sb-icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      </span><span data-i18n="nav.overview">Overview</span><span class="dot"></span>
     </button>
     <button class="sb-item" onclick="nav('p-restaurants',this);loadRestaurants()">
-      <span class="sb-icon">≡</span>Restorantet<span class="dot"></span>
+      <span class="sb-icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      </span><span data-i18n="nav.restaurants">Restorantet</span><span class="dot"></span>
     </button>
     <button class="sb-item" onclick="nav('p-marketing',this);loadMarketing()">
-      <span class="sb-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg></span>Marketing<span class="dot"></span>
+      <span class="sb-icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg>
+      </span><span data-i18n="nav.marketing">Marketing</span><span class="dot"></span>
     </button>
 
-    <div class="sb-section">Sistem</div>
+    <div class="sb-section" data-i18n="nav_section.system">Sistem</div>
     <button class="sb-item" onclick="nav('p-cron',this)">
-      <span class="sb-icon">◷</span>Cron Jobs<span class="dot"></span>
+      <span class="sb-icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </span><span data-i18n="nav.cron_jobs">Cron Jobs</span><span class="dot"></span>
     </button>
     <button class="sb-item" onclick="nav('p-env',this);loadEnv()">
-      <span class="sb-icon">◈</span>Environment<span class="dot"></span>
+      <span class="sb-icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </span><span data-i18n="nav.environment">Environment</span><span class="dot"></span>
     </button>
     <button class="sb-item" onclick="nav('p-log',this)">
-      <span class="sb-icon">≔</span>Activity Log<span class="dot"></span>
+      <span class="sb-icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      </span><span data-i18n="nav.jerry_logs">Activity Log</span><span class="dot"></span>
     </button>
-    <button class="sb-item" onclick="nav('p-danger',this)" style="color:#dc2626">
-      <span class="sb-icon">⚠</span>Danger Zone<span class="dot" style="background:#dc2626"></span>
+    <button class="sb-item" onclick="nav('p-danger',this)" style="color:#FCA5A5">
+      <span class="sb-icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </span><span data-i18n="nav.danger_zone">Danger Zone</span><span class="dot" style="background:#EF4444"></span>
     </button>
 
     <div class="sb-footer">
-      <button class="btn btn-sm" style="width:100%;justify-content:center" onclick="doLogout()">Dil</button>
+      <div class="sb-status">
+        <span class="sb-status-dot" id="sb-status-dot"></span>
+        <span id="sb-status-text">Offline</span>
+      </div>
+      <button class="btn btn-sm" style="width:100%;justify-content:center;margin-top:6px" onclick="doLogout()">Dil</button>
     </div>
   </div>
 
@@ -286,8 +331,11 @@ hr{border:none;border-top:0.5px solid var(--border);margin:18px 0}
       <div class="topbar-right">
         <div id="live-clock">--:--</div>
         <span class="status-pip" id="status-pip"></span>
-        <span id="ver-span" style="font-size:11px;color:var(--faint)">—</span>
-        <button class="btn btn-sm" onclick="doRefresh()" id="btn-refresh">↺ Rifresko</button>
+        <span id="ver-span" style="font-size:11px;color:#52525B;font-family:'JetBrains Mono',monospace">--</span>
+        <button class="btn btn-sm" onclick="doRefresh()" id="btn-refresh">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          Rifresko
+        </button>
         <button class="btn btn-primary btn-sm" onclick="nav('p-create',null)">+ Restorant</button>
       </div>
     </div>
@@ -296,31 +344,31 @@ hr{border:none;border-top:0.5px solid var(--border);margin:18px 0}
 
       <!-- OVERVIEW -->
       <div id="p-overview" class="panel active">
-        <div class="page-header"><h1>Overview</h1><p>Statistika globale të platformës</p></div>
+        <div class="page-header"><h1>Overview</h1><p>Statistika globale te platformes</p></div>
 
         <div class="kpi-grid">
-          <div class="kpi-card"><div class="kpi-label">Restorantet</div><div class="kpi-val" id="k-rests">—</div><div class="kpi-sub">totale</div></div>
-          <div class="kpi-card"><div class="kpi-label">Aktive</div><div class="kpi-val" id="k-active">—</div><div class="kpi-sub">is_active = true</div></div>
-          <div class="kpi-card"><div class="kpi-label">Rezervime Sot</div><div class="kpi-val" id="k-today">—</div><div class="kpi-sub">Europe/Tirane</div></div>
-          <div class="kpi-card"><div class="kpi-label">Total Rezervime</div><div class="kpi-val" id="k-total">—</div><div class="kpi-sub">të gjitha kohërat</div></div>
-          <div class="kpi-card"><div class="kpi-label">Klientë Unikë</div><div class="kpi-val" id="k-custs">—</div><div class="kpi-sub">DISTINCT phone</div></div>
-          <div class="kpi-card"><div class="kpi-label">Missed Messages</div><div class="kpi-val" id="k-missed">—</div><div class="kpi-sub">total</div></div>
+          <div class="kpi-card"><div class="kpi-label">Restorantet</div><div class="kpi-val" id="k-rests">--</div><div class="kpi-sub">totale</div></div>
+          <div class="kpi-card"><div class="kpi-label">Aktive</div><div class="kpi-val" id="k-active">--</div><div class="kpi-sub">is_active = true</div></div>
+          <div class="kpi-card"><div class="kpi-label">Rezervime Sot</div><div class="kpi-val" id="k-today">--</div><div class="kpi-sub">Europe/Tirane</div></div>
+          <div class="kpi-card"><div class="kpi-label">Total Rezervime</div><div class="kpi-val" id="k-total">--</div><div class="kpi-sub">te gjitha koherat</div></div>
+          <div class="kpi-card"><div class="kpi-label">Kliente Unike</div><div class="kpi-val" id="k-custs">--</div><div class="kpi-sub">DISTINCT phone</div></div>
+          <div class="kpi-card"><div class="kpi-label">Missed Messages</div><div class="kpi-val" id="k-missed">--</div><div class="kpi-sub">total</div></div>
         </div>
 
         <div class="two-col">
           <div class="card">
             <div class="card-title">Rezervime sipas statusit</div>
-            <div id="chart-status"><div style="color:var(--faint);font-size:13px">Duke ngarkuar...</div></div>
+            <div id="chart-status"><div style="color:#52525B;font-size:13px">Duke ngarkuar...</div></div>
           </div>
           <div class="card">
             <div class="card-title">Restorantet sipas planit</div>
-            <div id="chart-plan"><div style="color:var(--faint);font-size:13px">Duke ngarkuar...</div></div>
+            <div id="chart-plan"><div style="color:#52525B;font-size:13px">Duke ngarkuar...</div></div>
           </div>
         </div>
 
         <div class="sec-header" style="margin-bottom:14px">
-          <div style="font-size:14px;font-weight:600">Restorantet e fundit</div>
-          <button class="btn btn-sm" onclick="nav('p-restaurants',null);loadRestaurants()">Shiko të gjitha →</button>
+          <div style="font-size:14px;font-weight:600;color:#FAFAFA">Restorantet e fundit</div>
+          <button class="btn btn-sm" onclick="nav('p-restaurants',null);loadRestaurants()">Shiko te gjitha</button>
         </div>
         <div class="tbl-wrap">
           <table><thead><tr><th>ID</th><th>Emri</th><th>Plan</th><th>Statusi</th><th>Rezervime</th><th>Krijuar</th></tr></thead>
@@ -331,15 +379,15 @@ hr{border:none;border-top:0.5px solid var(--border);margin:18px 0}
       <!-- RESTAURANTS -->
       <div id="p-restaurants" class="panel">
         <div class="sec-header">
-          <div class="page-header" style="margin-bottom:0"><h1>Restorantet</h1><p id="rest-count">—</p></div>
+          <div class="page-header" style="margin-bottom:0"><h1>Restorantet</h1><p id="rest-count">--</p></div>
           <div style="display:flex;gap:8px;align-items:center">
-            <input type="text" id="search-in" placeholder="Kërko..." style="padding:7px 11px;border:0.5px solid var(--border);border-radius:6px;font-size:13px;width:200px;font-family:var(--font)" oninput="filterRests()"/>
+            <input type="text" id="search-in" placeholder="Kerko..." style="padding:8px 12px;border:1px solid rgba(255,255,255,0.06);border-radius:8px;font-size:13px;width:200px;font-family:'Plus Jakarta Sans',sans-serif;background:rgba(255,255,255,0.04);color:#FAFAFA;outline:none;transition:border-color .2s,box-shadow .2s" onfocus="this.style.borderColor='rgba(245,158,11,0.4)';this.style.boxShadow='0 0 0 3px rgba(245,158,11,0.1)'" onblur="this.style.borderColor='rgba(255,255,255,0.06)';this.style.boxShadow='none'" oninput="filterRests()"/>
             <button class="btn btn-primary btn-sm" onclick="nav('p-create',null)">+ Krijo</button>
           </div>
         </div>
         <div class="tbl-wrap">
           <table>
-            <thead><tr><th>ID</th><th>Emri</th><th>Plan</th><th>Statusi</th><th>Rezervime</th><th>Klientë</th><th>Orari</th><th>Krijuar</th><th></th></tr></thead>
+            <thead><tr><th>ID</th><th>Emri</th><th>Plan</th><th>Statusi</th><th>Rezervime</th><th>Kliente</th><th>Orari</th><th>Krijuar</th><th></th></tr></thead>
             <tbody id="rests-tbody"><tr><td colspan="9" class="empty-cell"><div class="spinner"></div></td></tr></tbody>
           </table>
         </div>
@@ -347,7 +395,7 @@ hr{border:none;border-top:0.5px solid var(--border);margin:18px 0}
 
       <!-- CREATE -->
       <div id="p-create" class="panel">
-        <div class="page-header"><h1>Restorant i Ri</h1><p>API key dhe Owner key gjenerohen automatikisht</p></div>
+        <div class="page-header"><h1>New Restaurant</h1><p>API key and Owner key are generated automatically</p></div>
         <div class="card">
           <div class="card-title">Informacion</div>
           <div class="form-grid">
@@ -372,45 +420,54 @@ hr{border:none;border-top:0.5px solid var(--border);margin:18px 0}
         <div class="cron-row">
           <div class="cron-info">
             <div class="cron-name">Reminders</div>
-            <div class="cron-desc">Dërgon kujtesë WhatsApp ~18h para rezervimit</div>
-            <div class="cron-last" id="cron-r-last">—</div>
+            <div class="cron-desc">Dergon kujtese WhatsApp ~18h para rezervimit</div>
+            <div class="cron-last" id="cron-r-last">--</div>
           </div>
-          <button class="btn btn-sm" id="btn-remind" onclick="runCron('reminders','btn-remind','cron-r-last')">▶ Run</button>
+          <button class="btn btn-sm" id="btn-remind" onclick="runCron('reminders','btn-remind','cron-r-last')">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run
+          </button>
         </div>
 
         <div class="cron-row">
           <div class="cron-info">
             <div class="cron-name">Feedback Auto</div>
-            <div class="cron-desc">Dërgon feedback request 24h pas vizitës</div>
-            <div class="cron-last" id="cron-f-last">—</div>
+            <div class="cron-desc">Dergon feedback request 24h pas vizites</div>
+            <div class="cron-last" id="cron-f-last">--</div>
           </div>
-          <button class="btn btn-sm" id="btn-feed" onclick="runCron('feedback-auto','btn-feed','cron-f-last')">▶ Run</button>
+          <button class="btn btn-sm" id="btn-feed" onclick="runCron('feedback-auto','btn-feed','cron-f-last')">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run
+          </button>
         </div>
 
         <div class="cron-row">
           <div class="cron-info">
             <div class="cron-name">Auto-Close</div>
-            <div class="cron-desc">Mbyll rezervimet e kaluara (Confirmed→Completed, Pending→NoShow)</div>
-            <div class="cron-last" id="cron-c-last">—</div>
+            <div class="cron-desc">Mbyll rezervimet e kaluara (Confirmed->Completed, Pending->NoShow)</div>
+            <div class="cron-last" id="cron-c-last">--</div>
           </div>
-          <button class="btn btn-sm" id="btn-close" onclick="runAutoClose()">▶ Run</button>
+          <button class="btn btn-sm" id="btn-close" onclick="runAutoClose()">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run
+          </button>
         </div>
 
         <div class="card mt">
-          <div class="card-title">URLs për scheduler</div>
-          <div class="key-block"><div class="key-lbl">POST / çdo 15 min</div><div class="key-box" id="url-r">—<button class="key-copy" onclick="copyKey('url-r')">Kopjo</button></div></div>
-          <div class="key-block" style="margin-top:8px"><div class="key-lbl">POST / çdo 15 min</div><div class="key-box" id="url-f">—<button class="key-copy" onclick="copyKey('url-f')">Kopjo</button></div></div>
-          <div class="key-block" style="margin-top:8px"><div class="key-lbl">POST / çdo 30 min</div><div class="key-box" id="url-c">—<button class="key-copy" onclick="copyKey('url-c')">Kopjo</button></div></div>
+          <div class="card-title">URLs per scheduler</div>
+          <div class="key-block"><div class="key-lbl">POST / cdo 15 min</div><div class="key-box" id="url-r">--<button class="key-copy" onclick="copyKey('url-r')">Kopjo</button></div></div>
+          <div class="key-block" style="margin-top:8px"><div class="key-lbl">POST / cdo 15 min</div><div class="key-box" id="url-f">--<button class="key-copy" onclick="copyKey('url-f')">Kopjo</button></div></div>
+          <div class="key-block" style="margin-top:8px"><div class="key-lbl">POST / cdo 30 min</div><div class="key-box" id="url-c">--<button class="key-copy" onclick="copyKey('url-c')">Kopjo</button></div></div>
         </div>
       </div>
 
       <!-- ENV -->
       <div id="p-env" class="panel">
         <div class="sec-header">
-          <div class="page-header" style="margin-bottom:0"><h1>Environment</h1><p>Variablat e konfigurimit të serverit</p></div>
-          <button class="btn btn-sm" onclick="loadEnv()">↺ Rifresko</button>
+          <div class="page-header" style="margin-bottom:0"><h1>Environment</h1><p>Variablat e konfigurimit te serverit</p></div>
+          <button class="btn btn-sm" onclick="loadEnv()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            Rifresko
+          </button>
         </div>
-        <div class="card"><div id="env-content"><div style="color:var(--faint);font-size:13px">Duke ngarkuar...</div></div></div>
+        <div class="card"><div id="env-content"><div style="color:#52525B;font-size:13px">Duke ngarkuar...</div></div></div>
       </div>
 
       <!-- LOG -->
@@ -419,82 +476,82 @@ hr{border:none;border-top:0.5px solid var(--border);margin:18px 0}
           <div class="page-header" style="margin-bottom:0"><h1>Activity Log</h1><p>Veprimet e sesionit aktual</p></div>
           <button class="btn btn-sm" onclick="clearLog()">Pastro</button>
         </div>
-        <div class="tbl-wrap"><div id="log-list"><div class="empty-cell">Asnjë veprim ende</div></div></div>
+        <div class="tbl-wrap"><div id="log-list"><div class="empty-cell">Asnje veprim ende</div></div></div>
       </div>
 
       <!-- DANGER -->
       <div id="p-danger" class="panel">
-        <div class="page-header"><h1 style="color:var(--red)">Danger Zone</h1><p>Veprime të pakthyeshme — veproni me kujdes</p></div>
+        <div class="page-header"><h1 style="color:#FCA5A5">Danger Zone</h1><p>Veprime te pakthyeshme -- veproni me kujdes</p></div>
 
         <div class="danger-row">
           <div class="danger-info">
             <div class="danger-name">Roto Keys</div>
-            <div class="danger-desc">Deaktivizo API key + Owner key aktuale, gjenero të reja</div>
+            <div class="danger-desc">Deaktivizo API key + Owner key aktuale, gjenero te reja</div>
           </div>
           <div style="display:flex;gap:7px;align-items:center">
-            <input type="number" id="rot-id-in" placeholder="ID" style="width:80px;padding:6px 10px;border:0.5px solid #fecaca;border-radius:5px;font-family:var(--font);font-size:13px"/>
-            <button class="btn btn-danger btn-sm" onclick="openRotateById()">🔄 Roto</button>
+            <input type="number" id="rot-id-in" placeholder="ID" style="width:80px;padding:7px 10px;border:1px solid rgba(239,68,68,0.2);border-radius:6px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;background:rgba(239,68,68,0.04);color:#FAFAFA;outline:none"/>
+            <button class="btn btn-danger btn-sm" onclick="openRotateById()">Roto</button>
           </div>
         </div>
 
         <div class="danger-row">
           <div class="danger-info">
-            <div class="danger-name">Çaktivizo Restorant</div>
-            <div class="danger-desc">Vendos is_active = false. Bot dhe dashboard ndalojnë</div>
+            <div class="danger-name">Caktivizo Restorant</div>
+            <div class="danger-desc">Vendos is_active = false. Bot dhe dashboard ndalojne</div>
           </div>
           <div style="display:flex;gap:7px;align-items:center">
-            <input type="number" id="dis-id-in" placeholder="ID" style="width:80px;padding:6px 10px;border:0.5px solid #fecaca;border-radius:5px;font-family:var(--font);font-size:13px"/>
-            <button class="btn btn-danger btn-sm" onclick="disableRest()">Çaktivizo</button>
+            <input type="number" id="dis-id-in" placeholder="ID" style="width:80px;padding:7px 10px;border:1px solid rgba(239,68,68,0.2);border-radius:6px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;background:rgba(239,68,68,0.04);color:#FAFAFA;outline:none"/>
+            <button class="btn btn-danger btn-sm" onclick="disableRest()">Caktivizo</button>
           </div>
         </div>
 
-        <div class="danger-row" style="border-color:#bbf7d0;background:var(--green-bg)">
+        <div class="danger-row" style="border-color:rgba(16,185,129,0.2);background:rgba(16,185,129,0.04)">
           <div class="danger-info">
             <div class="danger-name">Aktivizo Restorant</div>
-            <div class="danger-desc">Vendos is_active = true — rikthen aksesin</div>
+            <div class="danger-desc">Vendos is_active = true -- rikthen aksesin</div>
           </div>
           <div style="display:flex;gap:7px;align-items:center">
-            <input type="number" id="en-id-in" placeholder="ID" style="width:80px;padding:6px 10px;border:0.5px solid #bbf7d0;border-radius:5px;font-family:var(--font);font-size:13px"/>
-            <button class="btn btn-sm" style="background:var(--green);color:#fff;border-color:var(--green)" onclick="enableRest()">Aktivizo</button>
+            <input type="number" id="en-id-in" placeholder="ID" style="width:80px;padding:7px 10px;border:1px solid rgba(16,185,129,0.2);border-radius:6px;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;background:rgba(16,185,129,0.04);color:#FAFAFA;outline:none"/>
+            <button class="btn btn-sm" style="background:rgba(16,185,129,0.1);color:#34D399;border-color:rgba(16,185,129,0.2)" onclick="enableRest()">Aktivizo</button>
           </div>
         </div>
       </div>
 
       <!-- MARKETING -->
       <div id="p-marketing" class="panel">
-        <div class="page-header"><h1>Marketing</h1><p>Kampanja, RFV Scoring dhe Smart Triggers automatikë</p></div>
+        <div class="page-header"><h1>Marketing</h1><p>Kampanja, RFV Scoring dhe Smart Triggers automatike</p></div>
 
         <div class="tab-bar">
-          <button class="tab-btn active" onclick="mktTab('mkt-new',this)">Kampanjë e Re</button>
+          <button class="tab-btn active" onclick="mktTab('mkt-new',this)">Kampanje e Re</button>
           <button class="tab-btn" onclick="mktTab('mkt-history',this);loadCampaigns()">Historia</button>
-          <button class="tab-btn" onclick="mktTab('mkt-triggers',this)">Triggers Automatikë</button>
+          <button class="tab-btn" onclick="mktTab('mkt-triggers',this)">Triggers Automatike</button>
         </div>
 
-        <!-- TAB 1: KAMPANJË E RE -->
+        <!-- TAB 1: KAMPANJE E RE -->
         <div id="mkt-new" class="tab-panel active">
           <div class="card">
-            <div class="card-title">Konfiguro Kampanjën</div>
+            <div class="card-title">Konfiguro Kampanjen</div>
             <div class="form-grid">
               <div class="fg">
                 <label>Restoranti</label>
                 <select id="mkt-restaurant" onchange="loadAudience()">
-                  <option value="">— Zgjidh restorantin —</option>
+                  <option value="">-- Zgjidh restorantin --</option>
                 </select>
               </div>
               <div class="fg">
                 <label>Segmenti</label>
                 <select id="mkt-segment" onchange="loadAudience()">
-                  <option value="all">Të gjithë klientët</option>
-                  <option value="vip">VIP — 3+ vizita</option>
-                  <option value="active">Aktiv — 14 ditë</option>
-                  <option value="warm">Warm — 15-30 ditë</option>
-                  <option value="cold">I ftohtë — 30+ ditë</option>
+                  <option value="all">Te gjithe klientet</option>
+                  <option value="vip">VIP -- 3+ vizita</option>
+                  <option value="active">Aktiv -- 14 dite</option>
+                  <option value="warm">Warm -- 15-30 dite</option>
+                  <option value="cold">I ftohte -- 30+ dite</option>
                 </select>
               </div>
             </div>
 
             <div id="mkt-audience-preview" style="display:none" class="audience-preview">
-              <div class="aud-count" id="aud-count">—</div>
+              <div class="aud-count" id="aud-count">--</div>
               <div class="aud-segs" id="aud-segs"></div>
               <div id="aud-list"></div>
             </div>
@@ -505,7 +562,7 @@ hr{border:none;border-top:0.5px solid var(--border);margin:18px 0}
                 <select id="mkt-channel">
                   <option value="whatsapp">WhatsApp</option>
                   <option value="email">Email</option>
-                  <option value="both">Të dyja</option>
+                  <option value="both">Te dyja</option>
                 </select>
               </div>
               <div class="fg">
@@ -515,22 +572,22 @@ hr{border:none;border-top:0.5px solid var(--border);margin:18px 0}
             </div>
 
             <div class="fg full" style="margin-top:12px">
-              <label>Templates të shpejta</label>
+              <label>Templates te shpejta</label>
               <div class="tpl-btns">
-                <button class="tpl-btn" onclick="setTemplate('offer')">🎁 Ofertë</button>
-                <button class="tpl-btn" onclick="setTemplate('thanks')">🙏 Faleminderit</button>
-                <button class="tpl-btn" onclick="setTemplate('miss')">💭 Na mungon</button>
-                <button class="tpl-btn" onclick="setTemplate('vip')">⭐ VIP Special</button>
+                <button class="tpl-btn" onclick="setTemplate('offer')">Oferte</button>
+                <button class="tpl-btn" onclick="setTemplate('thanks')">Faleminderit</button>
+                <button class="tpl-btn" onclick="setTemplate('miss')">Na mungon</button>
+                <button class="tpl-btn" onclick="setTemplate('vip')">VIP Special</button>
               </div>
-              <textarea id="mkt-message" rows="5" placeholder="Shkruani mesazhin këtu..." maxlength="1000" oninput="updateCharCount()" style="font-family:ui-monospace,monospace;font-size:13px;resize:vertical"></textarea>
+              <textarea id="mkt-message" rows="5" placeholder="Shkruani mesazhin ketu..." maxlength="1000" oninput="updateCharCount()" style="font-family:'JetBrains Mono',monospace;font-size:13px;resize:vertical;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:10px 12px;color:#FAFAFA;outline:none;width:100%;transition:border-color .2s,box-shadow .2s" onfocus="this.style.borderColor='rgba(245,158,11,0.4)';this.style.boxShadow='0 0 0 3px rgba(245,158,11,0.1)'" onblur="this.style.borderColor='rgba(255,255,255,0.06)';this.style.boxShadow='none'"></textarea>
               <div class="char-counter"><span id="char-count">0</span>/1000 karaktere</div>
             </div>
 
-            <button class="btn btn-primary mkt-send-btn" onclick="sendCampaign()">DËRGO KAMPANJËN →</button>
+            <button class="btn btn-primary mkt-send-btn" onclick="sendCampaign()">DERGO KAMPANJEN</button>
 
             <div class="campaign-result" id="campaign-result">
-              <div style="font-size:15px;font-weight:600;color:var(--green);margin-bottom:8px">✅ Kampanja u dërgua!</div>
-              <div id="campaign-result-body"></div>
+              <div style="font-size:15px;font-weight:600;color:#34D399;margin-bottom:8px">Kampanja u dergua!</div>
+              <div id="campaign-result-body" style="color:#A1A1AA;font-size:13px"></div>
             </div>
           </div>
         </div>
@@ -539,8 +596,8 @@ hr{border:none;border-top:0.5px solid var(--border);margin:18px 0}
         <div id="mkt-history" class="tab-panel">
           <div class="tbl-wrap">
             <table>
-              <thead><tr><th>Data</th><th>Restoranti</th><th>Segmenti</th><th>Kanali</th><th>Dërguar</th><th>Dështuan</th><th>Trigger</th><th></th></tr></thead>
-              <tbody id="campaigns-tbody"><tr><td colspan="8" class="empty-cell">Ngarko historinë nga tabi</td></tr></tbody>
+              <thead><tr><th>Data</th><th>Restoranti</th><th>Segmenti</th><th>Kanali</th><th>Derguar</th><th>Deshtuan</th><th>Trigger</th><th></th></tr></thead>
+              <tbody id="campaigns-tbody"><tr><td colspan="8" class="empty-cell">Ngarko historine nga tabi</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -548,20 +605,20 @@ hr{border:none;border-top:0.5px solid var(--border);margin:18px 0}
         <!-- TAB 3: TRIGGERS -->
         <div id="mkt-triggers" class="tab-panel">
           <div class="card">
-            <div class="card-title">Krijo Trigger të Ri</div>
-            <p style="font-size:12px;color:var(--muted);margin-bottom:16px">Triggers ekzekutohen automatikisht nga Jerry çdo natë ora 02:00. Variablat: <code>{name}</code>, <code>{restaurant}</code></p>
+            <div class="card-title">Create New Trigger</div>
+            <p style="font-size:12px;color:#71717A;margin-bottom:16px">Triggers are executed automatically by Jerry every night at 02:00. Variablat: <code style="background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#F59E0B">{name}</code>, <code style="background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#F59E0B">{restaurant}</code></p>
             <div class="form-grid">
               <div class="fg">
                 <label>Restoranti (PRO)</label>
                 <select id="trg-restaurant">
-                  <option value="">— Zgjidh —</option>
+                  <option value="">-- Zgjidh --</option>
                 </select>
               </div>
               <div class="fg">
                 <label>Tipi i Trigger</label>
                 <select id="trg-type">
-                  <option value="inactive_45days">Klientë pa vizitë 45+ ditë</option>
-                  <option value="post_feedback_negative">Pas feedback negativ (&lt;3★)</option>
+                  <option value="inactive_45days">Kliente pa vizite 45+ dite</option>
+                  <option value="post_feedback_negative">Pas feedback negativ (&lt;3)</option>
                   <option value="vip_reward">Kur klienti arrin 5 vizita</option>
                 </select>
               </div>
@@ -578,7 +635,7 @@ hr{border:none;border-top:0.5px solid var(--border);margin:18px 0}
               </div>
               <div class="fg full">
                 <label>Template Mesazhi</label>
-                <textarea id="trg-message" rows="3" placeholder="Mirëdita {name}! Restoranti {restaurant} ju pret..." style="font-family:ui-monospace,monospace;font-size:13px"></textarea>
+                <textarea id="trg-message" rows="3" placeholder="Miredita {name}! Restoranti {restaurant} ju pret..." style="font-family:'JetBrains Mono',monospace;font-size:13px"></textarea>
               </div>
             </div>
             <div class="form-actions">
@@ -588,14 +645,14 @@ hr{border:none;border-top:0.5px solid var(--border);margin:18px 0}
 
           <div style="margin-top:8px">
             <div class="sec-header" style="margin-bottom:12px">
-              <div style="font-size:14px;font-weight:600">Triggers Aktive</div>
-              <select id="trg-filter-rest" onchange="loadTriggers(this.value)" style="padding:6px 10px;border:0.5px solid var(--border);border-radius:6px;font-size:13px;font-family:var(--font)">
-                <option value="">— Zgjidh restorantin —</option>
+              <div style="font-size:14px;font-weight:600;color:#FAFAFA">Triggers Aktive</div>
+              <select id="trg-filter-rest" onchange="loadTriggers(this.value)" style="padding:7px 12px;border:1px solid rgba(255,255,255,0.06);border-radius:8px;font-size:13px;font-family:'Plus Jakarta Sans',sans-serif;background:rgba(255,255,255,0.04);color:#FAFAFA;outline:none;cursor:pointer">
+                <option value="">-- Zgjidh restorantin --</option>
               </select>
             </div>
             <div class="tbl-wrap">
               <table>
-                <thead><tr><th>Restoranti</th><th>Tipi</th><th>Kanali</th><th>Ekzekutuar herën e fundit</th><th>Statusi</th></tr></thead>
+                <thead><tr><th>Restoranti</th><th>Tipi</th><th>Kanali</th><th>Ekzekutuar heren e fundit</th><th>Statusi</th></tr></thead>
                 <tbody id="triggers-tbody"><tr><td colspan="5" class="empty-cell">Zgjidh restorantin</td></tr></tbody>
               </table>
             </div>
@@ -611,8 +668,10 @@ hr{border:none;border-top:0.5px solid var(--border);margin:18px 0}
 <div class="drawer-overlay" id="drawer-overlay" onclick="maybeClose(event)">
   <div class="drawer">
     <div class="drawer-header">
-      <div class="drawer-title" id="dr-title">—</div>
-      <button class="drawer-close" onclick="closeDrawer()">✕</button>
+      <div class="drawer-title" id="dr-title">--</div>
+      <button class="drawer-close" onclick="closeDrawer()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
     </div>
     <div id="dr-body"></div>
   </div>
@@ -622,10 +681,10 @@ hr{border:none;border-top:0.5px solid var(--border);margin:18px 0}
 <div class="modal-overlay" id="keys-modal">
   <div class="modal">
     <div class="modal-title">Restorant u krijua</div>
-    <div class="modal-sub">Ruaji këto keys tani — shfaqen vetëm 1 herë</div>
-    <div class="key-block"><div class="key-lbl">API KEY — për bot</div><div class="key-box" id="km-api">—<button class="key-copy" onclick="copyKey('km-api')">Kopjo</button></div></div>
-    <div class="key-block" style="margin-top:8px"><div class="key-lbl">OWNER KEY — për dashboard</div><div class="key-box" id="km-owner">—<button class="key-copy" onclick="copyKey('km-owner')">Kopjo</button></div></div>
-    <p style="font-size:12px;color:var(--red);margin-top:10px">Pas mbylljes nuk mund t'i rikuperosh.</p>
+    <div class="modal-sub">Ruaji keto keys tani -- shfaqen vetem 1 here</div>
+    <div class="key-block"><div class="key-lbl">API KEY -- per bot</div><div class="key-box" id="km-api">--<button class="key-copy" onclick="copyKey('km-api')">Kopjo</button></div></div>
+    <div class="key-block" style="margin-top:8px"><div class="key-lbl">OWNER KEY -- per dashboard</div><div class="key-box" id="km-owner">--<button class="key-copy" onclick="copyKey('km-owner')">Kopjo</button></div></div>
+    <p style="font-size:12px;color:#FCA5A5;margin-top:10px">Pas mbylljes nuk mund t'i rikuperosh.</p>
     <div class="modal-footer"><button class="btn btn-primary" onclick="closeKeysModal()">E kuptova, mbyll</button></div>
   </div>
 </div>
@@ -634,11 +693,11 @@ hr{border:none;border-top:0.5px solid var(--border);margin:18px 0}
 <div class="modal-overlay" id="rot-modal">
   <div class="modal">
     <div class="modal-title">Roto Keys</div>
-    <div class="modal-sub">Keys aktuale deaktivizohen. Gjenerohen të reja.</div>
+    <div class="modal-sub">Keys aktuale deaktivizohen. Gjenerohen te reja.</div>
     <div id="rot-out" style="display:none">
-      <div class="key-block"><div class="key-lbl">API KEY i ri</div><div class="key-box" id="rot-api">—<button class="key-copy" onclick="copyKey('rot-api')">Kopjo</button></div></div>
-      <div class="key-block" style="margin-top:8px"><div class="key-lbl">OWNER KEY i ri</div><div class="key-box" id="rot-own">—<button class="key-copy" onclick="copyKey('rot-own')">Kopjo</button></div></div>
-      <p style="font-size:12px;color:var(--red);margin-top:10px">Shfaqen vetëm 1 herë!</p>
+      <div class="key-block"><div class="key-lbl">API KEY i ri</div><div class="key-box" id="rot-api">--<button class="key-copy" onclick="copyKey('rot-api')">Kopjo</button></div></div>
+      <div class="key-block" style="margin-top:8px"><div class="key-lbl">OWNER KEY i ri</div><div class="key-box" id="rot-own">--<button class="key-copy" onclick="copyKey('rot-own')">Kopjo</button></div></div>
+      <p style="font-size:12px;color:#FCA5A5;margin-top:10px">Shfaqen vetem 1 here!</p>
     </div>
     <div class="modal-footer" id="rot-footer">
       <button class="btn btn-danger" id="rot-btn" onclick="confirmRotate()">Konfirmo Rotacionin</button>
@@ -650,10 +709,10 @@ hr{border:none;border-top:0.5px solid var(--border);margin:18px 0}
 <!-- MODAL: Confirm Campaign -->
 <div class="modal-overlay" id="mkt-confirm-modal">
   <div class="modal">
-    <div class="modal-title">⚠️ Konfirmo dërgimin</div>
-    <div id="mkt-confirm-body" style="font-size:13px;color:var(--muted);line-height:1.8;margin-bottom:4px"></div>
+    <div class="modal-title">Konfirmo dergimin</div>
+    <div id="mkt-confirm-body" style="font-size:13px;color:#A1A1AA;line-height:1.8;margin-bottom:4px"></div>
     <div class="modal-footer">
-      <button class="btn btn-primary" id="mkt-confirm-btn" onclick="confirmSend()">KONFIRMO &amp; DËRGO</button>
+      <button class="btn btn-primary" id="mkt-confirm-btn" onclick="confirmSend()">KONFIRMO &amp; DERGO</button>
       <button class="btn" onclick="document.getElementById('mkt-confirm-modal').classList.remove('open')">Anulo</button>
     </div>
   </div>
@@ -663,7 +722,7 @@ hr{border:none;border-top:0.5px solid var(--border);margin:18px 0}
 <div class="modal-overlay" id="mkt-stats-modal">
   <div class="modal">
     <div class="modal-title">Stats Kampanje</div>
-    <div id="mkt-stats-body" style="font-size:13px;line-height:1.9"></div>
+    <div id="mkt-stats-body" style="font-size:13px;line-height:1.9;color:#A1A1AA"></div>
     <div class="modal-footer"><button class="btn" onclick="document.getElementById('mkt-stats-modal').classList.remove('open')">Mbyll</button></div>
   </div>
 </div>
@@ -698,13 +757,15 @@ async function doLogin(){
   if(r.ok){
     document.getElementById('login-screen').style.display='none';
     document.getElementById('status-pip').classList.add('on');
+    document.getElementById('sb-status-dot').classList.add('on');
+    document.getElementById('sb-status-text').textContent='Online';
     document.getElementById('ver-span').textContent=r.data.version||'';
     localStorage.setItem('tta_admin_key',k);
     renderStats(r.data.data);startAutoRefresh();fillUrls();
-    addLog('Hyrje e suksesshme','ok');toast('Mirë se erdhe','ok');
+    addLog('Hyrje e suksesshme','ok');toast('Mire se erdhe','ok');
   }else{document.getElementById('login-err').style.display='block';KEY='';}
 }
-function doLogout(){KEY='';localStorage.removeItem('tta_admin_key');stopAutoRefresh();document.getElementById('login-screen').style.display='flex';document.getElementById('status-pip').classList.remove('on');}
+function doLogout(){KEY='';localStorage.removeItem('tta_admin_key');stopAutoRefresh();document.getElementById('login-screen').style.display='flex';document.getElementById('status-pip').classList.remove('on');document.getElementById('sb-status-dot').classList.remove('on');document.getElementById('sb-status-text').textContent='Offline';}
 document.getElementById('key-in').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 
 // NAV
@@ -714,7 +775,7 @@ function nav(id,btn){
   document.getElementById(id).classList.add('active');
   if(btn)btn.classList.add('active');
   else{
-    const map={'p-overview':0,'p-restaurants':1,'p-cron':2,'p-env':3,'p-log':4,'p-danger':5,'p-create':-1};
+    const map={'p-overview':0,'p-restaurants':1,'p-cron':3,'p-env':4,'p-log':5,'p-danger':6,'p-create':-1,'p-marketing':2};
     const idx=map[id];
     if(idx>=0)document.querySelectorAll('.sb-item')[idx]?.classList.add('active');
   }
@@ -727,7 +788,7 @@ function nav(id,btn){
 function startAutoRefresh(){stopAutoRefresh();refreshTimer=setInterval(silentRefresh,30000);}
 function stopAutoRefresh(){if(refreshTimer)clearInterval(refreshTimer);}
 async function silentRefresh(){const r=await api('GET','/admin/stats');if(r.ok)renderStats(r.data.data);}
-async function doRefresh(){document.getElementById('btn-refresh').textContent='...';await silentRefresh();document.getElementById('btn-refresh').textContent='↺ Rifresko';toast('U rifreskua','info');}
+async function doRefresh(){document.getElementById('btn-refresh').textContent='...';await silentRefresh();document.getElementById('btn-refresh').innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Rifresko';toast('U rifreskua','info');}
 
 // STATS
 async function loadStats(){const r=await api('GET','/admin/stats');if(r.ok)renderStats(r.data.data);}
@@ -735,22 +796,22 @@ function renderStats(d){
   if(!d)return;
   ['k-rests','k-active','k-today','k-total','k-custs','k-missed'].forEach((id,i)=>{
     const vals=[d.total_restaurants,d.active_restaurants,d.reservations_today,d.reservations_total,d.unique_customers_total,d.missed_messages_total];
-    const el=document.getElementById(id);if(el)el.textContent=vals[i]??'—';
+    const el=document.getElementById(id);if(el)el.textContent=vals[i]??'--';
   });
   const sc=d.reservations_by_status||[];
   const maxS=Math.max(1,...sc.map(x=>+x.cnt));
-  document.getElementById('chart-status').innerHTML=sc.length?sc.map(s=>`<div class="bar-row"><div class="bar-lbl">${s.status}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.round(+s.cnt/maxS*100)}%"></div></div><div class="bar-num">${s.cnt}</div></div>`).join(''):'<div style="color:var(--faint);font-size:13px">Nuk ka të dhëna</div>';
+  document.getElementById('chart-status').innerHTML=sc.length?sc.map(s=>`<div class="bar-row"><div class="bar-lbl">${s.status}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.round(+s.cnt/maxS*100)}%"></div></div><div class="bar-num">${s.cnt}</div></div>`).join(''):'<div style="color:#52525B;font-size:13px">Nuk ka te dhena</div>';
   renderPlanChart();renderQuickTable();
 }
 async function renderPlanChart(){
   const r=await api('GET','/admin/restaurants');if(!r.ok)return;
   const plans={};(r.data.data||[]).forEach(x=>{const p=(x.plan||'free').toUpperCase();plans[p]=(plans[p]||0)+1;});
   const max=Math.max(1,...Object.values(plans));
-  document.getElementById('chart-plan').innerHTML=Object.entries(plans).length?Object.entries(plans).map(([p,c])=>`<div class="bar-row"><div class="bar-lbl">${p}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.round(c/max*100)}%"></div></div><div class="bar-num">${c}</div></div>`).join(''):'<div style="color:var(--faint);font-size:13px">Nuk ka të dhëna</div>';
+  document.getElementById('chart-plan').innerHTML=Object.entries(plans).length?Object.entries(plans).map(([p,c])=>`<div class="bar-row"><div class="bar-lbl">${p}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.round(c/max*100)}%"></div></div><div class="bar-num">${c}</div></div>`).join(''):'<div style="color:#52525B;font-size:13px">Nuk ka te dhena</div>';
 }
 async function renderQuickTable(){
   const r=await api('GET','/admin/restaurants');if(!r.ok)return;
-  document.getElementById('quick-tbody').innerHTML=(r.data.data||[]).slice(0,5).map(r=>`<tr><td style="color:var(--faint);font-size:12px">#${r.id}</td><td><strong>${esc(r.name)}</strong></td><td>${pb(r.plan)}</td><td>${ab(r.is_active)}</td><td>${r.reservation_count||0}</td><td style="color:var(--faint);font-size:12px">${fd(r.created_at)}</td></tr>`).join('')||'<tr><td colspan="6" class="empty-cell">Nuk ka restorante</td></tr>';
+  document.getElementById('quick-tbody').innerHTML=(r.data.data||[]).slice(0,5).map(r=>`<tr><td style="color:#52525B;font-size:12px;font-family:'JetBrains Mono',monospace">#${r.id}</td><td><strong style="color:#FAFAFA">${esc(r.name)}</strong></td><td>${pb(r.plan)}</td><td>${ab(r.is_active)}</td><td style="font-family:'JetBrains Mono',monospace">${r.reservation_count||0}</td><td style="color:#52525B;font-size:12px;font-family:'JetBrains Mono',monospace">${fd(r.created_at)}</td></tr>`).join('')||'<tr><td colspan="6" class="empty-cell">Nuk ka restorante</td></tr>';
 }
 
 // RESTAURANTS
@@ -764,14 +825,14 @@ async function loadRestaurants(){
 }
 function renderRests(list){
   document.getElementById('rests-tbody').innerHTML=list.length?list.map(r=>`<tr>
-    <td style="color:var(--faint);font-size:12px">#${r.id}</td>
-    <td><div style="font-weight:500">${esc(r.name)}</div><div style="font-size:11px;color:var(--faint)">${esc(r.owner_phone||'—')}</div></td>
+    <td style="color:#52525B;font-size:12px;font-family:'JetBrains Mono',monospace">#${r.id}</td>
+    <td><div style="font-weight:600;color:#FAFAFA">${esc(r.name)}</div><div style="font-size:11px;color:#52525B">${esc(r.owner_phone||'--')}</div></td>
     <td>${pb(r.plan)}</td><td>${ab(r.is_active)}</td>
-    <td>${r.reservation_count||0}</td><td>${r.unique_customers||0}</td>
-    <td style="font-size:12px;color:var(--muted)">${r.opening_hours_start||'11:00'}–${r.opening_hours_end||'21:00'}</td>
-    <td style="font-size:12px;color:var(--faint)">${fd(r.created_at)}</td>
-    <td><div style="display:flex;gap:5px"><button class="btn btn-sm" onclick="openDrawer(${r.id})">Detaje</button><button class="btn btn-sm" onclick="openRotateModal(${r.id})" title="Roto keys">🔄</button></div></td>
-  </tr>`).join(''):'<tr><td colspan="9" class="empty-cell">Asnjë restorant</td></tr>';
+    <td style="font-family:'JetBrains Mono',monospace">${r.reservation_count||0}</td><td style="font-family:'JetBrains Mono',monospace">${r.unique_customers||0}</td>
+    <td style="font-size:12px;color:#71717A;font-family:'JetBrains Mono',monospace">${r.opening_hours_start||'11:00'}--${r.opening_hours_end||'21:00'}</td>
+    <td style="font-size:12px;color:#52525B;font-family:'JetBrains Mono',monospace">${fd(r.created_at)}</td>
+    <td><div style="display:flex;gap:5px"><button class="btn btn-sm" onclick="openDrawer(${r.id})">Detaje</button><button class="btn btn-sm" onclick="openRotateModal(${r.id})" title="Roto keys">Roto</button></div></td>
+  </tr>`).join(''):'<tr><td colspan="9" class="empty-cell">Asnje restorant</td></tr>';
 }
 function filterRests(){const q=document.getElementById('search-in').value.toLowerCase();renderRests(q?allRests.filter(r=>r.name.toLowerCase().includes(q)||String(r.id).includes(q)):allRests);}
 
@@ -781,7 +842,7 @@ async function openDrawer(id){
   document.getElementById('dr-body').innerHTML='<div style="text-align:center;padding:40px"><div class="spinner"></div></div>';
   document.getElementById('drawer-overlay').classList.add('open');
   const r=await api('GET',`/admin/restaurants/${id}`);
-  if(!r.ok){document.getElementById('dr-body').innerHTML=`<div style="color:var(--red)">Gabim: ${esc(r.data.error)}</div>`;return;}
+  if(!r.ok){document.getElementById('dr-body').innerHTML=`<div style="color:#FCA5A5">Gabim: ${esc(r.data.error)}</div>`;return;}
   const d=r.data.data;
   document.getElementById('dr-title').textContent=d.name;
   const s=d.reservations_by_status||{};
@@ -789,15 +850,15 @@ async function openDrawer(id){
   document.getElementById('dr-body').innerHTML=`
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:18px">
       <div class="kpi-card" style="padding:14px"><div class="kpi-label">Rezervime</div><div class="kpi-val" style="font-size:22px">${d.reservation_count||0}</div></div>
-      <div class="kpi-card" style="padding:14px"><div class="kpi-label">Klientë</div><div class="kpi-val" style="font-size:22px">${d.unique_customers||0}</div></div>
+      <div class="kpi-card" style="padding:14px"><div class="kpi-label">Kliente</div><div class="kpi-val" style="font-size:22px">${d.unique_customers||0}</div></div>
       <div class="kpi-card" style="padding:14px"><div class="kpi-label">Pending</div><div class="kpi-val" style="font-size:22px">${s.pending||0}</div></div>
     </div>
     <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:18px">
       ${[['Confirmed','b-confirmed'],['Completed','b-completed'],['Cancelled','b-cancelled'],['NoShow','b-noshow']].map(([st,cl])=>`<span class="badge ${cl}">${st}: ${s[st.toLowerCase()]||0}</span>`).join('')}
     </div>
-    ${d.last_reservation_at?`<p style="font-size:12px;color:var(--faint);margin-bottom:18px">Rezervimi i fundit: ${fd(d.last_reservation_at)}</p>`:''}
+    ${d.last_reservation_at?`<p style="font-size:12px;color:#52525B;margin-bottom:18px;font-family:'JetBrains Mono',monospace">Last reservation: ${fd(d.last_reservation_at)}</p>`:''}
     <hr>
-    <div style="font-size:13px;font-weight:600;margin-bottom:14px">Settings</div>
+    <div style="font-size:13px;font-weight:600;margin-bottom:14px;color:#FAFAFA">Settings</div>
     <div id="dr-msg"></div>
     <div class="form-grid" style="margin-bottom:14px">
       <div class="fg"><label>Emri</label><input id="dr-name" value="${esc(d.name)}"/></div>
@@ -807,16 +868,16 @@ async function openDrawer(id){
       <div class="fg"><label>Hap ora</label><input id="dr-open" type="time" value="${d.opening_hours_start||'11:00'}"/></div>
       <div class="fg"><label>Mbyll ora</label><input id="dr-close" type="time" value="${d.opening_hours_end||'21:00'}"/></div>
       <div class="fg"><label>Kapacitet max</label><input id="dr-cap" type="number" value="${d.max_capacity||50}"/></div>
-      <div class="fg"><label>Auto-konfirmo ≤</label><input id="dr-mxauto" type="number" value="${d.max_auto_confirm_people||6}"/></div>
+      <div class="fg"><label>Auto-konfirmo <=</label><input id="dr-mxauto" type="number" value="${d.max_auto_confirm_people||6}"/></div>
     </div>
     <button class="btn btn-primary" onclick="saveDrawer(${id})">Ruaj Ndryshimet</button>
     <hr>
-    <div style="font-size:13px;font-weight:600;margin-bottom:10px">Keys aktive</div>
-    <div style="font-size:11px;color:var(--faint);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">API Keys (${ak.length})</div>
-    ${ak.map(k=>`<div style="display:flex;justify-content:space-between;padding:8px 10px;background:var(--surface);border:0.5px solid var(--border);border-radius:6px;margin-bottom:4px;font-size:12px"><span class="badge b-active">aktive</span><span style="color:var(--faint)">${fd(k.created_at)}</span></div>`).join('')||'<p style="color:var(--faint);font-size:12px">Asnjë</p>'}
-    <div style="font-size:11px;color:var(--faint);margin:12px 0 6px;text-transform:uppercase;letter-spacing:.5px">Owner Keys (${ok.length})</div>
-    ${ok.map(k=>`<div style="display:flex;justify-content:space-between;padding:8px 10px;background:var(--surface);border:0.5px solid var(--border);border-radius:6px;margin-bottom:4px;font-size:12px"><span class="badge b-confirmed">aktive</span><span style="color:var(--faint)">${fd(k.created_at)}</span></div>`).join('')||'<p style="color:var(--faint);font-size:12px">Asnjë</p>'}
-    <div style="margin-top:12px"><button class="btn btn-danger btn-sm" onclick="openRotateModal(${id})">🔄 Roto të gjitha Keys</button></div>
+    <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:#FAFAFA">Keys aktive</div>
+    <div style="font-size:10px;color:#52525B;margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em;font-weight:600">API Keys (${ak.length})</div>
+    ${ak.map(k=>`<div style="display:flex;justify-content:space-between;padding:8px 10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;margin-bottom:4px;font-size:12px"><span class="badge b-active">aktive</span><span style="color:#52525B;font-family:'JetBrains Mono',monospace">${fd(k.created_at)}</span></div>`).join('')||'<p style="color:#52525B;font-size:12px">Asnje</p>'}
+    <div style="font-size:10px;color:#52525B;margin:12px 0 6px;text-transform:uppercase;letter-spacing:.06em;font-weight:600">Owner Keys (${ok.length})</div>
+    ${ok.map(k=>`<div style="display:flex;justify-content:space-between;padding:8px 10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;margin-bottom:4px;font-size:12px"><span class="badge b-confirmed">aktive</span><span style="color:#52525B;font-family:'JetBrains Mono',monospace">${fd(k.created_at)}</span></div>`).join('')||'<p style="color:#52525B;font-size:12px">Asnje</p>'}
+    <div style="margin-top:12px"><button class="btn btn-danger btn-sm" onclick="openRotateModal(${id})">Roto te gjitha Keys</button></div>
   `;
 }
 async function saveDrawer(id){
@@ -830,7 +891,7 @@ function closeDrawer(){document.getElementById('drawer-overlay').classList.remov
 // ROTATE
 function openRotateModal(id){rotId=id;document.getElementById('rot-out').style.display='none';document.getElementById('rot-footer').style.display='flex';document.getElementById('rot-btn').disabled=false;document.getElementById('rot-btn').textContent='Konfirmo Rotacionin';document.getElementById('rot-modal').classList.add('open');}
 function closeRotModal(){document.getElementById('rot-modal').classList.remove('open');}
-function openRotateById(){const id=+document.getElementById('rot-id-in').value;if(!id){toast('Fut ID-në','err');return;}openRotateModal(id);}
+function openRotateById(){const id=+document.getElementById('rot-id-in').value;if(!id){toast('Fut ID-ne','err');return;}openRotateModal(id);}
 async function confirmRotate(){
   const btn=document.getElementById('rot-btn');btn.disabled=true;btn.textContent='Duke rotuar...';
   const r=await api('POST',`/admin/restaurants/${rotId}/rotate-keys`);
@@ -861,14 +922,14 @@ function fillUrls(){
 }
 async function runCron(type,btnId,lastId){
   const btn=document.getElementById(btnId);btn.disabled=true;btn.textContent='...';
-  const r=await api('POST',`/cron/${type}`);btn.disabled=false;btn.textContent='▶ Run';
-  if(r.ok){const c=r.data.data?.length||0;document.getElementById(lastId).textContent=`${new Date().toLocaleTimeString('sq-AL')} — ${c} rekorde`;toast(`${type}: ${c} rekorde`,'ok');addLog(`Cron ${type} — ${c} rekorde`,'ok');}
+  const r=await api('POST',`/cron/${type}`);btn.disabled=false;btn.innerHTML='<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run';
+  if(r.ok){const c=r.data.data?.length||0;document.getElementById(lastId).textContent=`${new Date().toLocaleTimeString('sq-AL')} -- ${c} rekorde`;toast(`${type}: ${c} rekorde`,'ok');addLog(`Cron ${type} -- ${c} rekorde`,'ok');}
   else toast('Gabim: '+(r.data.error||'?'),'err');
 }
 async function runAutoClose(){
   const btn=document.getElementById('btn-close');btn.disabled=true;btn.textContent='...';
-  const r=await api('POST','/cron/auto-close');btn.disabled=false;btn.textContent='▶ Run';
-  if(r.ok){const d=r.data.data||{};document.getElementById('cron-c-last').textContent=`${new Date().toLocaleTimeString('sq-AL')} — C:${d.completed} N:${d.noshow}`;toast(`Auto-close: ${d.completed}C ${d.noshow}NS`,'ok');addLog(`Auto-close C=${d.completed} NS=${d.noshow}`,'ok');}
+  const r=await api('POST','/cron/auto-close');btn.disabled=false;btn.innerHTML='<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run';
+  if(r.ok){const d=r.data.data||{};document.getElementById('cron-c-last').textContent=`${new Date().toLocaleTimeString('sq-AL')} -- C:${d.completed} N:${d.noshow}`;toast(`Auto-close: ${d.completed}C ${d.noshow}NS`,'ok');addLog(`Auto-close C=${d.completed} NS=${d.noshow}`,'ok');}
   else toast('Gabim: '+(r.data.error||'?'),'err');
 }
 
@@ -880,12 +941,12 @@ async function loadEnv(){
 }
 
 // DANGER
-async function disableRest(){const id=+document.getElementById('dis-id-in').value;if(!id){toast('Fut ID-në','err');return;}if(!confirm(`Çaktivizo #${id}?`))return;const r=await api('PATCH',`/admin/restaurants/${id}/settings`,{is_active:false});if(r.ok){toast(`#${id} u çaktivizua`,'ok');addLog(`Çaktivizuar #${id}`,'ok');loadRestaurants();}else toast('Gabim: '+r.data.error,'err');}
-async function enableRest(){const id=+document.getElementById('en-id-in').value;if(!id){toast('Fut ID-në','err');return;}const r=await api('PATCH',`/admin/restaurants/${id}/settings`,{is_active:true});if(r.ok){toast(`#${id} u aktivizua`,'ok');addLog(`Aktivizuar #${id}`,'ok');loadRestaurants();}else toast('Gabim: '+r.data.error,'err');}
+async function disableRest(){const id=+document.getElementById('dis-id-in').value;if(!id){toast('Fut ID-ne','err');return;}if(!confirm(`Caktivizo #${id}?`))return;const r=await api('PATCH',`/admin/restaurants/${id}/settings`,{is_active:false});if(r.ok){toast(`#${id} u caktivizua`,'ok');addLog(`Caktivizuar #${id}`,'ok');loadRestaurants();}else toast('Gabim: '+r.data.error,'err');}
+async function enableRest(){const id=+document.getElementById('en-id-in').value;if(!id){toast('Fut ID-ne','err');return;}const r=await api('PATCH',`/admin/restaurants/${id}/settings`,{is_active:true});if(r.ok){toast(`#${id} u aktivizua`,'ok');addLog(`Aktivizuar #${id}`,'ok');loadRestaurants();}else toast('Gabim: '+r.data.error,'err');}
 
 // LOG
 function addLog(msg,type='info'){logs.unshift({msg,t:new Date().toLocaleTimeString('sq-AL'),type});if(logs.length>200)logs.pop();renderLog();}
-function renderLog(){const el=document.getElementById('log-list');if(!logs.length){el.innerHTML='<div class="empty-cell">Asnjë veprim ende</div>';return;}el.innerHTML=logs.map(l=>`<div class="log-row"><div class="log-dot" style="background:${l.type==='ok'?'var(--green)':l.type==='err'?'var(--red)':'var(--accent)'}"></div><div class="log-msg">${esc(l.msg)}</div><div class="log-ts">${l.t}</div></div>`).join('');}
+function renderLog(){const el=document.getElementById('log-list');if(!logs.length){el.innerHTML='<div class="empty-cell">Asnje veprim ende</div>';return;}el.innerHTML=logs.map(l=>`<div class="log-row"><div class="log-dot" style="background:${l.type==='ok'?'#10B981':l.type==='err'?'#EF4444':'#F59E0B'}"></div><div class="log-msg">${esc(l.msg)}</div><div class="log-ts">${l.t}</div></div>`).join('');}
 function clearLog(){logs=[];renderLog();toast('Log u pastrua','info');}
 
 // TOAST
@@ -893,11 +954,11 @@ function toast(msg,type='info'){const el=document.createElement('div');const m={
 
 // UTILS
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-function fd(d){if(!d)return'—';return new Date(d).toLocaleDateString('sq-AL',{day:'2-digit',month:'2-digit',year:'numeric'});}
+function fd(d){if(!d)return'--';return new Date(d).toLocaleDateString('sq-AL',{day:'2-digit',month:'2-digit',year:'numeric'});}
 function pb(p){return(p||'').toUpperCase()==='PRO'?`<span class="badge b-pro">PRO</span>`:`<span class="badge b-free">FREE</span>`;}
 function ab(v){return v!==false?`<span class="badge b-active">Aktiv</span>`:`<span class="badge b-inactive">Joaktiv</span>`;}
 function setKBox(id,val){const b=document.getElementById(id);const btn=b.querySelector('.key-copy');b.textContent=val;if(btn)b.appendChild(btn);}
-function copyKey(id){const b=document.getElementById(id);const t=b.textContent.replace('Kopjo','').trim();navigator.clipboard.writeText(t);const btn=b.querySelector('.key-copy');if(btn){btn.textContent='✓';setTimeout(()=>btn.textContent='Kopjo',1400);}toast('U kopjua','info');}
+function copyKey(id){const b=document.getElementById(id);const t=b.textContent.replace('Kopjo','').trim();navigator.clipboard.writeText(t);const btn=b.querySelector('.key-copy');if(btn){btn.textContent='OK';setTimeout(()=>btn.textContent='Kopjo',1400);}toast('U kopjua','info');}
 
 // MARKETING
 let _mktAudience=null;
@@ -917,11 +978,11 @@ async function loadMarketing(){
   const trgSel=document.getElementById('trg-restaurant');
   const trgFilter=document.getElementById('trg-filter-rest');
   [mktSel,trgSel,trgFilter].forEach(sel=>{
-    const base=sel===mktSel?'<option value="">— Zgjidh restorantin —</option>':'<option value="">— Zgjidh —</option>';
+    const base=sel===mktSel?'<option value="">-- Zgjidh restorantin --</option>':'<option value="">-- Zgjidh --</option>';
     sel.innerHTML=base+pros.map(r=>{
       const isPro=(r.plan||'').toLowerCase()==='pro';
       return sel===mktSel
-        ?`<option value="${r.id}" ${!isPro?'disabled':''} >${esc(r.name)} ${isPro?'✓ PRO':'(Kërkon PRO)'}</option>`
+        ?`<option value="${r.id}" ${!isPro?'disabled':''} >${esc(r.name)} ${isPro?'PRO':'(Kerkon PRO)'}</option>`
         :`<option value="${r.id}" ${!isPro?'disabled':''} >${esc(r.name)}</option>`;
     }).join('');
   });
@@ -938,26 +999,26 @@ async function loadAudience(){
   if(!r.ok){preview.style.display='none';toast('Gabim audience: '+r.data.error,'err');return;}
   _mktAudience=r.data;
   const s=r.data.segments||{};
-  document.getElementById('aud-count').textContent=`👥 Audienca: ${s.total||0} klientë`;
+  document.getElementById('aud-count').textContent=`Audienca: ${s.total||0} kliente`;
   document.getElementById('aud-segs').innerHTML=
     `<span class="aud-seg-pill seg-vip">VIP: ${s.vip||0}</span>`+
     `<span class="aud-seg-pill seg-active">Aktiv: ${s.active||0}</span>`+
     `<span class="aud-seg-pill seg-warm">Warm: ${s.warm||0}</span>`+
-    `<span class="aud-seg-pill seg-cold">I ftohtë: ${s.cold||0}</span>`;
+    `<span class="aud-seg-pill seg-cold">I ftohte: ${s.cold||0}</span>`;
   const top5=(r.data.customers||[]).slice(0,5);
   document.getElementById('aud-list').innerHTML=top5.length
-    ?`<div style="font-size:12px;color:var(--muted);margin-bottom:6px">5 klientët e parë (sipas RFV):</div>`+
+    ?`<div style="font-size:12px;color:#71717A;margin-bottom:6px">5 klientet e pare (sipas RFV):</div>`+
       `<div style="display:flex;flex-direction:column;gap:4px">`+
-      top5.map(c=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 8px;background:var(--bg);border:0.5px solid var(--border);border-radius:5px"><span>${esc(c.customer_name||c.phone)}</span><span style="color:var(--faint)">${c.total_visits||0} vizita · RFV: <strong>${c.rfv_total||0}</strong></span></div>`).join('')+`</div>`
-    :'<div style="font-size:12px;color:var(--faint)">Asnjë klient në këtë segment.</div>';
+      top5.map(c=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:6px 10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:6px"><span style="color:#A1A1AA">${esc(c.customer_name||c.phone)}</span><span style="color:#52525B;font-family:'JetBrains Mono',monospace">${c.total_visits||0} vizita · RFV: <strong style="color:#FBBF24">${c.rfv_total||0}</strong></span></div>`).join('')+`</div>`
+    :'<div style="font-size:12px;color:#52525B">Asnje klient ne kete segment.</div>';
 }
 
 function setTemplate(type){
   const tpls={
-    offer:'Mirëdita {name}! Restoranti {restaurant} ju ofron 15% zbritje për rezervimin tuaj të ardhshëm. Rezervoni sot!',
-    thanks:'Faleminderit {name} që vizituat {restaurant}! Shpresojmë ju pëlqeu. Na vizitoni sërish së shpejti! 🍽️',
-    miss:'Mirëdita {name}! Ka kaluar pak kohë që nuk ju kemi parë në {restaurant}. Na vini të mungoni — ju presim me kënaqësi! 🤗',
-    vip:'Urime {name}! Jeni bërë klient VIP i {restaurant}. Nga sot gëzoni përfitime ekskluzive. Rezervoni dhe tregoni kodit: VIP2026 🌟',
+    offer:'Miredita {name}! Restoranti {restaurant} ju ofron 15% zbritje per rezervimin tuaj te ardhshem. Rezervoni sot!',
+    thanks:'Faleminderit {name} qe vizituat {restaurant}! Shpresojme ju pelqeu. Na vizitoni serish se shpejti!',
+    miss:'Miredita {name}! Ka kaluar pak kohe qe nuk ju kemi pare ne {restaurant}. Na vini te mungoni -- ju presim me kenaqesi!',
+    vip:'Urime {name}! Jeni bere klient VIP i {restaurant}. Nga sot gezoni perfitime ekskluzive. Rezervoni dhe tregoni kodit: VIP2026',
   };
   const ta=document.getElementById('mkt-message');
   ta.value=tpls[type]||'';
@@ -976,22 +1037,22 @@ function sendCampaign(){
   const msg=document.getElementById('mkt-message').value.trim();
   if(!restId){toast('Zgjidh restorantin','err');return;}
   if(!msg){toast('Shkruaj mesazhin','err');return;}
-  const restName=document.getElementById('mkt-restaurant').selectedOptions[0]?.text||'—';
-  const segName=document.getElementById('mkt-segment').selectedOptions[0]?.text||'—';
-  const chName=document.getElementById('mkt-channel').selectedOptions[0]?.text||'—';
+  const restName=document.getElementById('mkt-restaurant').selectedOptions[0]?.text||'--';
+  const segName=document.getElementById('mkt-segment').selectedOptions[0]?.text||'--';
+  const chName=document.getElementById('mkt-channel').selectedOptions[0]?.text||'--';
   const total=_mktAudience?.segments?.total||'?';
   document.getElementById('mkt-confirm-body').innerHTML=
-    `<strong>Restoranti:</strong> ${esc(restName)}<br>`+
-    `<strong>Segmenti:</strong> ${esc(segName)}<br>`+
-    `<strong>Audienca:</strong> ${total} klientë<br>`+
-    `<strong>Kanali:</strong> ${esc(chName)}<br><br>`+
-    `<em style="color:var(--text)">Mesazhi:</em><br><div style="margin-top:6px;padding:10px;background:var(--surface);border-radius:6px;font-size:12px;font-family:ui-monospace,monospace">${esc(msg)}</div>`;
+    `<strong style="color:#FAFAFA">Restoranti:</strong> ${esc(restName)}<br>`+
+    `<strong style="color:#FAFAFA">Segmenti:</strong> ${esc(segName)}<br>`+
+    `<strong style="color:#FAFAFA">Audienca:</strong> ${total} kliente<br>`+
+    `<strong style="color:#FAFAFA">Kanali:</strong> ${esc(chName)}<br><br>`+
+    `<em style="color:#FAFAFA">Mesazhi:</em><br><div style="margin-top:6px;padding:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:8px;font-size:12px;font-family:'JetBrains Mono',monospace;color:#A1A1AA">${esc(msg)}</div>`;
   document.getElementById('mkt-confirm-modal').classList.add('open');
 }
 
 async function confirmSend(){
   const btn=document.getElementById('mkt-confirm-btn');
-  btn.disabled=true;btn.textContent='Duke dërguar...';
+  btn.disabled=true;btn.textContent='Duke derguar...';
   const restId=document.getElementById('mkt-restaurant').value;
   const seg=document.getElementById('mkt-segment').value;
   const ch=document.getElementById('mkt-channel').value;
@@ -1000,16 +1061,16 @@ async function confirmSend(){
   const r=await api('POST','/admin/marketing/send',{
     restaurant_id:+restId,segment:seg,channel:ch,message:msg,template_name:tmpl
   });
-  btn.disabled=false;btn.textContent='KONFIRMO & DËRGO';
+  btn.disabled=false;btn.textContent='KONFIRMO & DERGO';
   document.getElementById('mkt-confirm-modal').classList.remove('open');
   if(r.ok){
     const d=r.data;
     const res=document.getElementById('campaign-result');
     document.getElementById('campaign-result-body').innerHTML=
-      `Dërguar: <strong>${d.sent}</strong> &nbsp;|&nbsp; Dështuan: <strong>${d.failed}</strong> &nbsp;|&nbsp; Campaign ID: <strong>#${d.campaign_id}</strong>`;
+      `Derguar: <strong style="color:#34D399">${d.sent}</strong> &nbsp;|&nbsp; Deshtuan: <strong style="color:#FCA5A5">${d.failed}</strong> &nbsp;|&nbsp; Campaign ID: <strong style="color:#FBBF24">#${d.campaign_id}</strong>`;
     res.style.display='block';
-    toast(`Dërguar ${d.sent} mesazhe`,'ok');
-    addLog(`Kampanjë dërguar: ${d.sent} mesazhe (seg: ${seg})`,'ok');
+    toast(`Derguar ${d.sent} mesazhe`,'ok');
+    addLog(`Kampanje derguar: ${d.sent} mesazhe (seg: ${seg})`,'ok');
   } else {
     toast('Gabim: '+r.data.error,'err');
   }
@@ -1024,36 +1085,36 @@ async function loadCampaigns(){
     ?rows.map(c=>{
       const segBadge={vip:'seg-vip',active:'seg-active',warm:'seg-warm',cold:'seg-cold',auto:'seg-auto'}[c.segment]||'b-free';
       const trigBadge=c.triggered_by==='auto'
-        ?`<span class="badge seg-auto">🤖 AUTO</span>`
-        :`<span class="badge b-free">👤 MANUAL</span>`;
+        ?`<span class="badge seg-auto">AUTO</span>`
+        :`<span class="badge b-free">MANUAL</span>`;
       return`<tr>
-        <td style="font-size:12px;color:var(--faint)">${fd(c.created_at)}</td>
-        <td>${esc(c.restaurant_name||'—')}</td>
+        <td style="font-size:12px;color:#52525B;font-family:'JetBrains Mono',monospace">${fd(c.created_at)}</td>
+        <td style="color:#FAFAFA">${esc(c.restaurant_name||'--')}</td>
         <td><span class="badge ${segBadge}">${esc(c.segment)}</span></td>
-        <td style="font-size:12px">${esc(c.channel)}</td>
-        <td style="font-weight:500">${c.sent_count}</td>
-        <td style="color:${c.failed_count>0?'var(--red)':'var(--muted)'}">${c.failed_count}</td>
+        <td style="font-size:12px;color:#A1A1AA">${esc(c.channel)}</td>
+        <td style="font-weight:600;font-family:'JetBrains Mono',monospace;color:#FAFAFA">${c.sent_count}</td>
+        <td style="color:${c.failed_count>0?'#FCA5A5':'#52525B'};font-family:'JetBrains Mono',monospace">${c.failed_count}</td>
         <td>${trigBadge}</td>
         <td><button class="btn btn-sm" onclick="viewCampaignStats(${c.id})">Stats</button></td>
       </tr>`;
     }).join('')
-    :'<tr><td colspan="8" class="empty-cell">Asnjë kampanjë ende</td></tr>';
+    :'<tr><td colspan="8" class="empty-cell">Asnje kampanje ende</td></tr>';
 }
 
 async function viewCampaignStats(id){
   document.getElementById('mkt-stats-body').innerHTML='<div class="spinner"></div>';
   document.getElementById('mkt-stats-modal').classList.add('open');
   const r=await api('GET',`/admin/marketing/campaigns/${id}/stats`);
-  if(!r.ok){document.getElementById('mkt-stats-body').innerHTML=`<span style="color:var(--red)">${esc(r.data.error)}</span>`;return;}
+  if(!r.ok){document.getElementById('mkt-stats-body').innerHTML=`<span style="color:#FCA5A5">${esc(r.data.error)}</span>`;return;}
   const d=r.data;
   document.getElementById('mkt-stats-body').innerHTML=
-    `<strong>Campaign #${d.id}</strong><br><br>`+
-    `<strong>Restoranti:</strong> ${esc(d.restaurant_name||'—')}<br>`+
-    `<strong>Dërguar:</strong> ${d.sent_count} / ${d.recipients_count}<br>`+
-    `<strong>Dështuan:</strong> ${d.failed_count}<br>`+
-    `<strong>Konvertime (30 ditë):</strong> ${d.conversions}<br>`+
-    `<strong>Conversion Rate:</strong> ${d.conversion_rate}%<br><br>`+
-    `<em>Nga kjo kampanjë erdhën ${d.conversions} rezervime.</em>`;
+    `<strong style="color:#FAFAFA">Campaign #${d.id}</strong><br><br>`+
+    `<strong style="color:#FAFAFA">Restoranti:</strong> ${esc(d.restaurant_name||'--')}<br>`+
+    `<strong style="color:#FAFAFA">Derguar:</strong> <span style="font-family:'JetBrains Mono',monospace">${d.sent_count} / ${d.recipients_count}</span><br>`+
+    `<strong style="color:#FAFAFA">Deshtuan:</strong> <span style="font-family:'JetBrains Mono',monospace">${d.failed_count}</span><br>`+
+    `<strong style="color:#FAFAFA">Konvertime (30 dite):</strong> <span style="font-family:'JetBrains Mono',monospace;color:#34D399">${d.conversions}</span><br>`+
+    `<strong style="color:#FAFAFA">Conversion Rate:</strong> <span style="font-family:'JetBrains Mono',monospace;color:#FBBF24">${d.conversion_rate}%</span><br><br>`+
+    `<em style="color:#71717A">Nga kjo kampanje erdhen ${d.conversions} rezervime.</em>`;
 }
 
 async function loadTriggers(restId){
@@ -1063,13 +1124,13 @@ async function loadTriggers(restId){
   const rows=r.data||[];
   document.getElementById('triggers-tbody').innerHTML=rows.length
     ?rows.map(t=>`<tr>
-        <td>${esc(t.restaurant_id)}</td>
-        <td style="font-weight:500">${esc(t.trigger_type)}</td>
-        <td>${esc(t.channel)}</td>
-        <td style="font-size:12px;color:var(--faint)">${t.last_run?fd(t.last_run):'Kurrë'}</td>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#52525B">${esc(t.restaurant_id)}</td>
+        <td style="font-weight:600;color:#FAFAFA">${esc(t.trigger_type)}</td>
+        <td style="color:#A1A1AA">${esc(t.channel)}</td>
+        <td style="font-size:12px;color:#52525B;font-family:'JetBrains Mono',monospace">${t.last_run?fd(t.last_run):'Kurre'}</td>
         <td>${t.is_active?`<span class="badge b-active">Aktiv</span>`:`<span class="badge b-inactive">Joaktiv</span>`}</td>
       </tr>`).join('')
-    :'<tr><td colspan="5" class="empty-cell">Asnjë trigger aktiv</td></tr>';
+    :'<tr><td colspan="5" class="empty-cell">Asnje trigger aktiv</td></tr>';
 }
 
 async function createTrigger(){
@@ -1085,7 +1146,7 @@ async function createTrigger(){
   });
   if(r.ok){
     toast('Trigger u aktivizua','ok');
-    addLog(`Trigger i ri: ${type} për restorant #${restId}`,'ok');
+    addLog(`Trigger i ri: ${type} per restorant #${restId}`,'ok');
     document.getElementById('trg-message').value='';
     loadTriggers(restId);
   } else {
@@ -1096,10 +1157,13 @@ async function createTrigger(){
 // INIT
 window.addEventListener('load',()=>{
   const s=localStorage.getItem('tta_admin_key');
-  if(s){KEY=s;api('GET','/admin/stats').then(r=>{if(r.ok){document.getElementById('login-screen').style.display='none';document.getElementById('status-pip').classList.add('on');document.getElementById('ver-span').textContent=r.data.version||'';renderStats(r.data.data);startAutoRefresh();fillUrls();addLog('Sesion i restauruar','info');}else{KEY='';localStorage.removeItem('tta_admin_key');}});}
+  if(s){KEY=s;api('GET','/admin/stats').then(r=>{if(r.ok){document.getElementById('login-screen').style.display='none';document.getElementById('status-pip').classList.add('on');document.getElementById('sb-status-dot').classList.add('on');document.getElementById('sb-status-text').textContent='Online';document.getElementById('ver-span').textContent=r.data.version||'';renderStats(r.data.data);startAutoRefresh();fillUrls();addLog('Sesion i restauruar','info');}else{KEY='';localStorage.removeItem('tta_admin_key');}});}
   document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDrawer();closeRotModal();['keys-modal','rot-modal','mkt-confirm-modal','mkt-stats-modal'].forEach(id=>document.getElementById(id)?.classList.remove('open'));}});
   renderLog();
 });
 </script>
+<script src="/i18n.js"></script>
+<script src="/js/mobile-nav.js"></script>
+  <script defer src="/hd-ux.js"></script>
 </body>
 </html>

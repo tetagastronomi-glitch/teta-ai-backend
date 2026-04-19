@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+<title>Te Ta AI — Help & Documentation</title>
+<link rel="stylesheet" href="/hd.css" />
+<style>
+  body { padding: var(--sp-4) 0 var(--sp-8); }
+  .help-wrap { max-width: 920px; margin: 0 auto; padding: 0 var(--sp-4); }
+  .help-header { text-align: center; margin-bottom: var(--sp-6); }
+  .help-header h1 { margin-bottom: var(--sp-2); }
+  .help-header p { color: var(--ink-soft); font-size: var(--fs-lg); }
+  .help-grid { display: grid; grid-template-columns: 240px 1fr; gap: var(--sp-5); }
+  @media (max-width: 800px) { .help-grid { grid-template-columns: 1fr; } }
+  .toc {
+    position: sticky;
+    top: var(--sp-3);
+    align-self: start;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: var(--sp-3);
+  }
+  .toc h4 { font-size: var(--fs-xs); text-transform: uppercase; color: var(--ink-mute); margin-bottom: var(--sp-2); letter-spacing: 0.08em; }
+  .toc a {
+    display: block;
+    padding: 6px 8px;
+    font-size: var(--fs-sm);
+    color: var(--ink-soft);
+    border-radius: var(--radius-sm);
+    margin-bottom: 2px;
+  }
+  .toc a:hover { background: var(--surface-sunk); color: var(--ink); }
+  .content .section {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    padding: var(--sp-5);
+    margin-bottom: var(--sp-4);
+    scroll-margin-top: var(--sp-4);
+  }
+  .content h2 {
+    margin-bottom: var(--sp-3);
+    padding-bottom: var(--sp-2);
+    border-bottom: 1px solid var(--line);
+  }
+  .content h3 { margin-top: var(--sp-4); margin-bottom: var(--sp-2); color: var(--amber); }
+  .content p, .content li { color: var(--ink-soft); line-height: 1.7; margin-bottom: var(--sp-2); }
+  .content ol, .content ul { padding-left: var(--sp-5); margin-bottom: var(--sp-3); }
+  .content code {
+    background: var(--surface-sunk);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: "SF Mono", "Menlo", "Consolas", monospace;
+    font-size: 0.9em;
+    color: var(--amber);
+  }
+  .callout {
+    background: var(--amber-light);
+    border-left: 4px solid var(--amber);
+    padding: var(--sp-3) var(--sp-4);
+    border-radius: var(--radius-sm);
+    margin: var(--sp-3) 0;
+    color: var(--ink);
+  }
+  .callout strong { display: block; margin-bottom: 4px; }
+  kbd {
+    font-family: monospace;
+    background: var(--surface-sunk);
+    border: 1px solid var(--line);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.85em;
+  }
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--ink-soft);
+    font-size: var(--fs-sm);
+    margin-bottom: var(--sp-3);
+  }
+  .back-link:hover { color: var(--amber); }
+</style>
+</head>
+<body>
+  <div class="help-wrap">
+    <a href="/dashboard.html" class="back-link">← Back to dashboard</a>
+    <div class="help-header">
+      <h1>Help & Documentation</h1>
+      <p>Everything you need to make your AI Restaurant Manager unstoppable.</p>
+    </div>
+
+    <div class="help-grid">
+      <aside class="toc">
+        <h4>On this page</h4>
+        <a href="#getting-started">🚀 Getting Started</a>
+        <a href="#setup">🔧 Setup</a>
+        <a href="#daily-use">☀️ Daily Use</a>
+        <a href="#troubleshooting">🛟 Troubleshooting</a>
+        <a href="#shortcuts">⌨️ Keyboard Shortcuts</a>
+        <a href="#contact">✉️ Contact Support</a>
+      </aside>
+
+      <main class="content">
+        <section id="getting-started" class="section">
+          <h2>🚀 Getting Started</h2>
+          <p>Welcome to Te Ta AI. Your AI Restaurant Manager (we call him Jerry) answers customer messages, takes reservations, sends you daily reports, and learns your restaurant's style over time.</p>
+
+          <h3>Your first 10 minutes</h3>
+          <ol>
+            <li>Open your dashboard using the PIN we sent you at activation.</li>
+            <li>Go to <strong>Settings → WhatsApp</strong> and scan the QR code with your restaurant's WhatsApp.</li>
+            <li>Message your own WhatsApp with <em>"Hi"</em> to see Jerry in action.</li>
+            <li>Add any menu items or special notes under <strong>Settings → Restaurant Info</strong>.</li>
+          </ol>
+
+          <div class="callout">
+            <strong>💡 Tip</strong>
+            Jerry gets smarter the more information you give him about your restaurant. Don't skip the description field — it's how he answers customer questions.
+          </div>
+        </section>
+
+        <section id="setup" class="section">
+          <h2>🔧 Setup</h2>
+
+          <h3>Connecting WhatsApp</h3>
+          <ol>
+            <li>Go to <strong>Settings</strong> in your dashboard.</li>
+            <li>Click the <strong>WhatsApp</strong> tab.</li>
+            <li>A QR code will appear — open WhatsApp on the phone you want to use → Settings → Linked Devices → Link a Device.</li>
+            <li>Scan the QR code. Connection is instant.</li>
+          </ol>
+          <div class="callout">
+            <strong>⚠️ Important</strong>
+            Use a dedicated phone number for your restaurant, not your personal one. WhatsApp links one device per account.
+          </div>
+
+          <h3>Setting opening hours</h3>
+          <p>Opening hours tell Jerry when he can accept reservations. Outside these hours, he'll politely decline and offer an alternative time. Update them anytime in <strong>Settings → Hours</strong>.</p>
+
+          <h3>Your AI provider</h3>
+          <p>Te Ta AI works with Claude, OpenAI, Gemini, Mistral, or Groq. You pay the AI provider directly for message costs (usually $1-5/month for a small restaurant). Your key lives encrypted on our server and is never shared.</p>
+        </section>
+
+        <section id="daily-use" class="section">
+          <h2>☀️ Daily Use</h2>
+
+          <h3>Morning check (9 AM)</h3>
+          <p>Every morning Jerry sends you a WhatsApp summary: reservations for today, overnight messages, and anything unusual that needs your attention. You can change the send time in <strong>Settings → Reports</strong>.</p>
+
+          <h3>Real-time alerts</h3>
+          <p>Jerry pings you immediately for: VIP guests, groups of 6+, allergen requests, and booking conflicts. Turn any of these off in <strong>Settings → Notifications</strong>.</p>
+
+          <h3>Managing reservations</h3>
+          <ul>
+            <li>Filter by date, status, or channel at the top of the dashboard.</li>
+            <li>Click any row to see the full conversation, notes, and guest history.</li>
+            <li>Confirm, reschedule, or cancel with one click — Jerry notifies the guest automatically.</li>
+          </ul>
+
+          <h3>Analytics</h3>
+          <p>The Analytics page shows booking volume, no-show rate, busiest hours, and guest retention. Use it Monday mornings to plan your week.</p>
+        </section>
+
+        <section id="troubleshooting" class="section">
+          <h2>🛟 Troubleshooting</h2>
+
+          <h3>Jerry isn't answering customers</h3>
+          <ol>
+            <li>Check the WhatsApp status in <strong>Settings → WhatsApp</strong>. If it says "disconnected", scan the QR code again.</li>
+            <li>Confirm your AI key is still valid — <strong>Settings → AI Provider → Test Key</strong>.</li>
+            <li>Look at the live message log in <strong>Messages</strong>. If the message arrived but Jerry didn't reply, your AI provider may have rate-limited you.</li>
+          </ol>
+
+          <h3>Reservations aren't saving</h3>
+          <p>Make sure your opening hours cover the requested time. If Jerry says "we're closed" at times you are actually open, update <strong>Settings → Hours</strong>.</p>
+
+          <h3>Customer says they got a wrong answer</h3>
+          <p>Add the correct information to <strong>Settings → Restaurant Info</strong> description. Jerry re-reads this on every message, so fixes take effect immediately.</p>
+
+          <h3>Dashboard looks broken</h3>
+          <p>Hard-refresh with <kbd>Ctrl</kbd>+<kbd>F5</kbd> (Windows) or <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> (Mac). We push updates often — this forces your browser to load the latest version.</p>
+        </section>
+
+        <section id="shortcuts" class="section">
+          <h2>⌨️ Keyboard Shortcuts</h2>
+          <p>Power users, this is for you. Press any of these from anywhere in the dashboard:</p>
+          <ul>
+            <li><kbd>D</kbd> — Dashboard</li>
+            <li><kbd>R</kbd> — Reservations</li>
+            <li><kbd>G</kbd> — Guests</li>
+            <li><kbd>A</kbd> — Analytics</li>
+            <li><kbd>M</kbd> — Messages</li>
+            <li><kbd>S</kbd> — Settings</li>
+            <li><kbd>J</kbd> — Toggle Jerry chat panel</li>
+            <li><kbd>N</kbd> — Toggle notifications</li>
+            <li><kbd>?</kbd> — Show this list as an overlay</li>
+            <li><kbd>Esc</kbd> — Close any open panel</li>
+          </ul>
+        </section>
+
+        <section id="contact" class="section">
+          <h2>✉️ Contact Support</h2>
+          <p>Stuck? Found a bug? Want a feature? We're one message away.</p>
+          <ul>
+            <li>Email: <a href="mailto:hello@tetaai.com">hello@tetaai.com</a></li>
+            <li>WhatsApp (for current customers): reply to any message from Jerry with <em>"help me"</em> and we'll take over the conversation.</li>
+          </ul>
+          <p>Most emails get a reply within 2 hours during business days.</p>
+        </section>
+      </main>
+    </div>
+  </div>
+<script>
+  const t = localStorage.getItem('tta_theme') || 'light';
+  document.documentElement.setAttribute('data-theme', t);
+</script>
+</body>
+</html>

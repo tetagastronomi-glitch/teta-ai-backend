@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+<title>Te Ta AI — Activate Your Restaurant</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8D%BD%EF%B8%8F%3C/text%3E%3C/svg%3E" />
+<style>
+  :root {
+    --amber: #B45309;
+    --amber-hover: #92400E;
+    --amber-light: #FEF3C7;
+    --cream: #FDFBF7;
+    --ink: #1A1714;
+    --ink-soft: #57534E;
+    --ink-mute: #A8A29E;
+    --line: #E7E5E4;
+    --surface: #FFFFFF;
+    --ok: #16A34A;
+    --err: #DC2626;
+    --radius: 14px;
+    --shadow: 0 10px 40px rgba(26, 23, 20, 0.08);
+    --shadow-lg: 0 20px 60px rgba(26, 23, 20, 0.12);
+  }
+  [data-theme="dark"] {
+    --amber: #F59E0B;
+    --amber-hover: #FBBF24;
+    --amber-light: #3F2A0A;
+    --cream: #09090B;
+    --ink: #FAFAF9;
+    --ink-soft: #D6D3D1;
+    --ink-mute: #78716C;
+    --line: #27272A;
+    --surface: #1A1714;
+    --shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.6);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", system-ui, sans-serif;
+    background: var(--cream);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    min-height: 100%;
+  }
+  body {
+    padding: clamp(16px, 3vw, 48px);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+  }
+  .wrap {
+    width: 100%;
+    max-width: 720px;
+  }
+  .header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+  .logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--amber);
+    margin-bottom: 16px;
+  }
+  .logo span { font-size: 24px; }
+  h1 {
+    font-size: clamp(24px, 4vw, 34px);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+  }
+  .subtitle {
+    color: var(--ink-soft);
+    font-size: 15px;
+  }
+
+  /* Progress */
+  .progress {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 24px 0 32px;
+  }
+  .step-dot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--ink-mute);
+    font-weight: 500;
+  }
+  .step-dot .num {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--line);
+    color: var(--ink-mute);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+    transition: all .3s;
+  }
+  .step-dot.active .num {
+    background: var(--amber);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(180, 83, 9, 0.3);
+  }
+  .step-dot.done .num {
+    background: var(--ok);
+    color: #fff;
+  }
+  .step-dot.active { color: var(--ink); }
+  .bar { width: 24px; height: 2px; background: var(--line); }
+
+  /* Card */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: clamp(20px, 4vw, 40px);
+    box-shadow: var(--shadow);
+  }
+  .step { display: none; }
+  .step.active { display: block; animation: fadeIn .3s ease; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .step h2 {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    letter-spacing: -0.01em;
+  }
+  .step .step-sub {
+    color: var(--ink-soft);
+    font-size: 14px;
+    margin-bottom: 24px;
+  }
+
+  /* Form fields */
+  .field {
+    margin-bottom: 18px;
+  }
+  .field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+  .field .hint {
+    font-size: 12px;
+    color: var(--ink-mute);
+    margin-top: 4px;
+  }
+  .field input, .field textarea, .field select {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 15px;
+    font-family: inherit;
+    color: var(--ink);
+    background: var(--cream);
+    border: 1.5px solid var(--line);
+    border-radius: 10px;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .field input:focus, .field textarea:focus, .field select:focus {
+    outline: none;
+    border-color: var(--amber);
+    box-shadow: 0 0 0 3px rgba(180, 83, 9, 0.1);
+  }
+  .field textarea {
+    min-height: 80px;
+    resize: vertical;
+  }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 520px) { .row { grid-template-columns: 1fr; } }
+
+  /* Provider cards */
+  .providers {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .provider {
+    background: var(--cream);
+    border: 1.5px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .15s;
+    user-select: none;
+  }
+  .provider:hover {
+    border-color: var(--amber);
+    transform: translateY(-2px);
+  }
+  .provider.selected {
+    border-color: var(--amber);
+    background: var(--amber-light);
+    box-shadow: 0 4px 16px rgba(180, 83, 9, 0.15);
+  }
+  .provider .p-icon {
+    font-size: 28px;
+    margin-bottom: 6px;
+  }
+  .provider .p-name {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--ink);
+  }
+  .provider .p-desc {
+    font-size: 11px;
+    color: var(--ink-mute);
+    margin-top: 2px;
+  }
+
+  /* Buttons */
+  .actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 28px;
+  }
+  .btn {
+    padding: 13px 24px;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: inherit;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all .15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn-primary {
+    background: var(--amber);
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(180, 83, 9, 0.25);
+  }
+  .btn-primary:hover:not(:disabled) { background: var(--amber-hover); transform: translateY(-1px); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-secondary {
+    background: transparent;
+    color: var(--ink-soft);
+    border: 1.5px solid var(--line);
+  }
+  .btn-secondary:hover { border-color: var(--ink-mute); color: var(--ink); }
+
+  /* Messages */
+  .msg {
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 14px;
+    margin-top: 12px;
+    display: none;
+  }
+  .msg.show { display: block; }
+  .msg.ok { background: #DCFCE7; color: #166534; border: 1px solid #86EFAC; }
+  .msg.err { background: #FEE2E2; color: #991B1B; border: 1px solid #FCA5A5; }
+  [data-theme="dark"] .msg.ok { background: #052E16; color: #86EFAC; border-color: #166534; }
+  [data-theme="dark"] .msg.err { background: #450A0A; color: #FCA5A5; border-color: #991B1B; }
+
+  /* Spinner */
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .pricing-strip {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 20px auto 0;
+    max-width: 560px;
+  }
+  .pp {
+    position: relative;
+    background: var(--surface);
+    border: 1.5px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 10px 12px;
+    text-align: center;
+    transition: all .15s;
+  }
+  .pp-pro { border-color: var(--amber); box-shadow: 0 6px 20px rgba(180, 83, 9, 0.15); }
+  .pp-ent { border-color: var(--ink); }
+  .pp-name { font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: 4px; letter-spacing: 0.02em; }
+  .pp-price { font-size: 15px; color: var(--ink-soft); }
+  .pp-price s { color: var(--ink-mute); opacity: 0.6; margin-right: 4px; font-size: 13px; }
+  .pp-price strong { color: var(--ink); font-size: 18px; font-weight: 800; }
+  .pp-badge {
+    position: absolute;
+    top: -9px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--amber);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 999px;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+  }
+  .pp-ent .pp-badge { background: var(--ink); }
+  @media (max-width: 520px) {
+    .pricing-strip { grid-template-columns: 1fr; }
+  }
+
+  .theme-toggle {
+    position: fixed;
+    top: 20px; right: 20px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    width: 40px; height: 40px;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow);
+  }
+</style>
+<script src="https://gumroad.com/js/gumroad.js"></script>
+</head>
+<body>
+  <button class="theme-toggle" id="themeBtn" title="Toggle theme">🌙</button>
+
+  <div class="wrap">
+    <div class="header">
+      <div class="logo"><span>🍽️</span> Te Ta AI</div>
+      <h1>Activate Your AI Restaurant Manager</h1>
+      <p class="subtitle">Four steps. Five minutes. Your restaurant runs itself tonight.</p>
+
+      <div class="pricing-strip">
+        <div class="pp pp-starter">
+          <div class="pp-name">Starter</div>
+          <div class="pp-price"><s>$69</s> <strong>$46</strong></div>
+        </div>
+        <div class="pp pp-pro">
+          <div class="pp-badge">MOST POPULAR</div>
+          <div class="pp-name">Pro</div>
+          <div class="pp-price"><s>$149</s> <strong>$82</strong></div>
+        </div>
+        <div class="pp pp-ent">
+          <div class="pp-badge">BEST VALUE</div>
+          <div class="pp-name">Enterprise</div>
+          <div class="pp-price"><s>$228</s> <strong>$190</strong></div>
+        </div>
+      </div>
+      <p style="font-size:12px;color:var(--ink-mute);margin-top:8px">Start with a 14-day free trial. Pick a plan anytime from your dashboard.</p>
+    </div>
+
+    <div class="progress">
+      <div class="step-dot active" data-step="1"><div class="num">1</div>Restaurant</div>
+      <div class="bar"></div>
+      <div class="step-dot" data-step="2"><div class="num">2</div>Hours</div>
+      <div class="bar"></div>
+      <div class="step-dot" data-step="3"><div class="num">3</div>AI Brain</div>
+      <div class="bar"></div>
+      <div class="step-dot" data-step="4"><div class="num">4</div>Finish</div>
+    </div>
+
+    <div class="card">
+      <!-- STEP 1: Restaurant Info -->
+      <div class="step active" data-step="1">
+        <h2>Tell us about your restaurant</h2>
+        <p class="step-sub">This information powers every customer conversation.</p>
+
+        <div class="field">
+          <label>Restaurant name *</label>
+          <input type="text" id="f_name" placeholder="e.g. Te Ta Gastronomi" maxlength="80" />
+        </div>
+
+        <div class="field">
+          <label>WhatsApp number *</label>
+          <input type="tel" id="f_phone" placeholder="+355 69 123 4567" maxlength="25" />
+          <div class="hint">This is the number customers will message.</div>
+        </div>
+
+        <div class="field">
+          <label>Address</label>
+          <input type="text" id="f_address" placeholder="Street, city" maxlength="200" />
+        </div>
+
+        <div class="field">
+          <label>Short description *</label>
+          <textarea id="f_description" placeholder="Italian bistro, 40 seats, family-run, best carbonara in town..." maxlength="500"></textarea>
+          <div class="hint">Your AI will use this to answer customer questions.</div>
+        </div>
+
+        <div class="actions">
+          <span></span>
+          <button class="btn btn-primary" onclick="nextStep(1)">Continue →</button>
+        </div>
+      </div>
+
+      <!-- STEP 2: Hours -->
+      <div class="step" data-step="2">
+        <h2>When are you open?</h2>
+        <p class="step-sub">Your AI won't take reservations outside these hours.</p>
+
+        <div class="row">
+          <div class="field">
+            <label>Opening time *</label>
+            <input type="time" id="f_open" value="11:00" />
+          </div>
+          <div class="field">
+            <label>Closing time *</label>
+            <input type="time" id="f_close" value="23:00" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Default customer language</label>
+          <select id="f_lang">
+            <option value="en">English</option>
+            <option value="sq">Shqip (Albanian)</option>
+            <option value="it">Italiano</option>
+            <option value="es">Español</option>
+            <option value="de">Deutsch</option>
+            <option value="fr">Français</option>
+          </select>
+          <div class="hint">The AI auto-detects customer language, but starts here.</div>
+        </div>
+
+        <div class="actions">
+          <button class="btn btn-secondary" onclick="prevStep(2)">← Back</button>
+          <button class="btn btn-primary" onclick="nextStep(2)">Continue →</button>
+        </div>
+      </div>
+
+      <!-- STEP 3: AI Brain -->
+      <div class="step" data-step="3">
+        <h2>Choose your AI brain</h2>
+        <p class="step-sub">You bring your own API key. You stay in full control of costs.</p>
+
+        <div class="providers" id="providers">
+          <div class="provider" data-provider="anthropic">
+            <div class="p-icon">🧠</div>
+            <div class="p-name">Claude</div>
+            <div class="p-desc">Most natural</div>
+          </div>
+          <div class="provider" data-provider="openai">
+            <div class="p-icon">⚡</div>
+            <div class="p-name">OpenAI</div>
+            <div class="p-desc">GPT-4o</div>
+          </div>
+          <div class="provider" data-provider="gemini">
+            <div class="p-icon">✨</div>
+            <div class="p-name">Gemini</div>
+            <div class="p-desc">Free tier</div>
+          </div>
+          <div class="provider" data-provider="mistral">
+            <div class="p-icon">🌬️</div>
+            <div class="p-name">Mistral</div>
+            <div class="p-desc">European</div>
+          </div>
+          <div class="provider" data-provider="groq">
+            <div class="p-icon">🚀</div>
+            <div class="p-name">Groq</div>
+            <div class="p-desc">Ultra-fast</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Your API key *</label>
+          <input type="password" id="f_key" placeholder="sk-... / AIza... / gsk-..." autocomplete="off" />
+          <div class="hint">Your key is stored encrypted and never shared. We test it before saving.</div>
+        </div>
+
+        <button class="btn btn-secondary" id="testBtn" onclick="testKey()" style="width:100%; justify-content:center;">
+          🔑 Test my API key
+        </button>
+        <div class="msg" id="keyMsg"></div>
+
+        <div class="actions">
+          <button class="btn btn-secondary" onclick="prevStep(3)">← Back</button>
+          <button class="btn btn-primary" id="step3Next" onclick="nextStep(3)" disabled>Continue →</button>
+        </div>
+      </div>
+
+      <!-- STEP 4: Finish -->
+      <div class="step" data-step="4">
+        <h2>Set your dashboard PIN</h2>
+        <p class="step-sub">You'll use this to log into your dashboard from any device.</p>
+
+        <div class="field">
+          <label>Bot personality</label>
+          <input type="text" id="f_personality" placeholder="Warm, professional, hospitable" value="Warm, professional, hospitable" maxlength="200" />
+          <div class="hint">One line that describes how your AI should sound.</div>
+        </div>
+
+        <div class="msg show" style="background: var(--amber-light); color: var(--ink); border: 1px solid var(--amber);">
+          <strong>Ready to go live.</strong> When you click Activate, we'll create your account, generate your dashboard PIN, and connect your AI brain. Takes about 10 seconds.
+        </div>
+
+        <div class="msg" id="finalMsg"></div>
+
+        <div class="actions">
+          <button class="btn btn-secondary" onclick="prevStep(4)">← Back</button>
+          <button class="btn btn-primary" id="submitBtn" onclick="submitRegister()">
+            🚀 Activate my restaurant
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // Theme
+  const themeBtn = document.getElementById('themeBtn');
+  const savedTheme = localStorage.getItem('tta_theme') || 'light';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+  themeBtn.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+  themeBtn.onclick = () => {
+    const cur = document.documentElement.getAttribute('data-theme');
+    const next = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('tta_theme', next);
+    themeBtn.textContent = next === 'dark' ? '☀️' : '🌙';
+  };
+
+  // State
+  let currentStep = 1;
+  let selectedProvider = null;
+  let keyValidated = false;
+
+  // Step nav
+  function showStep(n) {
+    document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+    document.querySelector(`.step[data-step="${n}"]`).classList.add('active');
+    document.querySelectorAll('.step-dot').forEach(d => {
+      const dn = Number(d.dataset.step);
+      d.classList.remove('active', 'done');
+      if (dn < n) d.classList.add('done');
+      if (dn === n) d.classList.add('active');
+    });
+    currentStep = n;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function prevStep(from) { showStep(from - 1); }
+
+  function nextStep(from) {
+    if (from === 1) {
+      const name = document.getElementById('f_name').value.trim();
+      const phone = document.getElementById('f_phone').value.trim();
+      const desc = document.getElementById('f_description').value.trim();
+      if (!name) return alert('Restaurant name is required.');
+      if (!phone || phone.length < 6) return alert('A valid WhatsApp number is required.');
+      if (!desc) return alert('A short description is required.');
+    }
+    if (from === 2) {
+      const open = document.getElementById('f_open').value;
+      const close = document.getElementById('f_close').value;
+      if (!open || !close) return alert('Opening and closing times are required.');
+    }
+    if (from === 3) {
+      if (!selectedProvider) return alert('Please pick an AI provider.');
+      if (!keyValidated) return alert('Please test your API key first.');
+    }
+    showStep(from + 1);
+  }
+
+  // Provider selection
+  document.querySelectorAll('.provider').forEach(p => {
+    p.addEventListener('click', () => {
+      document.querySelectorAll('.provider').forEach(x => x.classList.remove('selected'));
+      p.classList.add('selected');
+      selectedProvider = p.dataset.provider;
+      keyValidated = false;
+      document.getElementById('step3Next').disabled = true;
+      document.getElementById('keyMsg').classList.remove('show');
+    });
+  });
+
+  // Key test
+  async function testKey() {
+    const key = document.getElementById('f_key').value.trim();
+    const msg = document.getElementById('keyMsg');
+    const btn = document.getElementById('testBtn');
+
+    if (!selectedProvider) {
+      msg.className = 'msg err show';
+      msg.textContent = 'Pick a provider first.';
+      return;
+    }
+    if (!key) {
+      msg.className = 'msg err show';
+      msg.textContent = 'Enter your API key.';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner" style="border-top-color: var(--amber);"></div> Testing...';
+    msg.classList.remove('show');
+
+    try {
+      const r = await fetch('/api/test-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: selectedProvider, api_key: key }),
+      });
+      const j = await r.json();
+      if (j.ok) {
+        msg.className = 'msg ok show';
+        msg.textContent = '✓ Key works. Your AI is ready.';
+        keyValidated = true;
+        document.getElementById('step3Next').disabled = false;
+      } else {
+        msg.className = 'msg err show';
+        msg.textContent = '✗ ' + (j.error || 'Key test failed.');
+        keyValidated = false;
+      }
+    } catch (e) {
+      msg.className = 'msg err show';
+      msg.textContent = '✗ Network error: ' + e.message;
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '🔑 Test my API key';
+    }
+  }
+
+  // Submit
+  async function submitRegister() {
+    const btn = document.getElementById('submitBtn');
+    const msg = document.getElementById('finalMsg');
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner"></div> Activating...';
+    msg.classList.remove('show');
+
+    const payload = {
+      name: document.getElementById('f_name').value.trim(),
+      phone: document.getElementById('f_phone').value.trim(),
+      address: document.getElementById('f_address').value.trim(),
+      description: document.getElementById('f_description').value.trim(),
+      opening_hour: document.getElementById('f_open').value,
+      closing_hour: document.getElementById('f_close').value,
+      language: document.getElementById('f_lang').value,
+      ai_provider: selectedProvider,
+      ai_api_key: document.getElementById('f_key').value.trim(),
+      bot_personality: document.getElementById('f_personality').value.trim(),
+    };
+
+    try {
+      const r = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const j = await r.json();
+      if (j.success) {
+        sessionStorage.setItem('tta_activation', JSON.stringify(j.data));
+        window.location.href = '/activated.html';
+      } else {
+        msg.className = 'msg err show';
+        msg.textContent = '✗ ' + (j.error || 'Registration failed.');
+        btn.disabled = false;
+        btn.innerHTML = '🚀 Activate my restaurant';
+      }
+    } catch (e) {
+      msg.className = 'msg err show';
+      msg.textContent = '✗ Network error: ' + e.message;
+      btn.disabled = false;
+      btn.innerHTML = '🚀 Activate my restaurant';
+    }
+  }
+</script>
+</body>
+</html>

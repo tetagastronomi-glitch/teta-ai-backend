@@ -2,11 +2,9 @@
 <html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
 <title>Te Ta AI — Campaigns</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/dashboard-theme.css">
-<script src="/js/theme.js" defer></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#09090B;--bg2:#0F0F12;--surface:rgba(255,255,255,0.03);--surface2:rgba(255,255,255,0.06);--border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.12);--text:#FAFAFA;--text2:rgba(255,255,255,0.5);--text3:rgba(255,255,255,0.3);--amber:#F59E0B;--amber2:#D97706;--violet:#8B5CF6;--emerald:#10B981;--red:#EF4444;--blue:#3B82F6;--font:'Plus Jakarta Sans',sans-serif;--mono:'JetBrains Mono',monospace}
@@ -117,6 +115,7 @@ select.form-input option{background:var(--bg2);color:var(--text)}
 
 @media(max-width:768px){.main{margin-left:0}.stats-grid{grid-template-columns:repeat(2,1fr)}.templates-grid{grid-template-columns:1fr}}
 </style>
+  <link rel="stylesheet" href="/hd.css">
 </head>
 <body>
 
@@ -372,7 +371,7 @@ async function createCampaign() {
   const scheduledAt = document.getElementById('campScheduleDate').value;
 
   if (!name || !message) {
-    showToast('Please fill in campaign name and message', 'error');
+    showToast(window.t('microcopy.missing_field', 'Ju lutem plotësoni të gjitha fushat.'), 'error');
     return;
   }
 
@@ -395,14 +394,14 @@ async function createCampaign() {
     });
 
     if (!res.ok) throw new Error('Failed to create');
-    showToast('Campaign created successfully!', 'success');
+    showToast(window.t('campaigns.created_success', 'Fushata u krijua me sukses.'), 'success');
     closeModal();
     loadCampaigns();
   } catch (e) {
-    showToast('Failed to create campaign: ' + e.message, 'error');
+    showToast(humanizeError(e.message), 'error');
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Create Campaign';
+    btn.textContent = window.t('campaigns.create', 'Create Campaign');
   }
 }
 
@@ -411,11 +410,19 @@ async function deleteCampaign(id) {
   try {
     const res = await API('/campaigns/' + id, { method: 'DELETE' });
     if (!res.ok) throw new Error('Failed to delete');
-    showToast('Campaign deleted', 'success');
+    showToast(window.t('campaigns.deleted_success', 'Fushata u fshi.'), 'success');
     loadCampaigns();
   } catch (e) {
-    showToast('Failed to delete campaign', 'error');
+    showToast(humanizeError(e.message), 'error');
   }
+}
+
+function humanizeError(message) {
+  const text = String(message || '').toLowerCase();
+  if (text.includes('network') || text.includes('fetch')) return window.t('microcopy.network_error');
+  if (text.includes('rate')) return window.t('microcopy.rate_limited');
+  if (text.includes('unauthorized') || text.includes('401')) return window.t('microcopy.session_expired');
+  return window.t('dashboard.error_generic', 'Diçka shkoi keq. Provo përsëri.');
 }
 
 function showToast(msg, type) {
@@ -433,6 +440,8 @@ document.getElementById('campaignModal').addEventListener('click', e => {
 loadCampaigns();
 </script>
 <script src="/i18n.js"></script>
-<script src="/js/mobile-nav.js"></script>
+<script src="/js/owner-shell.js"></script>
+<script src="/js/theme.js" defer></script>
+  <script defer src="/hd-ux.js"></script>
 </body>
 </html>

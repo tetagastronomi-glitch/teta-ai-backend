@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Welcome to Te Ta AI</title>
+<style>
+  :root {
+    --amber: #B45309;
+    --amber-hover: #92400E;
+    --amber-light: #FEF3C7;
+    --cream: #FDFBF7;
+    --ink: #1A1714;
+    --ink-soft: #57534E;
+    --ink-mute: #A8A29E;
+    --line: #E7E5E4;
+    --surface: #FFFFFF;
+    --ok: #16A34A;
+    --radius: 14px;
+    --shadow: 0 10px 40px rgba(26, 23, 20, 0.08);
+  }
+  [data-theme="dark"] {
+    --amber: #F59E0B;
+    --amber-hover: #FBBF24;
+    --amber-light: #3F2A0A;
+    --cream: #09090B;
+    --ink: #FAFAF9;
+    --ink-soft: #D6D3D1;
+    --ink-mute: #78716C;
+    --line: #27272A;
+    --surface: #1A1714;
+    --shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", sans-serif;
+    background: var(--cream);
+    color: var(--ink);
+    min-height: 100vh;
+    padding: clamp(16px, 3vw, 48px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { width: 100%; max-width: 680px; }
+  .success-burst {
+    text-align: center;
+    margin-bottom: 32px;
+    animation: pop .5s ease;
+  }
+  @keyframes pop {
+    0% { transform: scale(0.8); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .success-burst .emoji { font-size: 72px; margin-bottom: 8px; }
+  .success-burst h1 {
+    font-size: clamp(28px, 5vw, 40px);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+  }
+  .success-burst p { color: var(--ink-soft); font-size: 16px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: clamp(20px, 4vw, 36px);
+    box-shadow: var(--shadow);
+    margin-bottom: 20px;
+  }
+  .card h2 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    letter-spacing: -0.01em;
+  }
+
+  .credentials {
+    background: var(--amber-light);
+    border: 1.5px dashed var(--amber);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .cred-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(180, 83, 9, 0.15);
+  }
+  .cred-row:last-child { border-bottom: none; }
+  .cred-row .label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .cred-row .value {
+    font-family: "SF Mono", "Menlo", "Consolas", monospace;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink);
+    word-break: break-all;
+    text-align: right;
+    flex: 1;
+  }
+  .copy-btn {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--ink-soft);
+    transition: all .15s;
+  }
+  .copy-btn:hover { background: var(--amber); color: #fff; border-color: var(--amber); }
+
+  .warning {
+    background: #FEF3C7;
+    border: 1px solid #F59E0B;
+    color: #92400E;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+  [data-theme="dark"] .warning { background: #3F2A0A; color: #FBBF24; border-color: #92400E; }
+
+  .next-steps {
+    list-style: none;
+    counter-reset: step;
+  }
+  .next-steps li {
+    counter-increment: step;
+    display: flex;
+    gap: 14px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .next-steps li:last-child { border-bottom: none; }
+  .next-steps li::before {
+    content: counter(step);
+    width: 32px; height: 32px;
+    flex-shrink: 0;
+    background: var(--amber);
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .next-steps .step-body { flex: 1; }
+  .next-steps .step-title {
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+  .next-steps .step-desc {
+    font-size: 13px;
+    color: var(--ink-soft);
+    line-height: 1.5;
+  }
+
+  .actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+    flex-wrap: wrap;
+  }
+  .btn {
+    flex: 1;
+    min-width: 200px;
+    padding: 14px 24px;
+    font-size: 15px;
+    font-weight: 600;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    text-decoration: none;
+    text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-family: inherit;
+    transition: all .15s;
+  }
+  .btn-primary {
+    background: var(--amber);
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(180, 83, 9, 0.25);
+  }
+  .btn-primary:hover { background: var(--amber-hover); transform: translateY(-1px); }
+  .btn-secondary {
+    background: transparent;
+    color: var(--ink-soft);
+    border: 1.5px solid var(--line);
+  }
+  .btn-secondary:hover { border-color: var(--ink-mute); color: var(--ink); }
+
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--ink);
+    color: var(--cream);
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: transform .3s ease;
+    z-index: 100;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="success-burst">
+      <div class="emoji">🎉</div>
+      <h1>You're live!</h1>
+      <p id="welcome">Your AI Restaurant Manager is ready.</p>
+    </div>
+
+    <div class="card">
+      <h2>🔐 Save these credentials</h2>
+      <div class="credentials" id="creds">
+        <!-- injected -->
+      </div>
+      <div class="warning">
+        ⚠️ Save these now. Your dashboard PIN won't be shown again.
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🚀 Your next 3 steps</h2>
+      <ol class="next-steps">
+        <li>
+          <div class="step-body">
+            <div class="step-title">Log into your dashboard</div>
+            <div class="step-desc">Use your PIN to access your restaurant dashboard from any device. Bookmark it.</div>
+          </div>
+        </li>
+        <li>
+          <div class="step-body">
+            <div class="step-title">Connect WhatsApp</div>
+            <div class="step-desc">In Settings → WhatsApp, scan the QR code with the phone number you registered. Your AI goes live the moment you scan.</div>
+          </div>
+        </li>
+        <li>
+          <div class="step-body">
+            <div class="step-title">Send yourself a test message</div>
+            <div class="step-desc">Message your own WhatsApp number with "Hi" and watch Jerry greet you. If it works for you, it'll work for every customer.</div>
+          </div>
+        </li>
+      </ol>
+
+      <div class="actions">
+        <a href="#" class="btn btn-primary" id="dashboardBtn">Open my dashboard →</a>
+        <a href="/help.html" class="btn btn-secondary">Read the help guide</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Copied!</div>
+
+<script>
+  // Theme
+  const savedTheme = localStorage.getItem('tta_theme') || 'light';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+
+  // Pull activation data
+  const raw = sessionStorage.getItem('tta_activation');
+  if (!raw) {
+    document.getElementById('creds').innerHTML = '<p style="color:var(--ink-soft);text-align:center;padding:20px;">No activation data found. Please register first.</p>';
+    document.getElementById('dashboardBtn').href = '/register.html';
+    document.getElementById('dashboardBtn').textContent = 'Go to registration';
+  } else {
+    const data = JSON.parse(raw);
+    document.getElementById('welcome').textContent = `${data.restaurant_name} is now powered by AI.`;
+    document.getElementById('creds').innerHTML = `
+      <div class="cred-row">
+        <span class="label">Dashboard PIN</span>
+        <span class="value" id="v_pin">${data.pin_code}</span>
+        <button class="copy-btn" onclick="copyVal('v_pin')">Copy</button>
+      </div>
+      <div class="cred-row">
+        <span class="label">Owner Key</span>
+        <span class="value" id="v_own">${data.owner_key}</span>
+        <button class="copy-btn" onclick="copyVal('v_own')">Copy</button>
+      </div>
+      <div class="cred-row">
+        <span class="label">API Key</span>
+        <span class="value" id="v_api">${data.api_key}</span>
+        <button class="copy-btn" onclick="copyVal('v_api')">Copy</button>
+      </div>
+      <div class="cred-row">
+        <span class="label">Trial Ends</span>
+        <span class="value">${new Date(data.trial_ends).toLocaleDateString()}</span>
+      </div>
+    `;
+    document.getElementById('dashboardBtn').href = data.dashboard_url || '/owner.html?key=' + data.owner_key;
+  }
+
+  function copyVal(id) {
+    const text = document.getElementById(id).textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const t = document.getElementById('toast');
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 1800);
+    });
+  }
+</script>
+</body>
+</html>

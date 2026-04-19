@@ -2,11 +2,9 @@
 <html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
 <title>Te Ta AI — Messages</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/dashboard-theme.css">
-<script src="/js/theme.js" defer></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#09090B;--bg2:#0F0F12;--surface:rgba(255,255,255,0.03);--surface2:rgba(255,255,255,0.06);--border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.12);--text:#FAFAFA;--text2:rgba(255,255,255,0.5);--text3:rgba(255,255,255,0.3);--amber:#F59E0B;--amber2:#D97706;--violet:#8B5CF6;--emerald:#10B981;--red:#EF4444;--blue:#3B82F6;--font:'Plus Jakarta Sans',sans-serif;--mono:'JetBrains Mono',monospace}
@@ -87,6 +85,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 
 @media(max-width:768px){.main{margin-left:0}.conv-sidebar{width:100%;position:absolute;z-index:30;height:100%}.conv-sidebar.hidden{display:none}.chat-area{width:100%}}
 </style>
+  <link rel="stylesheet" href="/hd.css">
 </head>
 <body>
 <aside class="sidebar">
@@ -218,29 +217,29 @@ function renderConversations() {
   }
   if (search) {
     filtered = filtered.filter(c =>
-      (c.customer_name || c.name || '').toLowerCase().includes(search) ||
-      (c.phone || '').includes(search)
+      (c.user_name || c.customer_name || c.name || c.user_id || '').toLowerCase().includes(search) ||
+      (c.user_id || c.phone || '').includes(search)
     );
   }
 
   if (!filtered.length) {
-    el.innerHTML = `<div class="conv-empty"><div class="icon">💬</div><div class="msg">${allConversations.length ? 'No matching conversations' : 'No conversations yet'}</div></div>`;
+    el.innerHTML = `<div class="conv-empty"><div class="icon">💬</div><div class="msg">${allConversations.length ? window.t('messages.no_match', 'Nuk gjetëm biseda që përputhen.') : window.t('messages.no_conversations', 'Asnjë bisedë ende. Kur klientët shkruajnë, do shfaqen këtu.')}</div></div>`;
     return;
   }
 
   el.innerHTML = filtered.map(c => {
-    const name = c.customer_name || c.name || 'Unknown';
+    const name = c.user_name || c.customer_name || c.name || c.user_id || 'Unknown';
     const isActive = String(c.id) === String(selectedConvId);
     return `
       <div class="conv-item${isActive ? ' active' : ''}" data-id="${c.id}">
         <div class="conv-avatar" style="background:${getAvatarColor(name)}">${getInitials(name)}</div>
         <div class="conv-info">
           <div class="conv-name">${channelBadge(c.channel)} ${name}</div>
-          <div class="conv-preview">${c.last_message || c.preview || 'No messages'}</div>
+          <div class="conv-preview">${c.last_message || c.preview || window.t('messages.select_hint', 'Choose one from the list to open the thread')}</div>
         </div>
         <div class="conv-meta">
-          <div class="conv-time">${formatTime(c.last_message_at || c.updated_at)}</div>
-          ${c.unread_count ? `<div class="conv-unread">${c.unread_count}</div>` : ''}
+          <div class="conv-time">${formatTime(c.last_at || c.last_message_at || c.updated_at || c.created_at)}</div>
+          ${String(c.last_role || '').toLowerCase() === 'user' ? `<div class="conv-unread">!</div>` : ''}
         </div>
       </div>
     `;
@@ -256,7 +255,7 @@ async function openConversation(id) {
   renderConversations();
 
   const conv = allConversations.find(c => String(c.id) === String(id));
-  const name = conv?.customer_name || conv?.name || 'Unknown';
+  const name = conv?.user_name || conv?.customer_name || conv?.name || conv?.user_id || 'Unknown';
   const channel = conv?.channel || 'web';
 
   document.getElementById('chatEmpty').style.display = 'none';
@@ -267,7 +266,7 @@ async function openConversation(id) {
     <div class="chat-header-avatar" style="background:${getAvatarColor(name)}">${getInitials(name)}</div>
     <div class="chat-header-info">
       <div class="chat-header-name">${name}</div>
-      <div class="chat-header-sub">${conv?.phone || ''} ${channelBadge(channel)}</div>
+      <div class="chat-header-sub">${conv?.user_id || conv?.phone || ''} ${channelBadge(channel)}</div>
     </div>
   `;
 
@@ -325,6 +324,8 @@ document.getElementById('convSearch').addEventListener('input', () => {
 loadConversations();
 </script>
 <script src="/i18n.js"></script>
-<script src="/js/mobile-nav.js"></script>
+<script src="/js/owner-shell.js"></script>
+<script src="/js/theme.js" defer></script>
+  <script defer src="/hd-ux.js"></script>
 </body>
 </html>

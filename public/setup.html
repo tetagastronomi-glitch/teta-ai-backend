@@ -3,506 +3,927 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Te Ta AI — Setup</title>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<title>Te Ta AI - Setup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/owner-light.css">
 <style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--bg:#09090B;--surface:rgba(255,255,255,0.03);--surface2:rgba(255,255,255,0.06);--border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.12);--text:#FAFAFA;--text2:rgba(255,255,255,0.5);--text3:rgba(255,255,255,0.3);--amber:#F59E0B;--amber2:#D97706;--violet:#8B5CF6;--violet2:#7C3AED;--emerald:#10B981;--red:#EF4444;--blue:#3B82F6;--font:'Plus Jakarta Sans',sans-serif;--mono:'JetBrains Mono',monospace}
-body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;position:relative}
-body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 600px 400px at 70% 20%,rgba(245,158,11,0.06),transparent),radial-gradient(ellipse 500px 500px at 20% 80%,rgba(139,92,246,0.04),transparent);pointer-events:none}
-.grid-bg{position:fixed;inset:0;background-image:linear-gradient(rgba(255,255,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.02) 1px,transparent 1px);background-size:64px 64px}
-.wrapper{position:relative;z-index:1;width:100%;max-width:560px;padding:0 24px}
-.logo{display:flex;align-items:center;gap:12px;justify-content:center;margin-bottom:32px}
-.logo-icon{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--amber),var(--amber2));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#fff;box-shadow:0 0 30px rgba(245,158,11,0.2)}
-.logo-text{font-size:22px;font-weight:800;letter-spacing:-0.5px}.logo-text span{color:var(--amber)}
-
-.progress{display:flex;align-items:center;gap:0;margin-bottom:36px;padding:0 20px}
-.step-dot{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;transition:all 0.4s;flex-shrink:0}
-.step-dot.active{background:linear-gradient(135deg,var(--amber),var(--amber2));color:#fff;box-shadow:0 0 20px rgba(245,158,11,0.3)}
-.step-dot.done{background:var(--emerald);color:#fff}
-.step-dot.pending{background:rgba(255,255,255,0.06);color:var(--text3);border:1px solid var(--border2)}
-.step-line{flex:1;height:2px;background:var(--border2);margin:0 8px;transition:background 0.4s}
-.step-line.done{background:linear-gradient(90deg,var(--emerald),var(--amber))}
-.step-label{font-size:11px;font-weight:600;color:var(--text3);text-align:center;margin-top:6px;transition:color 0.3s}
-.step-label.active{color:var(--amber)}
-.step-label.done{color:var(--emerald)}
-.step-item{display:flex;flex-direction:column;align-items:center;flex-shrink:0}
-.step-wrap{display:flex;align-items:center;width:100%}
-
-.card{background:var(--surface);backdrop-filter:blur(40px);border:1px solid var(--border);border-radius:20px;padding:40px 36px;box-shadow:0 0 80px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.04)}
-
-.jerry{display:flex;align-items:flex-start;gap:14px;margin-bottom:28px;padding:16px 18px;background:rgba(139,92,246,0.06);border:1px solid rgba(139,92,246,0.12);border-radius:14px}
-.jerry-icon{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,var(--violet),var(--violet2));display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 0 20px rgba(139,92,246,0.2)}
-.jerry-icon svg{width:20px;height:20px;fill:none;stroke:#fff;stroke-width:2}
-.jerry-text{font-size:14px;line-height:1.6;color:var(--text2)}
-.jerry-text strong{color:var(--text);font-weight:600}
-
-.section-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text2);margin-bottom:16px;font-family:var(--mono)}
-
-.providers{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}
-.provider{padding:20px 12px;background:rgba(255,255,255,0.03);border:1.5px solid var(--border2);border-radius:14px;text-align:center;cursor:pointer;transition:all 0.25s}
-.provider:hover{border-color:rgba(255,255,255,0.2);background:rgba(255,255,255,0.05)}
-.provider.selected{border-color:var(--amber);background:rgba(245,158,11,0.06);box-shadow:0 0 20px rgba(245,158,11,0.1)}
-.provider-icon{width:48px;height:48px;border-radius:14px;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:20px}
-.provider-icon.anthropic{background:linear-gradient(135deg,#D97757,#C4613F)}
-.provider-icon.openai{background:linear-gradient(135deg,#10A37F,#0D8A6A)}
-.provider-icon.google{background:linear-gradient(135deg,#4285F4,#3367D6)}
-.provider-name{font-size:14px;font-weight:700;margin-bottom:2px}
-.provider-model{font-size:11px;font-family:var(--mono);color:var(--text3)}
-
-.form-group{margin-bottom:20px}
-.form-label{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.form-label-text{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text2)}
-.form-badge{font-size:10px;font-family:var(--mono);color:var(--emerald);letter-spacing:0.05em;text-transform:uppercase}
-.form-input{width:100%;padding:14px 16px;background:rgba(255,255,255,0.04);border:1.5px solid var(--border2);border-radius:12px;font-size:14px;font-family:var(--mono);color:var(--text);outline:none;transition:all 0.2s}
-.form-input:focus{border-color:var(--amber);box-shadow:0 0 20px rgba(245,158,11,0.1);background:rgba(245,158,11,0.03)}
-.form-input::placeholder{color:var(--text3)}
-.form-input-row{display:flex;gap:10px}
-.form-input-row .form-input{flex:1}
-.form-select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.3)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center}
-
-.form-textarea{min-height:100px;resize:vertical;line-height:1.6;font-family:var(--font)}
-
-.test-btn{padding:10px 20px;background:rgba(255,255,255,0.06);border:1px solid var(--border2);border-radius:10px;color:var(--text);font-size:13px;font-weight:600;font-family:var(--font);cursor:pointer;transition:all 0.2s;flex-shrink:0}
-.test-btn:hover{background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2)}
-.test-btn.success{background:rgba(16,185,129,0.1);border-color:rgba(16,185,129,0.3);color:var(--emerald)}
-.test-btn.fail{background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.3);color:var(--red)}
-.form-hint{font-size:12px;color:var(--text3);margin-top:8px}.form-hint a{color:var(--amber);text-decoration:none}.form-hint a:hover{text-decoration:underline}
-
-.wa-section{padding:20px;background:rgba(16,185,129,0.04);border:1px solid rgba(16,185,129,0.1);border-radius:14px;margin-bottom:20px}
-.wa-title{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;margin-bottom:8px}.wa-title svg{width:20px;height:20px}
-.wa-desc{font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.5}
-.wa-btn{padding:10px 20px;background:linear-gradient(135deg,#25D366,#128C7E);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;font-family:var(--font);cursor:pointer;transition:all 0.2s}
-.wa-btn:hover{transform:translateY(-1px);box-shadow:0 4px 15px rgba(37,211,102,0.3)}
-.wa-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-
-.checks{display:flex;flex-direction:column;gap:14px;margin-bottom:28px}
-.check-item{display:flex;align-items:center;gap:12px;padding:14px 16px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:12px;transition:all 0.4s}
-.check-item.pass{border-color:rgba(16,185,129,0.2);background:rgba(16,185,129,0.04)}
-.check-item.fail{border-color:rgba(239,68,68,0.2);background:rgba(239,68,68,0.04)}
-.check-icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
-.check-item.pass .check-icon{background:rgba(16,185,129,0.15);color:var(--emerald)}
-.check-item.fail .check-icon{background:rgba(239,68,68,0.15);color:var(--red)}
-.check-item .check-icon{background:rgba(255,255,255,0.06);color:var(--text3)}
-.check-text{font-size:14px;font-weight:500}
-.check-text span{color:var(--text3);font-size:12px;margin-left:6px}
-
-.pin-reveal{text-align:center;padding:28px;background:rgba(245,158,11,0.04);border:1px solid rgba(245,158,11,0.15);border-radius:16px;margin-bottom:24px}
-.pin-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--amber);margin-bottom:12px;font-family:var(--mono)}
-.pin-code{font-size:48px;font-weight:800;font-family:var(--mono);letter-spacing:12px;color:var(--text);text-shadow:0 0 30px rgba(245,158,11,0.3)}
-.pin-warn{font-size:12px;color:var(--text2);margin-top:10px}
-
-.btn{width:100%;padding:15px;border:none;border-radius:14px;font-size:15px;font-weight:700;font-family:var(--font);cursor:pointer;transition:all 0.25s}
-.btn-amber{background:linear-gradient(135deg,var(--amber),var(--amber2));color:#fff;box-shadow:0 4px 20px rgba(245,158,11,0.2)}
-.btn-amber:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(245,158,11,0.3)}
-.btn-amber:active{transform:translateY(0)}
-.btn-amber:disabled{opacity:0.4;cursor:not-allowed;transform:none;box-shadow:none}
-.btn-glass{background:rgba(255,255,255,0.06);border:1px solid var(--border2);color:var(--text);box-shadow:none}
-.btn-glass:hover{background:rgba(255,255,255,0.1)}
-.btn-row{display:flex;gap:12px;margin-top:8px}
-.btn-row .btn{flex:1}
-
-.step-page{display:none}.step-page.active{display:block}
-.version{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);font-size:11px;font-family:var(--mono);color:var(--text3)}
-@media(max-width:480px){.card{padding:28px 20px}.providers{grid-template-columns:1fr}.pin-code{font-size:36px}}
+*,
+*::before,
+*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#09090B;
+  --surface:rgba(255,255,255,0.04);
+  --surface-strong:rgba(255,255,255,0.07);
+  --surface-soft:rgba(245,158,11,0.06);
+  --border:rgba(255,255,255,0.08);
+  --border-strong:rgba(255,255,255,0.14);
+  --text:#FAFAFA;
+  --muted:rgba(250,250,250,0.68);
+  --soft:rgba(250,250,250,0.42);
+  --amber:#F59E0B;
+  --amber-strong:#D97706;
+  --emerald:#10B981;
+  --red:#EF4444;
+  --shadow:0 24px 80px rgba(0,0,0,0.45);
+  --font:'Plus Jakarta Sans',sans-serif;
+  --mono:'JetBrains Mono',monospace;
+}
+body{
+  min-height:100vh;
+  font-family:var(--font);
+  color:var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(245,158,11,0.16), transparent 28%),
+    radial-gradient(circle at 90% 10%, rgba(245,158,11,0.12), transparent 20%),
+    radial-gradient(circle at bottom right, rgba(255,255,255,0.05), transparent 25%),
+    var(--bg);
+}
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+  background-size:54px 54px;
+  mask-image:linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+  pointer-events:none;
+}
+.page{
+  position:relative;
+  z-index:1;
+  width:min(1120px, calc(100% - 32px));
+  margin:32px auto;
+  display:grid;
+  grid-template-columns:320px 1fr;
+  gap:24px;
+}
+.panel,
+.card{
+  background:linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
+  border:1px solid var(--border);
+  border-radius:28px;
+  box-shadow:var(--shadow);
+  backdrop-filter:blur(26px);
+}
+.panel{
+  padding:28px;
+  display:flex;
+  flex-direction:column;
+  gap:22px;
+  align-self:start;
+  position:sticky;
+  top:24px;
+}
+.brand{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+.brand-badge{
+  width:44px;
+  height:44px;
+  border-radius:14px;
+  display:grid;
+  place-items:center;
+  font-weight:800;
+  background:linear-gradient(135deg,var(--amber),var(--amber-strong));
+  color:#111;
+  box-shadow:0 12px 32px rgba(245,158,11,0.28);
+}
+.brand-text{
+  font-size:1.05rem;
+  font-weight:800;
+  letter-spacing:-0.02em;
+}
+.brand-text span{color:var(--amber)}
+.jerry{
+  padding:18px;
+  border-radius:22px;
+  background:rgba(255,255,255,0.04);
+  border:1px solid rgba(255,255,255,0.08);
+}
+.jerry-bubble{
+  display:flex;
+  gap:14px;
+  align-items:flex-start;
+}
+.jerry-avatar{
+  width:46px;
+  height:46px;
+  border-radius:16px;
+  display:grid;
+  place-items:center;
+  font-weight:800;
+  color:#111;
+  background:linear-gradient(135deg,#FDE68A,var(--amber));
+  flex-shrink:0;
+}
+.jerry-copy strong{
+  display:block;
+  margin-bottom:6px;
+  font-size:0.96rem;
+}
+.jerry-copy p{
+  color:var(--muted);
+  line-height:1.6;
+  font-size:0.93rem;
+}
+.panel-list{
+  display:grid;
+  gap:10px;
+}
+.panel-item{
+  padding:14px 16px;
+  border-radius:18px;
+  background:rgba(255,255,255,0.03);
+  border:1px solid rgba(255,255,255,0.06);
+}
+.panel-item strong{
+  display:block;
+  font-size:0.92rem;
+  margin-bottom:4px;
+}
+.panel-item span{
+  display:block;
+  color:var(--muted);
+  font-size:0.85rem;
+  line-height:1.5;
+}
+.secure-note{
+  margin-top:auto;
+  padding:14px 16px;
+  border-radius:18px;
+  background:rgba(16,185,129,0.08);
+  border:1px solid rgba(16,185,129,0.16);
+  color:#CFFBEF;
+  font-size:0.86rem;
+  line-height:1.5;
+}
+.card{padding:32px}
+.card-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:16px;
+  margin-bottom:28px;
+}
+.eyebrow{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:7px 12px;
+  border-radius:999px;
+  background:var(--surface-soft);
+  border:1px solid rgba(245,158,11,0.16);
+  color:#FCD38D;
+  font-size:0.75rem;
+  font-weight:700;
+  letter-spacing:0.04em;
+  text-transform:uppercase;
+}
+.card-header h1{
+  margin-top:14px;
+  font-size:2rem;
+  line-height:1.05;
+  letter-spacing:-0.04em;
+}
+.card-header p{
+  margin-top:10px;
+  color:var(--muted);
+  line-height:1.7;
+  max-width:640px;
+}
+.eta{
+  text-align:right;
+  color:var(--soft);
+  font-size:0.85rem;
+}
+.eta strong{
+  display:block;
+  color:var(--text);
+  font-size:1rem;
+}
+.status-banner{
+  display:none;
+  margin-bottom:20px;
+  padding:14px 16px;
+  border-radius:18px;
+  font-size:0.92rem;
+  line-height:1.5;
+}
+.status-banner.show{display:block}
+.status-banner.error{
+  background:rgba(239,68,68,0.08);
+  border:1px solid rgba(239,68,68,0.18);
+  color:#FECACA;
+}
+.status-banner.info{
+  background:rgba(245,158,11,0.09);
+  border:1px solid rgba(245,158,11,0.18);
+  color:#FDE68A;
+}
+.form-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:18px 16px;
+}
+.field{
+  position:relative;
+}
+.field.full{grid-column:1/-1}
+.label-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-bottom:10px;
+}
+.label-row label{
+  font-size:0.88rem;
+  font-weight:700;
+  letter-spacing:-0.01em;
+}
+.help{
+  position:relative;
+}
+.help-btn{
+  width:20px;
+  height:20px;
+  border-radius:50%;
+  border:1px solid rgba(255,255,255,0.16);
+  background:rgba(255,255,255,0.04);
+  color:var(--muted);
+  cursor:pointer;
+  font:700 0.75rem/1 var(--font);
+}
+.help-pop{
+  position:absolute;
+  top:28px;
+  left:0;
+  width:min(280px, 70vw);
+  padding:12px 14px;
+  border-radius:14px;
+  background:#141417;
+  border:1px solid rgba(255,255,255,0.12);
+  color:var(--muted);
+  font-size:0.82rem;
+  line-height:1.5;
+  box-shadow:0 18px 40px rgba(0,0,0,0.4);
+  opacity:0;
+  visibility:hidden;
+  transform:translateY(6px);
+  transition:0.18s ease;
+  z-index:10;
+}
+.help.open .help-pop{
+  opacity:1;
+  visibility:visible;
+  transform:translateY(0);
+}
+.control,
+.select,
+.textarea{
+  width:100%;
+  border-radius:18px;
+  border:1px solid var(--border);
+  background:rgba(255,255,255,0.04);
+  color:var(--text);
+  font:500 0.95rem var(--font);
+  outline:none;
+  transition:border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+.control,
+.select{height:56px;padding:0 16px}
+.textarea{
+  min-height:136px;
+  padding:16px;
+  resize:vertical;
+  line-height:1.65;
+}
+.control::placeholder,
+.textarea::placeholder{color:var(--soft)}
+.control:focus,
+.select:focus,
+.textarea:focus{
+  border-color:rgba(245,158,11,0.45);
+  box-shadow:0 0 0 4px rgba(245,158,11,0.08);
+}
+.row{
+  display:grid;
+  grid-template-columns:120px 1fr;
+  gap:12px;
+}
+.row.hours{
+  grid-template-columns:1fr 1fr;
+}
+.hint{
+  margin-top:10px;
+  color:var(--muted);
+  font-size:0.84rem;
+  line-height:1.55;
+}
+.hint strong{color:#FDE68A}
+.advanced{
+  margin-top:12px;
+  border-radius:22px;
+  border:1px solid var(--border);
+  background:rgba(255,255,255,0.03);
+  overflow:hidden;
+}
+.advanced-toggle{
+  width:100%;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:16px;
+  padding:18px 20px;
+  background:none;
+  border:0;
+  color:var(--text);
+  font:700 0.95rem var(--font);
+  cursor:pointer;
+}
+.advanced-toggle span:last-child{
+  color:var(--amber);
+  transition:transform 0.2s ease;
+}
+.advanced.open .advanced-toggle span:last-child{
+  transform:rotate(180deg);
+}
+.advanced-body{
+  display:none;
+  padding:0 20px 20px;
+  border-top:1px solid rgba(255,255,255,0.06);
+}
+.advanced.open .advanced-body{display:block}
+.advanced-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:16px;
+  margin-top:18px;
+}
+.advanced-actions{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+.api-test{
+  height:56px;
+  padding:0 18px;
+  border-radius:16px;
+  border:1px solid rgba(255,255,255,0.14);
+  background:rgba(255,255,255,0.04);
+  color:var(--text);
+  font:700 0.9rem var(--font);
+  cursor:pointer;
+  white-space:nowrap;
+}
+.api-test.success{
+  color:#CFFBEF;
+  border-color:rgba(16,185,129,0.28);
+  background:rgba(16,185,129,0.08);
+}
+.api-test.error{
+  color:#FECACA;
+  border-color:rgba(239,68,68,0.28);
+  background:rgba(239,68,68,0.08);
+}
+.submit-wrap{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  margin-top:26px;
+  padding-top:22px;
+  border-top:1px solid rgba(255,255,255,0.08);
+}
+.submit-copy{
+  color:var(--muted);
+  font-size:0.9rem;
+  line-height:1.6;
+  max-width:420px;
+}
+.submit-btn{
+  min-width:250px;
+  height:60px;
+  border-radius:20px;
+  border:0;
+  background:linear-gradient(135deg,#F7B733,var(--amber-strong));
+  color:#111;
+  font:800 1rem var(--font);
+  cursor:pointer;
+  box-shadow:0 20px 40px rgba(245,158,11,0.24);
+  transition:transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+}
+.submit-btn:hover{
+  transform:translateY(-2px);
+  box-shadow:0 24px 46px rgba(245,158,11,0.32);
+}
+.submit-btn:disabled{
+  opacity:0.6;
+  cursor:wait;
+  transform:none;
+}
+.success{
+  display:none;
+  margin-top:26px;
+  padding:24px;
+  border-radius:24px;
+  border:1px solid rgba(16,185,129,0.2);
+  background:rgba(16,185,129,0.07);
+}
+.success.show{display:block}
+.success h2{
+  font-size:1.7rem;
+  margin-bottom:10px;
+  letter-spacing:-0.03em;
+}
+.success p{
+  color:var(--muted);
+  line-height:1.65;
+}
+.creds{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px;
+  margin:18px 0 10px;
+}
+.cred{
+  padding:16px;
+  border-radius:18px;
+  background:rgba(9,9,11,0.3);
+  border:1px solid rgba(255,255,255,0.08);
+}
+.cred-label{
+  color:var(--soft);
+  font:700 0.75rem var(--mono);
+  text-transform:uppercase;
+  letter-spacing:0.06em;
+}
+.cred-value{
+  margin-top:8px;
+  font:700 1.05rem var(--mono);
+  word-break:break-all;
+}
+.success-cta{
+  margin-top:18px;
+  display:flex;
+  justify-content:flex-end;
+}
+.success-cta button{
+  height:56px;
+  padding:0 22px;
+  border-radius:18px;
+  border:0;
+  background:linear-gradient(135deg,var(--emerald),#059669);
+  color:white;
+  font:800 0.96rem var(--font);
+  cursor:pointer;
+}
+@media (max-width:980px){
+  .page{grid-template-columns:1fr}
+  .panel{position:static}
+}
+@media (max-width:760px){
+  .page{width:min(100% - 20px, 100%);margin:16px auto}
+  .panel,.card{border-radius:24px}
+  .card{padding:22px}
+  .panel{padding:22px}
+  .card-header{flex-direction:column}
+  .form-grid,
+  .advanced-grid,
+  .row,
+  .row.hours,
+  .creds{grid-template-columns:1fr}
+  .submit-wrap{flex-direction:column;align-items:stretch}
+  .submit-btn{width:100%;min-width:0}
+}
 </style>
 </head>
 <body>
-<div class="grid-bg"></div>
-<div class="wrapper">
-<div class="logo"><div class="logo-icon">TT</div><div class="logo-text">Te Ta <span>AI</span></div></div>
+<main class="page">
+  <aside class="panel">
+    <div class="brand">
+      <div class="brand-badge">TT</div>
+      <div class="brand-text">Te Ta <span>AI</span></div>
+    </div>
 
-<div class="progress">
-<div class="step-wrap">
-  <div class="step-item"><div class="step-dot active" id="dot1">1</div><div class="step-label active" id="lbl1">Welcome</div></div>
-  <div class="step-line" id="line1"></div>
-  <div class="step-item"><div class="step-dot pending" id="dot2">2</div><div class="step-label" id="lbl2">Business</div></div>
-  <div class="step-line" id="line2"></div>
-  <div class="step-item"><div class="step-dot pending" id="dot3">3</div><div class="step-label" id="lbl3">Ready!</div></div>
-</div>
-</div>
+    <div class="jerry">
+      <div class="jerry-bubble">
+        <div class="jerry-avatar">J</div>
+        <div class="jerry-copy">
+          <strong data-i18n="setup.jerry_title">Hi! I'm Jerry.</strong>
+          <p data-i18n="setup.jerry_copy">Let's activate your bot in 2 minutes.</p>
+        </div>
+      </div>
+    </div>
 
-<div class="card">
-<!-- STEP 1 -->
-<div class="step-page active" id="step1">
-<div class="jerry">
-  <div class="jerry-icon"><svg viewBox="0 0 24 24"><path d="M12 2a4 4 0 014 4v2h2a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V10a2 2 0 012-2h2V6a4 4 0 014-4zm0 2a2 2 0 00-2 2v2h4V6a2 2 0 00-2-2z" stroke-linecap="round"/></svg></div>
-  <div class="jerry-text"><strong>Hi, I'm Jerry — your AI assistant.</strong><br>I'll help you set up your platform. It only takes 2 minutes. Let's start with your AI engine.</div>
-</div>
+    <div class="panel-list">
+      <div class="panel-item">
+          <strong data-i18n="setup.panel_item_1_title">Automatic reservations</strong>
+          <span data-i18n="setup.panel_item_1_copy">The bot handles opening hours, reservations, and common questions without taking your time.</span>
+      </div>
+      <div class="panel-item">
+          <strong data-i18n="setup.panel_item_2_title">Your language, your tone</strong>
+          <span data-i18n="setup.panel_item_2_copy">Description and personality give the bot your restaurant's voice.</span>
+      </div>
+      <div class="panel-item">
+          <strong data-i18n="setup.panel_item_3_title">Live right away</strong>
+          <span data-i18n="setup.panel_item_3_copy">As soon as it activates, we save your PIN and owner key so you can open the dashboard immediately.</span>
+      </div>
+    </div>
 
-<div class="section-title" data-i18n="setup.ai_provider">Choose AI Provider</div>
-<div class="providers">
-  <div class="provider selected" onclick="selectProvider(this,'anthropic')"><div class="provider-icon anthropic">✦</div><div class="provider-name">Anthropic</div><div class="provider-model">Claude 3.5</div></div>
-  <div class="provider" onclick="selectProvider(this,'openai')"><div class="provider-icon openai">✦</div><div class="provider-name">OpenAI</div><div class="provider-model">GPT-4o</div></div>
-  <div class="provider" onclick="selectProvider(this,'google')"><div class="provider-icon google">✦</div><div class="provider-name">Google</div><div class="provider-model">Gemini 1.5</div></div>
-</div>
+    <div class="secure-note" data-i18n="setup.secure_note">Keys are stored encrypted. We only use the data needed for the bot to speak accurately with your guests.</div>
+  </aside>
 
-<div class="form-group">
-  <div class="form-label"><span class="form-label-text" data-i18n="setup.api_key">API Key</span><span class="form-badge">● <span data-i18n="login.secure">Secure Encryption Active</span></span></div>
-  <div class="form-input-row">
-    <input type="password" class="form-input" id="apiKey" placeholder="Paste your key here...">
-    <button class="test-btn" id="testBtn" onclick="testKey()">Test</button>
-  </div>
-  <div class="form-hint">Get your key from <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> → API Keys</div>
-</div>
+  <section class="card">
+    <div class="card-header">
+      <div>
+        <div class="eyebrow" data-i18n="setup.eyebrow">Setup Wizard</div>
+        <h1 data-i18n="setup.page_title">Activate your bot from one single page</h1>
+        <p data-i18n="setup.page_copy">Add the restaurant basics, define how the bot should speak, and optionally add your AI key. When you click activate, we create the restaurant, PIN, and owner access for you.</p>
+      </div>
+      <div class="eta">
+          <strong data-i18n="setup.eta_value">~2 minutes</strong>
+          <span data-i18n="setup.eta_copy">Average activation time</span>
+      </div>
+    </div>
 
-<button class="btn btn-amber" id="btn1" onclick="goStep(2)" disabled>Continue →</button>
-</div>
+    <div id="statusBanner" class="status-banner" role="alert"></div>
 
-<!-- STEP 2 -->
-<div class="step-page" id="step2">
-<div class="jerry">
-  <div class="jerry-icon"><svg viewBox="0 0 24 24"><path d="M12 2a4 4 0 014 4v2h2a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V10a2 2 0 012-2h2V6a4 4 0 014-4zm0 2a2 2 0 00-2 2v2h4V6a2 2 0 00-2-2z" stroke-linecap="round"/></svg></div>
-  <div class="jerry-text"><strong>Great! Now tell me about your business.</strong><br>This helps your AI bot understand your restaurant and talk to customers naturally.</div>
-</div>
+    <form id="setupForm">
+      <div class="form-grid">
+        <div class="field">
+          <div class="label-row">
+            <label for="restaurantName" data-i18n="setup.restaurant_name">Restaurant Name</label>
+            <div class="help">
+              <button type="button" class="help-btn" data-help-toggle>?</button>
+              <div class="help-pop" data-i18n="setup.help.restaurant_name">The name that appears when the bot speaks with guests</div>
+            </div>
+          </div>
+          <input id="restaurantName" class="control" type="text" required placeholder="p.sh. Te Ta Gastronomi" data-i18n-placeholder="setup.placeholder_name">
+        </div>
 
-<div class="form-group">
-  <div class="form-label"><span class="form-label-text" data-i18n="setup.restaurant_name">Restaurant Name</span></div>
-  <input type="text" class="form-input" id="bizName" placeholder="e.g. Pizza Roma">
-</div>
+        <div class="field">
+          <div class="label-row">
+            <label for="phoneLocal" data-i18n="setup.whatsapp_number">WhatsApp Number</label>
+            <div class="help">
+              <button type="button" class="help-btn" data-help-toggle>?</button>
+              <div class="help-pop" data-i18n="setup.help.whatsapp_number">The number where guests message you. The bot replies from this number.</div>
+            </div>
+          </div>
+          <div class="row">
+            <select id="countryCode" class="select" aria-label="Country code">
+              <option value="+355">+355</option>
+              <option value="+1">+1</option>
+              <option value="+44">+44</option>
+              <option value="+90">+90</option>
+              <option value="+55">+55</option>
+              <option value="+91">+91</option>
+              <option value="+971">+971</option>
+              <option value="+34">+34</option>
+              <option value="+49">+49</option>
+              <option value="+33">+33</option>
+            </select>
+            <input id="phoneLocal" class="control" type="tel" inputmode="tel" required placeholder="69 787 2036" data-i18n-placeholder="setup.placeholder_phone">
+          </div>
+        </div>
 
-<div class="form-group">
-  <div class="form-label"><span class="form-label-text">Hours</span></div>
-  <div class="form-input-row">
-    <input type="time" class="form-input" id="openTime" value="11:00">
-    <input type="time" class="form-input" id="closeTime" value="23:00">
-  </div>
-</div>
+        <div class="field">
+          <div class="label-row">
+            <label for="openingHour" data-i18n="setup.business_hours">Business Hours</label>
+            <div class="help">
+              <button type="button" class="help-btn" data-help-toggle>?</button>
+              <div class="help-pop" data-i18n="setup.help.business_hours">The bot will automatically share your opening hours with guests</div>
+            </div>
+          </div>
+          <div class="row hours">
+            <select id="openingHour" class="select" aria-label="Opening hour"></select>
+            <select id="closingHour" class="select" aria-label="Closing hour"></select>
+          </div>
+        </div>
 
-<div class="form-group">
-  <div class="form-label"><span class="form-label-text" data-i18n="setup.language">Language</span></div>
-  <select class="form-input form-select" id="lang">
-    <option value="en">English</option><option value="sq">Shqip</option><option value="es">Español</option><option value="pt">Português</option><option value="tr">Türkçe</option><option value="de">Deutsch</option><option value="fr">Français</option><option value="ar">العربية</option>
-  </select>
-</div>
+        <div class="field">
+          <div class="label-row">
+            <label for="language" data-i18n="setup.language">Bot Language</label>
+            <div class="help">
+              <button type="button" class="help-btn" data-help-toggle>?</button>
+              <div class="help-pop" data-i18n="setup.help.language">The main language the bot should use with your guests</div>
+            </div>
+          </div>
+          <select id="language" class="select" required>
+            <option value="sq" data-i18n="setup.lang_sq">Shqip</option>
+            <option value="en" selected data-i18n="setup.lang_en">English</option>
+            <option value="es" data-i18n="setup.lang_es">Español</option>
+            <option value="pt" data-i18n="setup.lang_pt">Português</option>
+            <option value="tr" data-i18n="setup.lang_tr">Türkçe</option>
+            <option value="de" data-i18n="setup.lang_de">Deutsch</option>
+            <option value="fr" data-i18n="setup.lang_fr">Français</option>
+            <option value="ar" data-i18n="setup.lang_ar">العربية</option>
+          </select>
+        </div>
 
-<div class="wa-section">
-  <div class="wa-title"><svg viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.832-1.438A9.955 9.955 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2z"/></svg>WhatsApp Connection</div>
-  <div class="wa-desc">Fill WhatsApp Cloud API details, then save your setup and connect in one step.</div>
-  <div class="wa-grid">
-    <input type="text" class="form-input" id="waPhone" placeholder="Phone Number (e.g. 35569...)">
-    <input type="text" class="form-input" id="waAppId" placeholder="Meta App ID">
-    <input type="text" class="form-input" id="waAppSecret" placeholder="Meta App Secret">
-    <input type="text" class="form-input" id="waWebhookToken" placeholder="Webhook Token">
-  </div>
-  <div style="margin-top:10px;font-size:12px;color:var(--text3);font-family:var(--mono)" id="waStatus">Not connected yet</div>
-</div>
+        <div class="field full">
+          <div class="label-row">
+            <label for="description" data-i18n="setup.description">Restaurant Description</label>
+            <div class="help">
+              <button type="button" class="help-btn" data-help-toggle>?</button>
+              <div class="help-pop" data-i18n="setup.help.description">The bot uses this to answer questions about your restaurant</div>
+            </div>
+          </div>
+          <textarea id="description" class="textarea" required data-i18n-placeholder="setup.placeholder_description"></textarea>
+          <div class="hint" data-i18n="setup.description_hint">💡 The more details you give, the better the bot will speak with your guests</div>
+        </div>
 
-<div class="form-group">
-  <div class="form-label"><span class="form-label-text">Train Your Bot</span></div>
-  <textarea class="form-input form-textarea" id="botRules" placeholder="Tell your bot about your business. Example:&#10;&#10;We are an Italian seafood restaurant. 12 tables, max 8 people per group. We don't accept reservations for less than 2 hours before closing. Our specialty is fresh fish and homemade pasta. We have a terrace for summer dining."></textarea>
-  <div class="form-hint">Your bot will learn these rules and use them in every conversation.</div>
-</div>
+        <div class="field full">
+          <div class="label-row">
+            <label for="personality" data-i18n="setup.bot_personality">Bot Personality</label>
+            <div class="help">
+              <button type="button" class="help-btn" data-help-toggle>?</button>
+              <div class="help-pop" data-i18n="setup.help.bot_personality">The communication style — formal, friendly, humorous, and so on.</div>
+            </div>
+          </div>
+          <textarea id="personality" class="textarea" required data-i18n-placeholder="setup.placeholder_personality"></textarea>
+          <div class="hint" data-i18n="setup.personality_hint">💡 This tells the bot HOW to speak — like a waiter, a host, or a trusted guide</div>
+        </div>
+      </div>
 
-<div class="btn-row">
-  <button class="btn btn-glass" onclick="goStep(1)">← Back</button>
-  <button class="btn btn-amber" id="saveConnectBtn" onclick="saveAndConnect()">Save & Connect →</button>
-</div>
-</div>
+      <div id="advanced" class="advanced">
+        <button type="button" class="advanced-toggle" id="advancedToggle">
+          <span data-i18n="setup.advanced_toggle">Advanced Settings</span>
+          <span>▼</span>
+        </button>
+        <div class="advanced-body">
+          <div class="advanced-grid">
+            <div class="field">
+              <div class="label-row">
+                <label for="provider" data-i18n="setup.ai_provider">AI Provider</label>
+              </div>
+              <select id="provider" class="select">
+                <option value="anthropic">Anthropic</option>
+                <option value="openai">OpenAI</option>
+                <option value="google">Google Gemini</option>
+              </select>
+            </div>
 
-<!-- STEP 3 -->
-<div class="step-page" id="step3">
-<div class="jerry">
-  <div class="jerry-icon"><svg viewBox="0 0 24 24"><path d="M12 2a4 4 0 014 4v2h2a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V10a2 2 0 012-2h2V6a4 4 0 014-4zm0 2a2 2 0 00-2 2v2h4V6a2 2 0 00-2-2z" stroke-linecap="round"/></svg></div>
-  <div class="jerry-text"><strong>Almost there! Let me run a few checks...</strong></div>
-</div>
+            <div class="field">
+              <div class="label-row">
+                <label for="apiKey" data-i18n="setup.api_key">AI API Key</label>
+              </div>
+              <div class="advanced-actions">
+                <input id="apiKey" class="control" type="password" placeholder="sk-ant-..." data-i18n-placeholder="setup.api_key_placeholder">
+                <button type="button" id="testKeyBtn" class="api-test" data-i18n="setup.test_api_key">Testo API Key</button>
+              </div>
+            </div>
 
-<div class="checks">
-  <div class="check-item" id="chk1"><div class="check-icon">○</div><div class="check-text">Database Connection <span>checking...</span></div></div>
-  <div class="check-item" id="chk2"><div class="check-icon">○</div><div class="check-text">AI Provider <span>checking...</span></div></div>
-  <div class="check-item" id="chk3"><div class="check-icon">○</div><div class="check-text">Business Profile <span>checking...</span></div></div>
-  <div class="check-item" id="chk4"><div class="check-icon">○</div><div class="check-text">WhatsApp <span>checking...</span></div></div>
-</div>
+            <div class="field full">
+              <div class="label-row">
+                <label for="webhookUrl" data-i18n="setup.webhook_url">Webhook URL (opsionale)</label>
+              </div>
+              <input id="webhookUrl" class="control" type="url" placeholder="https://your-domain.com/webhook">
+            </div>
+          </div>
+        </div>
+      </div>
 
-<div class="pin-reveal" id="pinReveal" style="display:none">
-  <div class="pin-label">Your Access Code</div>
-  <div class="pin-code" id="pinCode">——</div>
-  <div class="pin-warn">⚠ Save this code — it will only be shown once.</div>
-</div>
+      <div class="submit-wrap">
+        <div class="submit-copy" data-i18n="setup.submit_copy">When you activate the bot, we create the restaurant, generate the login PIN, and save the owner key so the dashboard opens immediately.</div>
+        <button id="submitBtn" class="submit-btn" type="submit" data-i18n="setup.activate">Activate Bot</button>
+      </div>
+    </form>
 
-<button class="btn btn-amber" id="btnFinal" onclick="window.location.href='/dashboard'" style="display:none">Enter Dashboard →</button>
-</div>
-</div>
-</div>
-<div class="version">Te Ta AI v1.0.0</div>
+    <section id="successBox" class="success" aria-live="polite">
+      <h2 data-i18n="setup.success_title">Your bot is LIVE!</h2>
+      <p data-i18n="setup.success_copy">Save these credentials — you will need them for login and owner access.</p>
+      <div class="creds">
+        <div class="cred">
+          <div class="cred-label">PIN</div>
+          <div id="pinValue" class="cred-value">----</div>
+        </div>
+        <div class="cred">
+          <div class="cred-label" data-i18n="setup.owner_key_label">Owner Key</div>
+          <div id="ownerKeyValue" class="cred-value">----</div>
+        </div>
+      </div>
+      <div class="success-cta">
+        <button type="button" id="openDashboardBtn" data-i18n="setup.open_dashboard">Hap Dashboard →</button>
+      </div>
+    </section>
+  </section>
+</main>
 
 <script>
-let currentStep = 1, selectedProvider = 'anthropic', apiKeyValid = false, waConfigured = false, setupCompleted = false, setupResult = null;
+const openingHourSelect = document.getElementById('openingHour');
+const closingHourSelect = document.getElementById('closingHour');
+const statusBanner = document.getElementById('statusBanner');
+const setupForm = document.getElementById('setupForm');
+const submitBtn = document.getElementById('submitBtn');
+const successBox = document.getElementById('successBox');
+const advanced = document.getElementById('advanced');
+const advancedToggle = document.getElementById('advancedToggle');
+const testKeyBtn = document.getElementById('testKeyBtn');
+const openDashboardBtn = document.getElementById('openDashboardBtn');
+let setupResult = null;
 
-function selectProvider(el, p) {
-  document.querySelectorAll('.provider').forEach(e => e.classList.remove('selected'));
-  el.classList.add('selected');
-  selectedProvider = p;
-  apiKeyValid = false;
-  document.getElementById('btn1').disabled = true;
-  document.getElementById('testBtn').textContent = 'Test';
-  document.getElementById('testBtn').className = 'test-btn';
-  const labels = { anthropic: 'console.anthropic.com', openai: 'platform.openai.com', google: 'aistudio.google.com' };
-  document.querySelector('.form-hint a').textContent = labels[p];
-  document.querySelector('.form-hint a').href = 'https://' + labels[p];
+function fillTimeOptions(select, startHour, endHour, value) {
+  const hours = [];
+  for (let hour = startHour; hour <= endHour; hour += 1) {
+    const hh = String(hour).padStart(2, '0') + ':00';
+    hours.push(hh);
+  }
+  select.innerHTML = hours.map((hour) => `<option value="${hour}">${hour}</option>`).join('');
+  select.value = value;
 }
 
-var _testingKey = false;
-async function testKey() {
-  if (_testingKey) return;
-  var btn = document.getElementById('testBtn');
-  var key = document.getElementById('apiKey').value.trim();
-  if (!key) { btn.textContent = 'Empty!'; btn.className = 'test-btn fail'; return; }
+function showStatus(message, type) {
+  statusBanner.textContent = message;
+  statusBanner.className = `status-banner show ${type}`;
+}
 
-  _testingKey = true;
-  btn.textContent = 'Testing...';
-  btn.className = 'test-btn';
-  btn.disabled = true;
+function clearStatus() {
+  statusBanner.className = 'status-banner';
+  statusBanner.textContent = '';
+}
+
+function normalizePhone(code, local) {
+  return `${code}${String(local || '').replace(/[^\d]/g, '')}`;
+}
+
+function humanizeError(message) {
+  const text = String(message || '').toLowerCase();
+  if (text.includes('api key')) return window.t ? window.t('microcopy.api_invalid') : 'The key was not accepted. Check it and try again.';
+  if (text.includes('missing field')) return window.t ? window.t('microcopy.missing_field') : 'Please fill in all required fields.';
+  if (text.includes('phone')) return window.t ? window.t('microcopy.invalid_phone') : 'That phone number does not look right.';
+  if (text.includes('network') || text.includes('fetch')) return window.t ? window.t('microcopy.network_error') : 'Your internet connection dropped. Check your WiFi.';
+  if (text.includes('unauthorized') || text.includes('401')) return window.t ? window.t('microcopy.session_expired') : 'Your session expired. Please sign in again.';
+  if (text.includes('rate')) return window.t ? window.t('microcopy.rate_limited') : 'Too many requests. Please try again in a few seconds.';
+  if (text.includes('database')) return window.t ? window.t('microcopy.database_error') : 'Something went wrong. We are fixing it — please try again in 1 minute.';
+  return message || (window.t ? window.t('dashboard.error_generic') : 'Something went wrong. Please try again.');
+}
+
+function validateForm() {
+  const payload = {
+    name: document.getElementById('restaurantName').value.trim(),
+    phone: normalizePhone(document.getElementById('countryCode').value, document.getElementById('phoneLocal').value),
+    opening_hour: openingHourSelect.value,
+    closing_hour: closingHourSelect.value,
+    language: document.getElementById('language').value,
+    description: document.getElementById('description').value.trim(),
+    bot_personality: document.getElementById('personality').value.trim(),
+    ai_provider: document.getElementById('provider').value,
+    ai_api_key: document.getElementById('apiKey').value.trim(),
+    webhook_url: document.getElementById('webhookUrl').value.trim()
+  };
+
+  if (!payload.name || !payload.phone || !payload.opening_hour || !payload.closing_hour || !payload.language || !payload.description || !payload.bot_personality) {
+    throw new Error(window.t ? window.t('microcopy.missing_field') : 'Ju lutem plotësoni të gjitha fushat.');
+  }
+
+  if (payload.phone.replace(/[^\d+]/g, '').length < 8) {
+    throw new Error(window.t ? window.t('microcopy.invalid_phone') : 'That phone number does not look right.');
+  }
+
+  return payload;
+}
+
+async function testApiKey() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  const provider = document.getElementById('provider').value;
+
+  if (!apiKey) {
+    showStatus(window.t ? window.t('setup.api_key_required') : 'Enter an API key before testing it.', 'error');
+    return;
+  }
+
+  testKeyBtn.disabled = true;
+  testKeyBtn.textContent = window.t ? window.t('setup.testing_api_key') : 'Po testojmë...';
+  testKeyBtn.className = 'api-test';
 
   try {
-    var resp = await fetch('/setup/test-api-key', {
+    const response = await fetch('/setup/test-api-key', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider: selectedProvider, api_key: key })
+      body: JSON.stringify({ provider, api_key: apiKey })
     });
-    var data = await resp.json();
-    if (data.ok) {
-      btn.textContent = '\u2713 Valid';
-      btn.className = 'test-btn success';
-      apiKeyValid = true;
-      document.getElementById('btn1').disabled = false;
-    } else {
-      btn.textContent = '\u2717 Invalid';
-      btn.className = 'test-btn fail';
-      apiKeyValid = false;
-      document.getElementById('btn1').disabled = true;
+    const data = await response.json();
+    if (!data.ok) {
+      throw new Error(data.error || 'API key invalid');
     }
-  } catch (err) {
-    btn.textContent = '\u2717 Error';
-    btn.className = 'test-btn fail';
-    apiKeyValid = false;
-    document.getElementById('btn1').disabled = true;
+    showStatus(window.t ? window.t('setup.api_key_valid') : 'API key accepted. Ready to activate.', 'info');
+    testKeyBtn.textContent = window.t ? window.t('setup.api_key_valid_short') : 'I vlefshëm';
+    testKeyBtn.className = 'api-test success';
+  } catch (error) {
+    showStatus(humanizeError(error.message), 'error');
+    testKeyBtn.textContent = window.t ? window.t('setup.retry_test') : 'Retry';
+    testKeyBtn.className = 'api-test error';
+  } finally {
+    testKeyBtn.disabled = false;
   }
-  btn.disabled = false;
-  _testingKey = false;
 }
 
-async function saveAndConnect() {
-  var btn = document.getElementById('saveConnectBtn');
-  var waStatus = document.getElementById('waStatus');
-  var bizName = document.getElementById('bizName').value.trim();
-  var waPhone = document.getElementById('waPhone').value.trim();
-  var waAppId = document.getElementById('waAppId').value.trim();
-  var waAppSecret = document.getElementById('waAppSecret').value.trim();
-  var waWebhookToken = document.getElementById('waWebhookToken').value.trim();
+async function activateBot(event) {
+  event.preventDefault();
+  clearStatus();
 
-  hideSetupError();
-  if (!apiKeyValid) {
-    showSetupError('Please test and validate your AI API key first.');
-    return;
-  }
-  if (!bizName) {
-    showSetupError('Restaurant name is required.');
-    return;
-  }
-  if (!waPhone || !waAppId || !waAppSecret || !waWebhookToken) {
-    showSetupError('Please fill all WhatsApp fields before Save & Connect.');
+  let payload;
+  try {
+    payload = validateForm();
+  } catch (error) {
+    showStatus(humanizeError(error.message), 'error');
     return;
   }
 
-  btn.disabled = true;
-  btn.textContent = 'Saving...';
-  waStatus.textContent = 'Connecting...';
+  submitBtn.disabled = true;
+  submitBtn.textContent = window.t ? window.t('setup.activating') : 'We are activating your bot...';
+  showStatus(window.t ? window.t('setup.activating') : 'We are activating your bot...', 'info');
 
   try {
-    var resp = await fetch('/setup/complete', {
+    const response = await fetch('/setup/complete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: bizName,
-        phone: waPhone,
-        address: '',
-        open: document.getElementById('openTime').value || '11:00',
-        close: document.getElementById('closeTime').value || '23:00',
-        lang: document.getElementById('lang').value || 'en',
-        ai_provider: selectedProvider,
-        ai_api_key: document.getElementById('apiKey').value.trim(),
-        custom_prompt: document.getElementById('botRules').value.trim(),
-        wa_app_id: waAppId,
-        wa_app_secret: waAppSecret,
-        wa_webhook_token: waWebhookToken
-      })
+      body: JSON.stringify(payload)
     });
-    var data = await resp.json();
-    if (!resp.ok || !data.success) {
+    const data = await response.json();
+    if (!response.ok || !data.success) {
       throw new Error(data.error || 'Setup failed');
     }
 
-    setupCompleted = true;
-    setupResult = data.data || null;
-    waConfigured = true;
-    waStatus.textContent = 'Connected and saved.';
-    goStep(3);
-  } catch (err) {
-    setupCompleted = false;
-    waConfigured = false;
-    waStatus.textContent = 'Connection failed. Please check details.';
-    showSetupError(err.message || 'Could not save setup.');
+    setupResult = data.data || {};
+    localStorage.setItem('tta_owner_key', setupResult.owner_key || '');
+    localStorage.setItem('tta_lang', payload.language);
+    localStorage.setItem('tta_restaurant_name', payload.name);
+    localStorage.setItem('tta_restaurant_phone', payload.phone);
+
+    document.getElementById('pinValue').textContent = setupResult.pin_code || '----';
+    document.getElementById('ownerKeyValue').textContent = setupResult.owner_key || '----';
+    successBox.classList.add('show');
+    showStatus(window.t ? window.t('setup.success_banner') : 'The bot was activated successfully. Your dashboard is ready.', 'info');
+    successBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (error) {
+    showStatus(humanizeError(error.message), 'error');
   } finally {
-    btn.disabled = false;
-    btn.textContent = 'Save & Connect →';
+    submitBtn.disabled = false;
+    submitBtn.textContent = window.t ? window.t('setup.activate') : 'Activate Bot';
   }
 }
 
-function goStep(n) {
-  if (n === 2 && !apiKeyValid) return;
-  document.querySelectorAll('.step-page').forEach(s => s.classList.remove('active'));
-  document.getElementById('step' + n).classList.add('active');
-  for (let i = 1; i <= 3; i++) {
-    const dot = document.getElementById('dot' + i);
-    const lbl = document.getElementById('lbl' + i);
-    dot.className = 'step-dot ' + (i < n ? 'done' : i === n ? 'active' : 'pending');
-    lbl.className = 'step-label ' + (i < n ? 'done' : i === n ? 'active' : '');
-  }
-  document.getElementById('line1').className = 'step-line' + (n > 1 ? ' done' : '');
-  document.getElementById('line2').className = 'step-line' + (n > 2 ? ' done' : '');
-  if (n === 3) runChecks();
-  currentStep = n;
-}
+fillTimeOptions(openingHourSelect, 6, 14, '11:00');
+fillTimeOptions(closingHourSelect, 16, 23, '21:00');
 
-var _setupRunning = false;
-async function runChecks() {
-  if (_setupRunning) return;
-  _setupRunning = true;
+advancedToggle.addEventListener('click', () => {
+  advanced.classList.toggle('open');
+});
 
-  var checks = [
-    { id: 'chk1', label: 'Database Connection' },
-    { id: 'chk2', label: 'AI Provider' },
-    { id: 'chk3', label: 'Business Profile' },
-    { id: 'chk4', label: 'WhatsApp' }
-  ];
-
-  // Reset all checks to pending
-  checks.forEach(function(c) {
-    var el = document.getElementById(c.id);
-    el.className = 'check-item';
-    el.querySelector('.check-icon').textContent = '\u25CB';
-    el.querySelector('.check-text').innerHTML = c.label + ' <span>checking...</span>';
+document.querySelectorAll('[data-help-toggle]').forEach((button) => {
+  button.addEventListener('click', (event) => {
+    const help = event.currentTarget.parentElement;
+    const isOpen = help.classList.contains('open');
+    document.querySelectorAll('.help.open').forEach((item) => item.classList.remove('open'));
+    if (!isOpen) help.classList.add('open');
   });
-  document.getElementById('pinReveal').style.display = 'none';
-  document.getElementById('btnFinal').style.display = 'none';
-  // Remove previous credentials box if re-running
-  var prev = document.getElementById('credentialsBox');
-  if (prev) prev.remove();
-  hideSetupError();
+});
 
-  // Check 1: Database
-  var dbOk = false;
-  try {
-    var dbResp = await fetch('/health/db');
-    var dbData = await dbResp.json();
-    dbOk = dbData.db === 'ok';
-    setCheck('chk1', 'Database Connection', dbOk);
-  } catch (e) { setCheck('chk1', 'Database Connection', false); }
-
-  // Check 2: AI Provider — validated at step 1
-  setCheck('chk2', 'AI Provider', apiKeyValid);
-
-  // Check 3: Business profile — check form fields
-  var bizName = document.getElementById('bizName').value.trim();
-  setCheck('chk3', 'Business Profile', !!bizName);
-
-  // Check 4: WhatsApp
-  setCheckOptional('chk4', 'WhatsApp', waConfigured);
-
-  // Guard: DB must be connected
-  if (!dbOk) {
-    showSetupError('Database connection failed. Check your DATABASE_URL and try again.');
-    _setupRunning = false;
-    return;
+document.addEventListener('click', (event) => {
+  if (!event.target.closest('.help')) {
+    document.querySelectorAll('.help.open').forEach((item) => item.classList.remove('open'));
   }
-  if (!bizName) {
-    showSetupError('Restaurant name is required. Go back to Step 2.');
-    _setupRunning = false;
-    return;
-  }
-  if (!setupCompleted || !setupResult) {
-    showSetupError('Go back to Step 2 and click "Save & Connect" first.');
-    _setupRunning = false;
-    return;
-  }
+});
 
-  document.getElementById('pinReveal').style.display = 'block';
-  document.getElementById('pinCode').textContent = setupResult.pin_code || '----';
-  document.getElementById('btnFinal').style.display = 'block';
-
-  // Show credentials safely (textContent, no innerHTML for user data)
-  var info = document.createElement('div');
-  info.id = 'credentialsBox';
-  info.style.cssText = 'margin-top:16px;padding:16px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:12px;font-size:12px;font-family:var(--mono);line-height:2;color:var(--text2)';
-  var hdr = document.createElement('div');
-  hdr.style.cssText = 'font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--amber);margin-bottom:8px';
-  hdr.textContent = 'Save These Credentials';
-  info.appendChild(hdr);
-  var lines = [
-    ['PIN', setupResult.pin_code],
-    ['API Key', setupResult.api_key],
-    ['Owner Key', setupResult.owner_key]
-  ];
-  lines.forEach(function(pair) {
-    var row = document.createElement('div');
-    row.style.cssText = 'word-break:break-all';
-    var lbl = document.createTextNode(pair[0] + ': ');
-    var val = document.createElement('strong');
-    val.style.color = 'var(--text)';
-    val.textContent = pair[1] || '';
-    row.appendChild(lbl);
-    row.appendChild(val);
-    info.appendChild(row);
-  });
-  document.getElementById('pinReveal').after(info);
-  _setupRunning = false;
-}
-
-function setCheck(id, label, ok) {
-  const el = document.getElementById(id);
-  el.className = 'check-item ' + (ok ? 'pass' : 'fail');
-  el.querySelector('.check-icon').textContent = ok ? '\u2713' : '\u2717';
-  el.querySelector('.check-text').innerHTML = label +
-    (ok ? ' <span style="color:var(--emerald)">connected</span>' : ' <span style="color:var(--red)">failed</span>');
-}
-
-function setCheckOptional(id, label, ok) {
-  const el = document.getElementById(id);
-  el.className = 'check-item ' + (ok ? 'pass' : '');
-  el.querySelector('.check-icon').textContent = ok ? '\u2713' : '\u2014';
-  el.querySelector('.check-text').innerHTML = label +
-    (ok ? ' <span style="color:var(--emerald)">configured</span>' : ' <span style="color:var(--text3)">skipped (configure later in Settings)</span>');
-}
-
-function showSetupError(msg) {
-  var errEl = document.getElementById('setupError');
-  if (!errEl) {
-    errEl = document.createElement('div');
-    errEl.id = 'setupError';
-    errEl.style.cssText = 'padding:14px 18px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:12px;margin-bottom:16px;font-size:13px;color:var(--red)';
-    document.getElementById('btnFinal').before(errEl);
-  }
-  errEl.textContent = msg;
-  errEl.style.display = 'block';
-}
-function hideSetupError() {
-  var errEl = document.getElementById('setupError');
-  if (errEl) errEl.style.display = 'none';
-}
-
-// Save language selection to localStorage for i18n
-const langSelect = document.getElementById('lang');
-if (langSelect) {
-  langSelect.addEventListener('change', function() {
-    localStorage.setItem('tta_lang', this.value);
-    if (typeof window.applyI18n === 'function') {
-      // Reload locale
-      location.reload();
-    }
-  });
-}
+testKeyBtn.addEventListener('click', testApiKey);
+setupForm.addEventListener('submit', activateBot);
+openDashboardBtn.addEventListener('click', () => {
+  window.location.href = '/dashboard';
+});
 </script>
 <script src="/i18n.js"></script>
+<script src="/js/theme.js" defer></script>
+<script>
+(function () {
+  const languageSelect = document.getElementById('language');
+
+  async function applySetupLanguage(lang) {
+    if (typeof window.setLang === 'function') {
+      await window.setLang(lang, { persist: false });
+    }
+  }
+
+  async function initSetupLanguage() {
+    languageSelect.value = 'en';
+    await applySetupLanguage('en');
+
+    languageSelect.addEventListener('change', async function () {
+      await applySetupLanguage(languageSelect.value);
+    });
+  }
+
+  if (typeof window.setLang === 'function') {
+    initSetupLanguage();
+  } else {
+    document.addEventListener('i18n:ready', initSetupLanguage, { once: true });
+  }
+})();
+</script>
 </body>
 </html>

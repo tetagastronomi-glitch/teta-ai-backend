@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Te Ta AI — Privacy Policy</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:#09090B;color:#FAFAFA;min-height:100vh;line-height:1.8}
+.wrap{max-width:720px;margin:0 auto;padding:48px 24px 80px}
+.logo{display:flex;align-items:center;gap:12px;margin-bottom:48px}
+.logo-icon{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#F59E0B,#D97706);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff}
+.logo-text{font-size:20px;font-weight:800}.logo-text span{color:#F59E0B}
+h1{font-size:32px;font-weight:800;margin-bottom:8px}
+.updated{font-size:13px;color:rgba(255,255,255,0.4);font-family:'JetBrains Mono',monospace;margin-bottom:40px}
+h2{font-size:20px;font-weight:700;margin-top:40px;margin-bottom:12px;color:#F59E0B}
+h3{font-size:16px;font-weight:600;margin-top:24px;margin-bottom:8px}
+p{color:rgba(255,255,255,0.7);margin-bottom:16px;font-size:15px}
+ul{margin-bottom:16px;padding-left:24px}
+li{color:rgba(255,255,255,0.7);margin-bottom:6px;font-size:15px}
+a{color:#F59E0B;text-decoration:none}
+a:hover{text-decoration:underline}
+.highlight{background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.12);border-radius:12px;padding:16px 20px;margin:20px 0}
+.highlight p{margin-bottom:0;color:rgba(255,255,255,0.8)}
+.back{display:inline-flex;align-items:center;gap:6px;color:rgba(255,255,255,0.4);font-size:13px;margin-bottom:24px;text-decoration:none}
+.back:hover{color:#F59E0B}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a href="/" class="back">← Back to Te Ta AI</a>
+<div class="logo"><div class="logo-icon">TT</div><div class="logo-text">Te Ta <span>AI</span></div></div>
+
+<h1>Privacy Policy</h1>
+<p class="updated">Last updated: April 7, 2026</p>
+
+<div class="highlight">
+<p>Te Ta AI is a self-hosted platform. Your data stays on YOUR server. We never access, store, or process your restaurant data, customer information, or conversations.</p>
+</div>
+
+<h2>1. Who we are</h2>
+<p>Te Ta AI is based in Tirana, Albania. We build and sell self-hosted restaurant management software.</p>
+<p>Contact: <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="7f0c0a0f0f100d0b3f0b1a0b1e521e16511c1012">[email&#160;protected]</a></p>
+
+<h2>2. What we collect</h2>
+
+<h3>2.1 When you purchase</h3>
+<p>When you buy Te Ta AI through LemonSqueezy, we receive:</p>
+<ul>
+<li>Your name and email address</li>
+<li>Payment confirmation (we never see your credit card details — LemonSqueezy handles payment)</li>
+<li>License key associated with your purchase</li>
+<li>Country (for VAT purposes, handled by LemonSqueezy)</li>
+</ul>
+
+<h3>2.2 When you visit teta-ai.com</h3>
+<p>We use basic analytics (Netlify Analytics) which may collect:</p>
+<ul>
+<li>Page views and referrer URLs</li>
+<li>Country-level location (no precise geolocation)</li>
+<li>Browser type</li>
+</ul>
+<p>We do NOT use cookies for tracking. We do NOT use Google Analytics, Facebook Pixel, or any third-party trackers.</p>
+
+<h3>2.3 What we do NOT collect</h3>
+<ul>
+<li>Your restaurant data (reservations, customers, menus) — this stays on YOUR server</li>
+<li>WhatsApp conversations — processed on YOUR server, never sent to us</li>
+<li>Customer phone numbers or personal data — stored in YOUR database only</li>
+<li>AI API usage data — your API key, your provider, your data</li>
+</ul>
+
+<h2>3. Self-hosted architecture</h2>
+<p>Te Ta AI is designed to be self-hosted. This means:</p>
+<ul>
+<li>You deploy the software on your own server (Railway, Docker, VPS, etc.)</li>
+<li>All data is stored in YOUR PostgreSQL database</li>
+<li>All AI conversations go directly between your server and your AI provider (Anthropic, OpenAI, or Google)</li>
+<li>WhatsApp connections are made from YOUR server using YOUR phone number</li>
+<li>We have zero access to your running instance</li>
+</ul>
+
+<div class="highlight">
+<p>Think of Te Ta AI like buying a car — once you drive it off the lot, we don't track where you go or who rides with you.</p>
+</div>
+
+<h2>4. License verification</h2>
+<p>Te Ta AI connects to LemonSqueezy's API once at startup to verify your license key. This transmits:</p>
+<ul>
+<li>Your license key</li>
+<li>No other data</li>
+</ul>
+<p>If you use MANAGED_MODE (for locally managed deployments), no license verification occurs at all.</p>
+
+<h2>5. Third-party services</h2>
+<p>Te Ta AI integrates with third-party services that YOU choose and configure:</p>
+<ul>
+<li><strong>AI Providers</strong> (Anthropic, OpenAI, Google) — your API key, your account, their privacy policy applies</li>
+<li><strong>WhatsApp</strong> (via Baileys library) — your phone number, your conversations</li>
+<li><strong>Railway/Docker</strong> (hosting) — your deployment, their terms apply</li>
+<li><strong>LemonSqueezy</strong> (payments) — handles purchase data under their <a href="https://www.lemonsqueezy.com/privacy" target="_blank">privacy policy</a></li>
+</ul>
+
+<h2>6. Data retention</h2>
+<ul>
+<li><strong>Purchase data:</strong> Retained as long as your license is active, for support purposes</li>
+<li><strong>Website analytics:</strong> Aggregated, no personal identifiers, retained 30 days</li>
+<li><strong>Your restaurant data:</strong> Entirely under your control — delete anytime from your own database</li>
+</ul>
+
+<h2>7. Your rights (GDPR)</h2>
+<p>If you are in the EU/EEA, you have the right to:</p>
+<ul>
+<li>Access the personal data we hold about you (purchase info only)</li>
+<li>Request correction of inaccurate data</li>
+<li>Request deletion of your data</li>
+<li>Object to processing</li>
+<li>Data portability</li>
+</ul>
+<p>To exercise these rights, contact: <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="a3d0d6d3d3ccd1d7e3d7c6d7c28ec2ca8dc0ccce">[email&#160;protected]</a></p>
+
+<h2>8. Data protection for your customers</h2>
+<p>As a restaurant owner using Te Ta AI, YOU are the data controller for your customers' data. You are responsible for:</p>
+<ul>
+<li>Informing your customers that you use an AI bot for reservations</li>
+<li>Handling data access/deletion requests from your customers</li>
+<li>Complying with local privacy laws in your jurisdiction</li>
+</ul>
+
+<h2>9. Security</h2>
+<p>Te Ta AI implements:</p>
+<ul>
+<li>Helmet.js security headers</li>
+<li>Rate limiting on all endpoints</li>
+<li>Timing-safe authentication comparison</li>
+<li>Brute-force protection on login</li>
+<li>Input validation with Zod schemas</li>
+<li>Parameterized SQL queries (no SQL injection)</li>
+<li>CORS configuration</li>
+</ul>
+
+<h2>10. Children's privacy</h2>
+<p>Te Ta AI is designed for business use by restaurant owners. We do not knowingly collect data from children under 16. If you believe a child has provided personal data, contact us and we will delete it.</p>
+
+<h2>11. Changes to this policy</h2>
+<p>We may update this privacy policy from time to time. Changes will be posted on this page 

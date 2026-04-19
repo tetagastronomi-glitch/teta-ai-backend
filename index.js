@@ -1141,7 +1141,7 @@ async function initDb() {
     await pool.query(`ALTER TABLE public.restaurants ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'Europe/Tirane';`);
     await pool.query(`ALTER TABLE public.restaurants ADD COLUMN IF NOT EXISTS language TEXT DEFAULT 'sq';`);
     await pool.query(`ALTER TABLE public.restaurants ADD COLUMN IF NOT EXISTS ai_provider TEXT DEFAULT 'anthropic';`);
-    await pool.query(`ALTER TABLE public.restaurants ADD COLUMN IF NOT EXISTS ai_model TEXT DEFAULT 'claude-sonnet-4-20250514';`);
+    await pool.query(`ALTER TABLE public.restaurants ADD COLUMN IF NOT EXISTS ai_model TEXT DEFAULT 'claude-haiku-4-5-20251001';`);
 
     // ✅ Support tickets (Jerry escalation)
     await pool.query(`
@@ -2349,6 +2349,23 @@ async function closeReservationByOwner({ restaurant_id, reservationPkId, action 
 }
 
 // ==================== OWNER VIEW (READ ONLY) ====================
+app.get("/owner/me", requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT id, name, owner_phone, plan, is_active, COALESCE(bot_active,true) as bot_active,
+              trial_ends, plan_expires,
+              opening_hours_start, opening_hours_end, max_capacity,
+              COALESCE(lang,'en') as lang, COALESCE(address,'') as address
+       FROM public.restaurants WHERE id=$1 LIMIT 1`,
+      [req.restaurant_id]
+    );
+    if (!r.rows.length) return res.status(404).json({ success: false, error: 'Restaurant not found' });
+    res.json({ success: true, data: r.rows[0] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.get("/owner/customers", requireOwnerKey, requireDbReady, async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 50), 200);
@@ -2407,12 +2424,30 @@ app.post("/owner/reservations/create", requireOwnerKey, requireDbReady, async (r
     const area     = r.area     || null;
     const special  = r.special_requests || "";
 
-    // ✅ Opening hours + capacity validation
+    // Duplicate detection: same phone + date + time (within 5 min)
+    const dupCheck = await pool.query(
+      `SELECT id, reservation_id, status, created_at
+       FROM public.reservations
+       WHERE restaurant_id = $1
+         AND phone = $2
+         AND date = $3::date
+         AND ABS(EXTRACT(EPOCH FROM (time - $4::time))) < 300
+       ORDER BY created_at DESC LIMIT 1`,
+      [req.restaurant_id, r.phone, dateStr, timeStr]
+    );
+    if (dupCheck.rows.length > 0) {
+      const existing = dupCheck.rows[0];
+      return res.status(200).json({
+        success: true, version: APP_VERSION, duplicate: true, data: existing,
+      });
+    }
+
+    // Opening hours + capacity validation
     const rules = await getRestaurantRules(req.restaurant_id);
     if (timeStr !== "00:00" && (timeStr < rules.openingStart || timeStr >= rules.openingEnd)) {
       return res.status(400).json({
         success: false, version: APP_VERSION, error_code: "OPENING_HOURS",
-        error: `Restoranti është i hapur ${rules.openingStart}–${rules.openingEnd}. Ju lutemi zgjidhni një orë brenda orarit të punës.`,
+        error: `Restaurant is open ${rules.openingStart}–${rules.openingEnd}. Please choose a time within opening hours.`,
       });
     }
     const capacityRow = await pool.query(
@@ -2424,7 +2459,7 @@ app.post("/owner/reservations/create", requireOwnerKey, requireDbReady, async (r
     if (Number(capacityRow.rows[0].cnt) >= rules.maxCapacity) {
       return res.status(409).json({
         success: false, version: APP_VERSION, error_code: "CAPACITY_FULL",
-        error: `Nuk ka vende të lira për orën ${timeStr}. Ju lutemi zgjidhni një orë tjetër.`,
+        error: `No seats available at ${timeStr}. Please choose another time.`,
       });
     }
 
@@ -2918,7 +2953,7 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
       return res.status(400).json({
         success: false,
         version: APP_VERSION,
-        error: "Ora është e pavlefshme.",
+        error: "Invalid time.",
         error_code: "INVALID_TIME",
       });
     }
@@ -2932,16 +2967,38 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
         error_code: guard.error_code || "TIME_PASSED",
         error:
           guard.message ||
-          "Ora që ke zgjedhur ka kaluar.\nTë lutem zgjidh një orë tjetër sot ose një ditë tjetër.",
+          "The time you selected has passed.\nPlease choose another time today or another day.",
       });
     }
 
-    // ✅ Opening hours + capacity validation
+    // Duplicate detection: same phone + date + time (within 5 min)
+    const dupCheck = await pool.query(
+      `SELECT id, reservation_id, status, created_at
+       FROM public.reservations
+       WHERE restaurant_id = $1
+         AND phone = $2
+         AND date = $3::date
+         AND ABS(EXTRACT(EPOCH FROM (time - $4::time))) < 300
+       ORDER BY created_at DESC LIMIT 1`,
+      [req.restaurant_id, r.phone, dateStr, timeStr]
+    );
+    if (dupCheck.rows.length > 0) {
+      const existing = dupCheck.rows[0];
+      console.log(`⚠️ Duplicate reservation skipped: phone=${r.phone} date=${dateStr} time=${timeStr} existing_id=${existing.id}`);
+      return res.status(200).json({
+        success: true,
+        version: APP_VERSION,
+        duplicate: true,
+        data: existing,
+      });
+    }
+
+    // Opening hours + capacity validation
     const rules = await getRestaurantRules(req.restaurant_id);
     if (timeStr < rules.openingStart || timeStr >= rules.openingEnd) {
       return res.status(400).json({
         success: false, version: APP_VERSION, error_code: "OPENING_HOURS",
-        error: `Restoranti është i hapur ${rules.openingStart}–${rules.openingEnd}. Ju lutemi zgjidhni një orë brenda orarit të punës.`,
+        error: `Restaurant is open ${rules.openingStart}–${rules.openingEnd}. Please choose a time within opening hours.`,
       });
     }
     const capacityRow = await pool.query(
@@ -2953,7 +3010,7 @@ app.post("/reservations", requireApiKey, requireDbReady, async (req, res) => {
     if (Number(capacityRow.rows[0].cnt) >= rules.maxCapacity) {
       return res.status(409).json({
         success: false, version: APP_VERSION, error_code: "CAPACITY_FULL",
-        error: `Nuk ka vende të lira për orën ${timeStr}. Ju lutemi zgjidhni një orë tjetër.`,
+        error: `No seats available at ${timeStr}. Please choose another time.`,
       });
     }
 
@@ -4022,6 +4079,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
     }
   }
 }));
+app.use('/locales', express.static(path.join(__dirname, 'locales')));
 
 app.get('/admin-panel', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
@@ -4058,7 +4116,7 @@ Përgjigju në shqip, drejtpërdrejt si partner biznesi. Ji i shkurtër dhe prec
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
     const response = await client.messages.create({
-      model: 'claude-sonnet-4-6',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 1024,
       system: context,
       messages: [...(history || []), { role: 'user', content: message }],
@@ -4293,7 +4351,7 @@ RESTORANT: ${restaurant.name} (ID: ${restaurant.id})
 ${dbContext}`;
 
     const response = await client.messages.create({
-      model: 'claude-sonnet-4-6',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 512,
       system: systemPrompt,
       messages: [...(history || []), { role: 'user', content: message }],
@@ -4378,6 +4436,10 @@ app.get('/floorplan', (_req, res) => res.sendFile(path.join(__dirname, 'public',
 app.get('/waitlist', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'waitlist.html')));
 app.get('/demo', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'demo.html')));
 app.get('/setup', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'setup.html')));
+app.get('/register', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'register.html')));
+app.get('/help', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'help.html')));
+app.get('/activated', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'activated.html')));
+app.get('/landing', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'landing', 'index.html')));
 
 app.get('/test-wa', requireAdminKey, async (_req, res) => {
   try {
@@ -4401,20 +4463,8 @@ app.get('/test-wa', requireAdminKey, async (_req, res) => {
   }
 });
 
-app.get('/privacy', (_req, res) => {
-  res.type('html').send(`<!doctype html>
-<html><head><meta charset="utf-8"><title>Te Ta AI - Privacy</title></head>
-<body style="font-family:sans-serif;max-width:600px;margin:40px auto;padding:20px">
-<h1>Te Ta AI — Privacy Policy</h1>
-<p>Te Ta AI është platformë për menaxhimin e rezervimeve dhe klientëve për bizneset e hotelërisë.</p>
-<h2>Të dhënat që ruajmë</h2>
-<p>Emri, numri i telefonit, dhe historiku i rezervimeve të klientëve.</p>
-<h2>Si i përdorim</h2>
-<p>Vetëm për qëllime operacionale të biznesit. Nuk shpërndahen me palë të treta.</p>
-<h2>Kontakt</h2>
-<p>gerikurtina@gmail.com</p>
-</body></html>`);
-});
+app.get('/privacy', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'privacy.html')));
+app.get('/terms', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'terms.html')));
 
 // ==================== AI INSIGHTS (OWNER) ====================
 app.get("/owner/ai/insights", requireOwnerKey, requireDbReady, async (req, res) => {
@@ -4574,6 +4624,20 @@ app.post('/owner/bot/stop', requireOwnerKey, requireDbReady, async (req, res) =>
   }
 });
 
+app.post('/owner/bot/toggle', requireOwnerKey, requireDbReady, async (req, res) => {
+  try {
+    const q = await pool.query(
+      `UPDATE public.restaurants SET bot_active = NOT COALESCE(bot_active, true) WHERE id = $1 RETURNING bot_active`,
+      [req.restaurant_id]
+    );
+    const bot_active = q.rows[0]?.bot_active ?? false;
+    return res.json({ success: true, version: APP_VERSION, bot_active });
+  } catch (err) {
+    console.error("❌ POST /owner/bot/toggle error:", err);
+    return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
+  }
+});
+
 app.get('/owner/bot/status', requireOwnerKey, requireDbReady, async (req, res) => {
   try {
     const rid = req.restaurant_id;
@@ -4586,6 +4650,24 @@ app.get('/owner/bot/status', requireOwnerKey, requireDbReady, async (req, res) =
   } catch (err) {
     console.error("❌ GET /owner/bot/status error:", err);
     return res.status(500).json({ success: false, version: APP_VERSION, error: err.message });
+  }
+});
+
+// Public bot status (for WhatsApp bridge — no auth needed)
+app.get('/api/bot/status', requireDbReady, async (req, res) => {
+  try {
+    const rid = Number(req.query.restaurant_id);
+    if (!rid || !Number.isFinite(rid)) {
+      return res.status(400).json({ enabled: false, error: 'Missing restaurant_id' });
+    }
+    const q = await pool.query(
+      `SELECT COALESCE(bot_active, true) AS enabled FROM public.restaurants WHERE id = $1`,
+      [rid]
+    );
+    if (!q.rows.length) return res.json({ enabled: false, error: 'Restaurant not found' });
+    return res.json({ enabled: q.rows[0].enabled });
+  } catch (err) {
+    return res.json({ enabled: true });
   }
 });
 

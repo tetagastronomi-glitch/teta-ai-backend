@@ -4,57 +4,285 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Te Ta AI Demo Bot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    :root { --bg:#09090B; --bg2:#111114; --surface:#18181B; --text:#FAFAFA; --muted:#A1A1AA; --amber:#F59E0B; --border:rgba(255,255,255,.08); }
-    * { box-sizing:border-box; }
-    body { margin:0; background:radial-gradient(circle at 10% 10%, rgba(245,158,11,.12), transparent 35%), var(--bg); color:var(--text); font-family:"Plus Jakarta Sans",system-ui,sans-serif; }
-    .wrap { width:min(920px,92vw); margin:28px auto; }
-    .top { margin-bottom:16px; }
-    .title { font-size:1.9rem; font-weight:800; margin:0 0 6px; }
-    .sub { margin:0; color:var(--muted); }
-    .chat { border:1px solid var(--border); background:var(--bg2); border-radius:16px; overflow:hidden; display:flex; flex-direction:column; min-height:68vh; }
-    .head { padding:14px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
-    .status { font-size:.78rem; color:#10B981; background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.25); border-radius:999px; padding:4px 10px; }
-    .msgs { padding:14px; display:flex; flex-direction:column; gap:10px; overflow:auto; flex:1; }
-    .msg { max-width:min(80%,680px); padding:10px 12px; border-radius:12px; font-size:.94rem; line-height:1.45; white-space:pre-wrap; }
-    .msg.bot { background:var(--surface); border:1px solid var(--border); border-top-left-radius:4px; }
-    .msg.user { margin-left:auto; color:#111; background:linear-gradient(135deg,#D97706,#F59E0B); border-top-right-radius:4px; }
-    .composer { padding:12px; border-top:1px solid var(--border); display:flex; gap:8px; }
-    .composer input { flex:1; background:#0D0D10; color:var(--text); border:1px solid var(--border); border-radius:10px; padding:10px 12px; font:inherit; }
-    .composer button { border:0; border-radius:10px; font:inherit; font-weight:700; background:linear-gradient(135deg,#D97706,#F59E0B); color:#111; padding:10px 14px; cursor:pointer; }
-    .chips { display:flex; flex-wrap:wrap; gap:8px; padding:0 12px 12px; }
-    .chips button { background:rgba(255,255,255,.05); color:var(--text); border:1px solid var(--border); border-radius:999px; padding:6px 10px; cursor:pointer; font-size:.8rem; }
-    @media (max-width:700px){ .wrap{width:100vw;margin:0;} .chat{border-radius:0;min-height:100vh;border-left:0;border-right:0;} .msg{max-width:90%;} }
+    :root{
+      --bg:#09090B;
+      --surface:#131318;
+      --surface-soft:rgba(255,255,255,0.05);
+      --border:rgba(255,255,255,0.08);
+      --text:#FAFAFA;
+      --muted:#A1A1AA;
+      --amber:#F59E0B;
+      --amber-strong:#D97706;
+      --emerald:#10B981;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      min-height:100vh;
+      background:
+        radial-gradient(circle at 15% 10%, rgba(245,158,11,0.16), transparent 25%),
+        radial-gradient(circle at 85% 0%, rgba(255,255,255,0.05), transparent 18%),
+        var(--bg);
+      color:var(--text);
+      font-family:"Plus Jakarta Sans",sans-serif;
+    }
+    .wrap{
+      width:min(1100px, calc(100% - 24px));
+      margin:26px auto;
+      display:grid;
+      grid-template-columns:320px 1fr;
+      gap:18px;
+    }
+    .panel,
+    .chat{
+      border:1px solid var(--border);
+      border-radius:28px;
+      background:linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
+      backdrop-filter:blur(24px);
+      box-shadow:0 24px 60px rgba(0,0,0,0.28);
+    }
+    .panel{padding:24px}
+    .panel h1{
+      margin:14px 0 10px;
+      font-size:2rem;
+      line-height:1;
+      letter-spacing:-0.05em;
+    }
+    .panel p{
+      color:var(--muted);
+      line-height:1.7;
+      font-size:0.96rem;
+    }
+    .demo-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(16,185,129,0.1);
+      border:1px solid rgba(16,185,129,0.18);
+      color:#D1FAE5;
+      font-size:0.82rem;
+      font-weight:700;
+      text-transform:uppercase;
+      letter-spacing:0.05em;
+    }
+    .demo-list{
+      display:grid;
+      gap:10px;
+      margin-top:22px;
+    }
+    .demo-item{
+      padding:14px 16px;
+      border-radius:18px;
+      background:rgba(255,255,255,0.04);
+      border:1px solid rgba(255,255,255,0.07);
+    }
+    .demo-item strong{
+      display:block;
+      font-size:0.9rem;
+      margin-bottom:4px;
+    }
+    .demo-item span{
+      display:block;
+      color:var(--muted);
+      line-height:1.55;
+      font-size:0.84rem;
+    }
+    .chat{
+      min-height:78vh;
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
+    }
+    .head{
+      padding:18px 20px;
+      border-bottom:1px solid var(--border);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+    }
+    .head strong{font-size:1rem}
+    .head span{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:7px 12px;
+      border-radius:999px;
+      background:rgba(16,185,129,0.1);
+      border:1px solid rgba(16,185,129,0.18);
+      color:#D1FAE5;
+      font-size:0.8rem;
+      font-weight:700;
+    }
+    .msgs{
+      flex:1;
+      overflow:auto;
+      padding:18px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    .msg{
+      max-width:min(82%, 680px);
+      padding:12px 14px;
+      border-radius:18px;
+      line-height:1.6;
+      font-size:0.95rem;
+      white-space:pre-wrap;
+    }
+    .msg.bot{
+      background:var(--surface);
+      border:1px solid var(--border);
+      border-top-left-radius:6px;
+    }
+    .msg.user{
+      margin-left:auto;
+      color:#111;
+      background:linear-gradient(135deg,var(--amber-strong),var(--amber));
+      border-top-right-radius:6px;
+    }
+    .scenario-bar{
+      padding:14px 16px 6px;
+      border-top:1px solid var(--border);
+    }
+    .scenario-title{
+      margin-bottom:10px;
+      color:var(--muted);
+      font-size:0.84rem;
+      font-weight:700;
+    }
+    .chips{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+    .chips button{
+      border:1px solid var(--border);
+      background:var(--surface-soft);
+      color:var(--text);
+      border-radius:999px;
+      padding:8px 12px;
+      cursor:pointer;
+      font:600 0.82rem "Plus Jakarta Sans",sans-serif;
+    }
+    .composer{
+      display:flex;
+      gap:10px;
+      padding:14px 16px 16px;
+    }
+    .composer input{
+      flex:1;
+      height:50px;
+      padding:0 14px;
+      border-radius:14px;
+      border:1px solid var(--border);
+      background:#0E0E12;
+      color:var(--text);
+      font:500 0.95rem "Plus Jakarta Sans",sans-serif;
+    }
+    .composer button{
+      height:50px;
+      padding:0 18px;
+      border:0;
+      border-radius:14px;
+      background:linear-gradient(135deg,var(--amber),var(--amber-strong));
+      color:#111;
+      font:800 0.9rem "Plus Jakarta Sans",sans-serif;
+      cursor:pointer;
+    }
+    @media (max-width:920px){
+      .wrap{grid-template-columns:1fr}
+    }
+    @media (max-width:640px){
+      .wrap{width:100%;margin:0}
+      .panel,.chat{border-radius:0;border-left:0;border-right:0}
+      .chat{min-height:100vh}
+      .msg{max-width:92%}
+    }
   </style>
 </head>
 <body>
   <main class="wrap">
-    <div class="top">
-      <h1 class="title" data-i18n="demo.title">Live Demo Bot</h1>
-      <p class="sub" data-i18n="demo.subtitle">Try a real conversation. This is a simulation mode and does not create actual reservations.</p>
-    </div>
+    <aside class="panel">
+      <div class="demo-badge" data-i18n="demo.live_badge">Live Demo</div>
+      <h1 data-i18n="demo.title">Live Demo Bot</h1>
+      <p data-i18n="demo.subtitle">Try how your bot would answer in real situations: opening hours, bookings, cancellations, and menu questions.</p>
+      <div class="demo-list">
+        <div class="demo-item">
+          <strong data-i18n="demo.scenario_1_title">Business Hours</strong>
+          <span data-i18n="demo.scenario_1_copy">Visitor asks if the restaurant is open today</span>
+        </div>
+        <div class="demo-item">
+          <strong data-i18n="demo.scenario_2_title">Book for tomorrow</strong>
+          <span data-i18n="demo.scenario_2_copy">Bot continues conversation and finds the best time</span>
+        </div>
+        <div class="demo-item">
+          <strong data-i18n="demo.scenario_3_title">Menu questions</strong>
+          <span data-i18n="demo.scenario_3_copy">When customer asks about vegetarian options</span>
+        </div>
+      </div>
+    </aside>
+
     <section class="chat">
       <div class="head">
         <strong data-i18n="demo.assistant_name">Te Ta AI Assistant</strong>
-        <span class="status" data-i18n="demo.live_badge">Live Demo</span>
+        <span><span style="width:8px;height:8px;border-radius:50%;background:var(--emerald);display:inline-block"></span><span data-i18n="demo.live_badge">Live Demo</span></span>
       </div>
       <div class="msgs" id="msgs"></div>
-      <div class="chips">
-        <button type="button" data-q="Hi, are you open today?" data-i18n="demo.chip_open">Are you open today?</button>
-        <button type="button" data-q="I want a table for 4 tomorrow at 20:00" data-i18n="demo.chip_book">Book tomorrow 20:00</button>
-        <button type="button" data-q="Can I reserve for today at 15:00?" data-i18n="demo.chip_reserve">Reserve today 15:00</button>
+      <div class="scenario-bar">
+        <div class="scenario-title" data-i18n="demo.scenario_bar">5 real scenarios</div>
+        <div class="chips">
+          <button type="button" data-scenario="open" data-i18n="demo.chip_open">Are you open today?</button>
+          <button type="button" data-scenario="tomorrow" data-i18n="demo.chip_tomorrow">Table for 4 tomorrow</button>
+          <button type="button" data-scenario="vegetarian" data-i18n="demo.chip_vegetarian">Vegetarian menu?</button>
+          <button type="button" data-scenario="cancel" data-i18n="demo.chip_cancel">Cancel reservation</button>
+          <button type="button" data-scenario="price" data-i18n="demo.chip_special">Daily special price?</button>
+        </div>
       </div>
       <form class="composer" id="form">
-        <input id="input" autocomplete="off" placeholder="Type your message..." data-i18n-placeholder="demo.input_placeholder" />
+        <input id="input" autocomplete="off" placeholder="Type your message..." data-i18n-placeholder="demo.input_placeholder">
         <button type="submit" data-i18n="demo.send">Send</button>
       </form>
     </section>
   </main>
+
+  <script src="/i18n.js"></script>
   <script>
     const msgs = document.getElementById('msgs');
     const form = document.getElementById('form');
     const input = document.getElementById('input');
     const history = [];
+
+    function getCannedScenarios() {
+      return {
+        open: {
+          user: window.t('demo.chip_open', 'Are you open today?'),
+          bot: window.t('demo.reply_open', "Yes, we're open from 11:00 to 21:00! Would you like to make a reservation?")
+        },
+        tomorrow: {
+          user: window.t('demo.chip_tomorrow', 'Table for 4 tomorrow'),
+          bot: window.t('demo.reply_tomorrow', 'Of course! What time would work for you?')
+        },
+        vegetarian: {
+          user: window.t('demo.chip_vegetarian', 'Vegetarian menu?'),
+          bot: window.t('demo.reply_vegetarian', 'Yes! We have several vegetarian dishes: pasta primavera, seasonal salad, and mushroom risotto.')
+        },
+        cancel: {
+          user: window.t('demo.chip_cancel', 'Cancel reservation'),
+          bot: window.t('demo.reply_cancel', 'Of course. Please share your name or phone number so I can find your reservation.')
+        },
+        price: {
+          user: window.t('demo.chip_special', 'Daily special price?'),
+          bot: window.t('demo.reply_special', "Today's daily special is [dish name] for [price]. Would you like to order it?")
+        }
+      };
+    }
 
     function addMsg(role, text) {
       const div = document.createElement('div');
@@ -65,41 +293,55 @@
       return div;
     }
 
+    function playScenario(key) {
+      const scenario = getCannedScenarios()[key];
+      if (!scenario) return;
+      addMsg('user', scenario.user);
+      addMsg('bot', scenario.bot);
+    }
+
+    function humanizeError(message) {
+      const text = String(message || '').toLowerCase();
+      if (text.includes('network') || text.includes('fetch')) return window.t('microcopy.network_error');
+      if (text.includes('rate')) return window.t('microcopy.rate_limited');
+      return window.t('demo.error_reply', 'Something went wrong. Please try again shortly.');
+    }
+
     async function sendMessage(text) {
-      const clean = (text || '').trim();
+      const clean = String(text || '').trim();
       if (!clean) return;
       addMsg('user', clean);
       history.push({ role: 'user', content: clean });
-      const typing = addMsg('bot', 'Typing...');
+      const typing = addMsg('bot', window.t('demo.typing', 'Typing...'));
       input.value = '';
+
       try {
-        const r = await fetch('/demo/chat', {
+        const response = await fetch('/demo/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: clean, history }),
+          body: JSON.stringify({ message: clean, history })
         });
-        const data = await r.json();
+        const data = await response.json();
         typing.remove();
-        const reply = data.reply || 'I could not respond right now. Please try again.';
+        const reply = data.reply || window.t('demo.error_reply', 'Something went wrong. Please try again shortly.');
         addMsg('bot', reply);
         history.push({ role: 'assistant', content: reply });
-      } catch (_e) {
+      } catch (error) {
         typing.remove();
-        addMsg('bot', 'Connection issue. Please try again.');
+        addMsg('bot', humanizeError(error.message));
       }
     }
 
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
       sendMessage(input.value);
     });
 
-    document.querySelectorAll('[data-q]').forEach((btn) => {
-      btn.addEventListener('click', () => sendMessage(btn.getAttribute('data-q')));
+    document.querySelectorAll('[data-scenario]').forEach((button) => {
+      button.addEventListener('click', () => playScenario(button.getAttribute('data-scenario')));
     });
 
-    addMsg('bot', 'Welcome to Te Ta AI demo. Ask me about opening hours or make a sample reservation.');
+    addMsg('bot', window.t('demo.welcome', 'Welcome to the Te Ta AI demo. Choose a scenario below or type your question.'));
   </script>
-<script src="/i18n.js"></script>
 </body>
 </html>

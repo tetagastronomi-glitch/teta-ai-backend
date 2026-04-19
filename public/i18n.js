@@ -11,18 +11,20 @@
 
 (function() {
   let _locale = {};
-  let _lang = 'sq'; // fallback
+  let _lang = 'en'; // fallback
 
   /**
    * Load locale from /locales/{lang}.json
    * Falls back to Albanian if not found.
    */
-  async function loadLocale(lang) {
+  async function loadLocale(lang, options) {
+    const persist = !options || options.persist !== false;
     try {
       const r = await fetch('/locales/' + lang + '.json');
       if (!r.ok) throw new Error('not found');
       _locale = await r.json();
       _lang = lang;
+      if (persist) localStorage.setItem('tta_lang', lang);
       // RTL support
       if (_locale.dir === 'rtl') {
         document.documentElement.setAttribute('dir', 'rtl');
@@ -32,8 +34,9 @@
         document.documentElement.setAttribute('lang', lang);
       }
       applyTranslations();
+      document.dispatchEvent(new CustomEvent('i18n:ready', { detail: { lang } }));
     } catch (_) {
-      if (lang !== 'sq') await loadLocale('sq');
+      if (lang !== 'en') await loadLocale('en', options);
     }
   }
 
@@ -81,6 +84,12 @@
    */
   window.getLang = function() { return _lang; };
 
+  window.setLang = async function(lang, options) {
+    const supported = ['en','sq','es','pt','tr','de','fr','ar'];
+    const next = supported.includes(lang) ? lang : 'en';
+    await loadLocale(next, options);
+  };
+
   /**
    * Get the AI bot language instruction string.
    */
@@ -94,11 +103,13 @@
    */
   async function init() {
     const stored = localStorage.getItem('tta_lang');
+    const pageDefault = (document.documentElement.getAttribute('lang') || 'en').split('-')[0];
     const browser = (navigator.language || 'sq').split('-')[0];
     const supported = ['en','sq','es','pt','tr','de','fr','ar'];
     const lang = supported.includes(stored) ? stored
+               : supported.includes(pageDefault) ? pageDefault
                : supported.includes(browser) ? browser
-               : 'sq';
+               : 'en';
     await loadLocale(lang);
   }
 

@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Te Ta AI — The Future of Restaurant Reservations</title>
+  <meta name="description" content="AI-powered WhatsApp reservations, CRM, feedback and 24/7 monitoring for restaurants. One-time purchase. Self-hosted. Yours forever." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://tetaai.com/" />
+  <meta property="og:title" content="Te Ta AI — The Future of Restaurant Reservations" />
+  <meta property="og:description" content="AI-powered WhatsApp reservations, CRM, feedback and 24/7 monitoring. One-time purchase." />
+  <meta property="og:image" content="https://tetaai.com/icons/icon-512.png" />
+  <meta property="og:image:width" content="512" />
+  <meta property="og:image:height" content="512" />
+  <meta name="twitter:image" content="https://tetaai.com/icons/icon-512.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="canonical" href="https://tetaai.com/" />
+  <link rel="icon" href="/favicon.ico" />
+  <meta name="theme-color" content="#09090B" />
+  <script src="https://gumroad.com/js/gumroad.js"></script>
+  <script src="/js/theme.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #09090B; --bg2: #111114; --bg3: #18181B;
+      --border: rgba(255,255,255,0.06); --border-h: rgba(255,255,255,0.12);
+      --text: #FAFAFA; --text-dim: #A1A1AA; --text-muted: #71717A;
+      --amber: #F59E0B; --amber-d: #D97706; --amber-l: #FBBF24;
+      --violet: #8B5CF6; --emerald: #10B981; --green: #22C55E; --red: #EF4444;
+      --font: 'Plus Jakarta Sans', system-ui, sans-serif;
+      --mono: 'JetBrains Mono', monospace;
+      --max-w: 1200px;
+      --glass: rgba(255,255,255,0.03);
+      --glass-border: rgba(255,255,255,0.06);
+    }
+    [data-theme="light"] {
+      --bg: #FAFAF8; --bg2: #FFFFFF; --bg3: #F5F5F4;
+      --border: #E7E5E4; --border-h: #D6D3D1;
+      --text: #1A1A18; --text-dim: #57534E; --text-muted: #78716C;
+      --glass: rgba(255,255,255,0.85); --glass-border: #E7E5E4;
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.6; overflow-x: hidden; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; transition: background 0.3s ease, color 0.3s ease; }
+    ::selection { background: rgba(245,158,11,0.3); color: #fff; }
+
+    /* Background effects */
+    .grid-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; background-image: linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px); background-size: 60px 60px; mask-image: radial-gradient(ellipse 80% 60% at 50% 20%, black 20%, transparent 70%); }
+    [data-theme="light"] .grid-bg { background-image: linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px); }
+    .orb { position: fixed; border-radius: 50%; pointer-events: none; z-index: 0; filter: blur(100px); opacity: 0.35; }
+    .orb-1 { width: 500px; height: 500px; top: -150px; left: -50px; background: radial-gradient(circle, rgba(245,158,11,0.12), transparent 70%); animation: orbF 20s ease-in-out infinite; }
+    .orb-2 { width: 400px; height: 400px; top: -80px; right: -100px; background: radial-gradient(circle, rgba(139,92,246,0.1), transparent 70%); animation: orbF 25s ease-in-out infinite reverse; }
+    [data-theme="light"] .orb { opacity: 0.15; }
+    @keyframes orbF { 0%,100%{transform:translate(0,0)} 50%{transform:translate(20px,-30px)} }
+
+    .container { max-width: var(--max-w); margin: 0 auto; padding: 0 1.5rem; position: relative; z-index: 2; }
+    section { padding: 6rem 0; position: relative; z-index: 1; }
+
+    /* Nav */
+    nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: rgba(9,9,11,0.8); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); transition: all 0.3s ease; }
+    [data-theme="light"] nav { background: rgba(250,250,248,0.92); }
+    nav.scrolled { box-shadow: 0 4px 30px rgba(0,0,0,0.2); }
+    nav .inner { max-width: var(--max-w); margin: 0 auto; padding: 0.75rem 1.5rem; display: flex; align-items: center; justify-content: space-between; }
+    .logo { display: flex; align-items: center; gap: 0.5rem; text-decoration: none; color: var(--text); font-size: 1.125rem; font-weight: 800; letter-spacing: -0.03em; }
+    .logo-icon { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, var(--amber-d), var(--amber)); display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 800; color: #000; box-shadow: 0 0 20px rgba(245,158,11,0.2); }
+    nav .links { display: flex; align-items: center; gap: 2rem; }
+    nav .links a { color: var(--text-muted); text-decoration: none; font-size: 0.875rem; font-weight: 500; transition: color 0.2s; }
+    nav .links a:hover { color: var(--text); }
+    .btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1.25rem; border-radius: 10px; font-weight: 600; font-size: 0.875rem; font-family: var(--font); text-decoration: none; cursor: pointer; border: none; transition: all 0.3s ease; position: relative; overflow: hidden; }
+    .btn-primary { background: linear-gradient(135deg, var(--amber-d), var(--amber)); color: #000; box-shadow: 0 0 20px rgba(245,158,11,0.15); }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 0 40px rgba(245,158,11,0.3); }
+    .btn-primary::after { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%); transform: translateX(-100%); transition: transform 0.5s ease; }
+    .btn-primary:hover::after { transform: translateX(100%); }
+    .btn-ghost { background: rgba(255,255,255,0.05); color: var(--text); border: 1px solid var(--border); }
+    [data-theme="light"] .btn-ghost { background: transparent; }
+    .btn-ghost:hover { background: rgba(255,255,255,0.1); border-color: var(--border-h); transform: translateY(-1px); }
+    .btn-lg { padding: 0.875rem 2rem; font-size: 1rem; border-radius: 12px; }
+    .btn-violet { background: linear-gradient(135deg, #7C3AED, var(--violet)); color: #fff; box-shadow: 0 0 20px rgba(139,92,246,0.15); }
+    .btn-violet:hover { transform: translateY(-2px); box-shadow: 0 0 40px rgba(139,92,246,0.3); }
+    .btn-gradient { background: linear-gradient(135deg, var(--amber-d), var(--amber), var(--violet)); color: #000; box-shadow: 0 0 20px rgba(245,158,11,0.15); }
+    .btn-gradient:hover { transform: translateY(-2px); box-shadow: 0 0 40px rgba(245,158,11,0.3); }
+
+    /* Section headers */
+    .section-badge { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.9rem; border-radius: 999px; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 1rem; }
+    .section-title { font-size: clamp(1.75rem, 4vw, 2.5rem); font-weight: 800; letter-spacing: -0.04em; line-height: 1.1; margin-bottom: 1rem; }
+    .section-sub { font-size: 1.05rem; color: var(--text-dim); max-width: 600px; line-height: 1.7; }
+
+    /* ═══ HERO ═══ */
+    .hero { padding: 10rem 0 4rem; min-height: 100vh; display: flex; align-items: center; }
+    .hero-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; }
+
+    /* Hero Left */
+    .hero-badge { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.35rem 1rem; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); border-radius: 999px; font-size: 0.75rem; font-weight: 600; color: var(--emerald); margin-bottom: 1.5rem; }
+    .hero-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--emerald); }
+
+    .hero h1 { font-size: clamp(2.5rem, 5.5vw, 4rem); font-weight: 800; line-height: 1.05; letter-spacing: -0.04em; margin-bottom: 1.5rem; }
+    .rainbow { background: linear-gradient(90deg, #F59E0B, #EF4444, #EC4899, #8B5CF6, #3B82F6, #10B981); background-size: 200% auto; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: rainbowFlow 4s linear infinite; }
+    @keyframes rainbowFlow { to { background-position: 200% center; } }
+
+    .hero-sub { font-size: 1.15rem; color: var(--text-dim); line-height: 1.7; margin-bottom: 1.5rem; max-width: 520px; }
+    .hero-check { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; color: var(--emerald); font-weight: 500; margin-bottom: 2rem; }
+    .hero-btns { display: flex; gap: 1rem; flex-wrap: wrap; }
+
+    /* Hero Right — Dashboard Mockup */
+    .mockup { }
+    .mockup-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 80px rgba(245,158,11,0.05); }
+    [data-theme="light"] .mockup-card { box-shadow: 0 20px 60px rgba(0,0,0,0.08); }
+    .mockup-header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); }
+    .mockup-title { font-size: 0.8rem; font-weight: 700; color: var(--text); }
+    .mockup-date { font-size: 0.7rem; color: var(--text-muted); }
+    .mockup-badge { display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.2rem 0.6rem; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.2); border-radius: 999px; font-size: 0.65rem; font-weight: 600; color: var(--emerald); }
+    .mockup-badge .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--emerald); }
+
+    .mockup-rows { padding: 0.5rem 0; }
+    .mockup-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.625rem 1.25rem; transition: background 0.15s; }
+    .mockup-row:hover { background: rgba(255,255,255,0.02); }
+    [data-theme="light"] .mockup-row:hover { background: rgba(0,0,0,0.02); }
+    .mockup-avatar { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; color: #fff; flex-shrink: 0; }
+    .mockup-info { flex: 1; min-width: 0; }
+    .mockup-name { font-size: 0.8rem; font-weight: 600; color: var(--text); }
+    .mockup-meta { font-size: 0.7rem; color: var(--text-muted); }
+    .mockup-status { padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.6rem; font-weight: 600; flex-shrink: 0; }
+    .st-green { background: rgba(16,185,129,0.1); color: var(--emerald); border: 1px solid rgba(16,185,129,0.2); }
+    .st-amber { background: rgba(245,158,11,0.1); color: var(--amber); border: 1px solid rgba(245,158,11,0.2); }
+
+    /* WhatsApp bubble */
+    .wa-bubble { position: absolute; bottom: -20px; right: -10px; background: #075E54; border-radius: 12px 12px 0 12px; padding: 0.625rem 0.875rem; max-width: 240px; box-shadow: 0 8px 30px rgba(0,0,0,0.3); z-index: 5; }
+    .wa-bubble-text { font-size: 0.75rem; color: #E5E5E5; line-height: 1.4; }
+    .wa-bubble-meta { display: flex; align-items: center; justify-content: flex-end; gap: 0.25rem; margin-top: 0.25rem; }
+    .wa-bubble-time { font-size: 0.6rem; color: rgba(255,255,255,0.5); }
+    .wa-bubble-check { color: #53BDEB; font-size: 0.6rem; }
+    /* Floating stat badge */
+    .float-badge { position: absolute; top: -12px; left: -10px; display: flex; align-items: center; gap: 0.375rem; padding: 0.375rem 0.75rem; background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; font-size: 0.7rem; font-weight: 600; color: var(--amber); box-shadow: 0 4px 20px rgba(0,0,0,0.3); z-index: 5; }
+    [data-theme="light"] .float-badge { background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+
+    /* ═══ STATS ROW ═══ */
+    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; padding: 3rem 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .stat-item { text-align: center; }
+    .stat-num { font-family: var(--mono); font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 700; color: var(--text); letter-spacing: -0.03em; }
+    .stat-label { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem; }
+
+    /* ═══ FEATURES ═══ */
+    .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; }
+    .feature-card { padding: 1.75rem; background: var(--glass); border: 1px solid var(--glass-border); border-radius: 16px; transition: all 0.4s ease; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+    .feature-card:hover { background: rgba(255,255,255,0.05); border-color: var(--border-h); transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.2); }
+    [data-theme="light"] .feature-card:hover { background: #fff; box-shadow: 0 12px 40px rgba(0,0,0,0.06); }
+    .feature-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; font-size: 1.25rem; }
+    .fi-amber { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.2); }
+    .fi-violet { background: rgba(139,92,246,0.1); border: 1px solid rgba(139,92,246,0.2); }
+    .fi-emerald { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.2); }
+    .feature-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.5rem; letter-spacing: -0.02em; }
+    .feature-card p { font-size: 0.85rem; color: var(--text-dim); line-height: 1.6; }
+
+    /* ═══ HOW IT WORKS ═══ */
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; counter-reset: step; }
+    .step { text-align: center; padding: 2rem 1.5rem; position: relative; }
+    .step-num { width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, var(--amber-d), var(--amber)); color: #000; font-family: var(--mono); font-weight: 700; font-size: 1.125rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem; box-shadow: 0 0 30px rgba(245,158,11,0.2); }
+    .step h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem; letter-spacing: -0.02em; }
+    .step p { font-size: 0.875rem; color: var(--text-dim); line-height: 1.6; }
+    .step-line { position: absolute; top: 3.5rem; right: -1rem; width: calc(100% - 3rem); height: 1px; background: linear-gradient(90deg, var(--amber), transparent); opacity: 0.3; }
+    .step:last-child .step-line { display: none; }
+
+    /* ═══ PRICING ═══ */
+    .pricing-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; }
+    .price-card { padding: 2rem 1.5rem; background: var(--glass); border: 1px solid var(--glass-border); border-radius: 16px; display: flex; flex-direction: column; transition: all 0.4s ease; position: relative; backdrop-filter: blur(12px); }
+    .price-card:hover { border-color: var(--border-h); transform: translateY(-4px); }
+    .price-card.popular { border-color: rgba(245,158,11,0.3); box-shadow: 0 0 40px rgba(245,158,11,0.08); }
+    .price-card.popular::before { content: ''; position: absolute; inset: -1px; border-radius: 16px; background: linear-gradient(135deg, rgba(245,158,11,0.2), rgba(139,92,246,0.1), transparent); z-index: -1; }
+    .popular-tag { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); padding: 0.2rem 0.75rem; background: linear-gradient(135deg, var(--amber-d), var(--amber)); border-radius: 999px; font-size: 0.65rem; font-weight: 700; color: #000; letter-spacing: 0.04em; }
+    .best-value-tag { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); padding: 0.2rem 0.75rem; background: linear-gradient(135deg, var(--amber), var(--violet)); border-radius: 999px; font-size: 0.65rem; font-weight: 700; color: #000; letter-spacing: 0.04em; }
+    .price-name { font-size: 0.85rem; font-weight: 700; margin-bottom: 0.75rem; letter-spacing: 0.02em; text-transform: uppercase; color: var(--text-dim); }
+    .price-amount { font-family: var(--mono); font-size: 2.5rem; font-weight: 800; letter-spacing: -0.04em; margin-bottom: 0.25rem; }
+    .price-period { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1.5rem; }
+    .guarantee-badge { display:inline-flex; align-items:center; gap:0.5rem; margin-top:1rem; padding:0.45rem 0.9rem; border-radius:999px; border:1px solid rgba(16,185,129,0.3); background:rgba(16,185,129,0.12); color:#34D399; font-size:0.78rem; font-weight:700; letter-spacing:0.01em; }
+    .price-features { list-style: none; margin-bottom: 2rem; flex: 1; }
+    .price-features li { font-size: 0.8rem; color: var(--text-dim); padding: 0.375rem 0; display: flex; align-items: flex-start; gap: 0.5rem; }
+    .price-features li::before { content: ''; width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; background-size: contain; background-repeat: no-repeat; }
+    .pf-yes::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2310B981'%3E%3Cpath fill-rule='evenodd' d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z' clip-rule='evenodd'/%3E%3C/svg%3E"); }
+    .pf-no::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2371717A'%3E%3Cpath fill-rule='evenodd' d='M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z' clip-rule='evenodd'/%3E%3C/svg%3E"); }
+    .price-btn { width: 100%; padding: 0.75rem; text-align: center; }
+    .price-save { font-size: 0.75rem; color: var(--emerald); font-weight: 600; margin-top: 0.5rem; text-align: center; }
+
+    /* ═══ COMPARISON TABLE ═══ */
+    .comp-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+    .comp-table thead th { padding: 0.875rem 1rem; text-align: center; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02); }
+    [data-theme="light"] .comp-table thead th { background: #F9FAFB; }
+    .comp-table thead th:first-child { text-align: left; }
+    .comp-table thead th.ours { color: var(--amber); background: rgba(245,158,11,0.04); }
+    .comp-table tbody td { padding: 0.75rem 1rem; text-align: center; border-bottom: 1px solid var(--border); color: var(--text-dim); }
+    .comp-table tbody td:first-child { text-align: left; font-weight: 500; color: var(--text); }
+    .comp-table tbody td.ours { background: rgba(245,158,11,0.02); }
+    .comp-table tbody tr:hover td { background: rgba(255,255,255,0.02); }
+    [data-theme="light"] .comp-table tbody tr:hover td { background: rgba(0,0,0,0.02); }
+    .comp-table tbody tr:hover td.ours { background: rgba(245,158,11,0.04); }
+    .comp-table tfoot td { padding: 0.875rem 1rem; font-weight: 700; border-top: 2px solid var(--border); text-align: center; }
+    .comp-table tfoot td:first-child { text-align: left; }
+    .comp-table tfoot td.ours { color: var(--amber); background: rgba(245,158,11,0.04); }
+    .comp-check { color: var(--emerald); font-weight: 700; }
+    .comp-x { color: var(--text-muted); }
+
+    /* ═══ FAQ ═══ */
+    .faq-list { max-width: 700px; margin: 0 auto; }
+    .faq-item { border-bottom: 1px solid var(--border); }
+    .faq-q { display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 0; cursor: pointer; font-size: 0.95rem; font-weight: 600; color: var(--text); transition: color 0.2s; }
+    .faq-q:hover { color: var(--amber); }
+    .faq-arrow { font-size: 1.25rem; color: var(--text-muted); transition: transform 0.3s ease; }
+    .faq-item.open .faq-arrow { transform: rotate(45deg); color: var(--amber); }
+    .faq-a { max-height: 0; overflow: hidden; transition: max-height 0.4s ease, padding 0.4s ease; }
+    .faq-item.open .faq-a { max-height: 300px; padding-bottom: 1.25rem; }
+    .faq-a p { font-size: 0.875rem; color: var(--text-dim); line-height: 1.7; }
+
+    /* ═══ CTA ═══ */
+    .cta-section { text-align: center; padding: 6rem 0 4rem; }
+    .cta-glow { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 600px; height: 300px; background: radial-gradient(ellipse, rgba(245,158,11,0.08), transparent 70%); pointer-events: none; }
+
+    /* ═══ FOOTER ═══ */
+    footer { padding: 3rem 0; border-top: 1px solid var(--border); }
+    footer .inner { max-width: var(--max-w); margin: 0 auto; padding: 0 1.5rem; display: flex; align-items: center; justify-content: space-between; }
+    footer p { font-size: 0.8rem; color: var(--text-muted); }
+    footer .links a { color: var(--text-muted); text-decoration: none; font-size: 0.8rem; margin-left: 1.5rem; transition: color 0.2s; }
+    footer .links a:hover { color: var(--text); }
+
+    /* ═══ SCROLL REVEAL — disabled, all sections visible immediately ═══ */
+    .reveal { opacity: 1 !important; transform: none !important; }
+
+    /* ═══ RESPONSIVE ═══ */
+    @media (max-width: 1024px) {
+      .hero-grid { grid-template-columns: 1fr; gap: 3rem; text-align: center; }
+      .hero-sub, .hero-check, .hero-btns { justify-content: center; margin-left: auto; margin-right: auto; }
+      .hero-check { justify-content: center; }
+      .pricing-grid { grid-template-columns: repeat(2, 1fr); }
+      .features-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 768px) {
+      .hero { padding: 7rem 0 3rem; min-height: auto; }
+      .hero h1 { font-size: 2.25rem; }
+      .stats-row { grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+      .steps { grid-template-columns: 1fr; gap: 1.5rem; }
+      .step-line { display: none; }
+      nav .links { display: none; }
+      .comp-table { font-size: 0.7rem; }
+      .comp-table thead th, .comp-table tbody td, .comp-table tfoot td { padding: 0.5rem; }
+    }
+    @media (max-width: 640px) {
+      .pricing-grid { grid-template-columns: 1fr; max-width: 400px; margin: 0 auto; }
+      .features-grid { grid-template-columns: 1fr; }
+      .hero-btns { flex-direction: column; align-items: stretch; }
+      .btn-lg { text-align: center; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+<div class="grid-bg"></div>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<!-- ═══ NAV ═══ -->
+<nav id="nav">
+  <div class="inner">
+    <a href="/" class="logo"><div class="logo-icon">TT</div> Te Ta AI</a>
+    <div class="links">
+      <a href="#features">Features</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#faq">FAQ</a>
+      <button id="tt-theme-toggle" aria-label="Toggle theme" style="background:none;border:1px solid var(--border);border-radius:8px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-dim);transition:all 0.2s;padding:0;" onclick="window.ttTheme&&window.ttTheme.toggle()"></button>
+      <a href="https://tetagastro.gumroad.com/l/teta-pro" class="btn btn-primary" target="_blank">Get Started</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══ HERO ═══ -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-grid">
+      <!-- LEFT -->
+      <div>
+        <div class="hero-badge"><span class="dot"></span> AI-POWERED RESERVATIONS</div>
+        <h1>Stop answering <span class="rainbow">WhatsApp</span> manually.</h1>
+        <p class="hero-sub">AI that handles WhatsApp, Instagram, and web reservations 24/7. Pay once &mdash; yours forever. Built by a restaurant owner who had the same problem you have.</p>
+        <div class="hero-check">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="#10B981"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          One-time payment. No subscription. No hidden fees.
+        </div>
+        <div class="hero-btns">
+          <a href="https://tetagastro.gumroad.com/l/teta-pro" class="btn btn-primary btn-lg" target="_blank">Get Te Ta AI &mdash; $82 &rarr;</a>
+          <a href="/demo" class="btn btn-ghost btn-lg">&#9654; Try Live Demo</a>
+        </div>
+      </div>
+
+      <!-- RIGHT — Dashboard Mockup -->
+      <div class="mockup" style="position:relative;">
+        <div class="float-badge">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          15+ HOURS SAVED / WEEK
+        </div>
+        <div class="mockup-card">
+          <div class="mockup-header">
+            <div>
+              <div class="mockup-title">Today's Reservations</div>
+              <div class="mockup-date">Sunday, April 6, 2026</div>
+            </div>
+            <div class="mockup-badge"><span class="dot"></span> 12 CONFIRMED</div>
+          </div>
+          <div class="mockup-rows">
+            <div class="mockup-row">
+              <div class="mockup-avatar" style="background:linear-gradient(135deg,#F59E0B,#D97706)">AR</div>
+              <div class="mockup-info">
+                <div class="mockup-name">Alex Rivera</div>
+                <div class="mockup-meta">19:30 &bull; 4 guests</div>
+              </div>
+              <span class="mockup-status st-green">Confirmed</span>
+            </div>
+            <div class="mockup-row">
+              <div class="mockup-avatar" style="background:linear-gradient(135deg,#8B5CF6,#7C3AED)">SC</div>
+              <div class="mockup-info">
+                <div class="mockup-name">Sarah Chen</div>
+                <div class="mockup-meta">20:00 &bull; 2 guests</div>
+              </div>
+              <span class="mockup-status st-green">Confirmed</span>
+            </div>
+            <div class="mockup-row">
+              <div class="mockup-avatar" style="background:linear-gradient(135deg,#10B981,#059669)">MK</div>
+              <div class="mockup-info">
+                <div class="mockup-name">Maria Kim</div>
+                <div class="mockup-meta">20:30 &bull; 6 guests</div>
+              </div>
+              <span class="mockup-status st-amber">Pending</span>
+            </div>
+          </div>
+        </div>
+        <div class="wa-bubble">
+          <div class="wa-bubble-text">Hi, do you have a table for 4 tonight at 8pm?</div>
+          <div class="wa-bubble-meta">
+            <span class="wa-bubble-time">19:42</span>
+            <span class="wa-bubble-check">&#10003;&#10003;</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ STATS ROW ═══ -->
+<section style="padding:0;">
+  <div class="container">
+    <div class="stats-row reveal">
+      <div class="stat-item">
+        <div class="stat-num">&#127758;</div>
+        <div class="stat-label">Built for Restaurants Worldwide</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num">15+</div>
+        <div class="stat-label">Hours Saved Weekly</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num">3min</div>
+        <div class="stat-label">Setup Time</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num">$0/mo</div>
+        <div class="stat-label">No Subscription</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FEATURES ═══ -->
+<section id="features">
+  <div class="container">
+    <div style="text-align:center; margin-bottom:3rem;" class="reveal">
+      <div class="section-badge" style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);color:var(--amber);">FEATURES</div>
+      <h2 class="section-title">Everything your restaurant needs</h2>
+      <p class="section-sub" style="margin:0 auto;">From AI reservations to smart CRM, Jerry guardian agent, and multi-channel support.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card reveal">
+        <div class="feature-icon fi-amber">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        </div>
+        <h3>WhatsApp AI Bot</h3>
+        <p>Customers message on WhatsApp, AI handles everything — reservations, confirmations, cancellations. 24/7.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon fi-violet">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        </div>
+        <h3>Multi-Channel</h3>
+        <p>WhatsApp, Instagram DM, Facebook Messenger, Web Chat, Google Business — all in one unified inbox.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon fi-emerald">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        </div>
+        <h3>Smart CRM</h3>
+        <p>Guest profiles with visit history, preferences, allergies, VIP auto-tagging. Know your customers.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon fi-violet">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <h3>Jerry AI Guardian</h3>
+        <p>24/7 AI monitoring. Detects anomalies, sends alerts, auto-closes expired reservations. Your silent partner.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon fi-amber">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+        </div>
+        <h3>Floor Plan & Tables</h3>
+        <p>Visual table management. Assign reservations to specific tables. Track capacity in real-time.</p>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon fi-emerald">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+        </div>
+        <h3>AI Waiter</h3>
+        <p>Digital menu, pre-ordering, and in-restaurant AI waiter. Guests order before arriving.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ HOW IT WORKS ═══ -->
+<section id="how" style="padding-top:4rem;">
+  <div class="container">
+    <div style="text-align:center; margin-bottom:3rem;" class="reveal">
+      <div class="section-badge" style="background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.2);color:var(--violet);">HOW IT WORKS</div>
+      <h2 class="section-title">Live in 5 minutes</h2>
+      <p class="section-sub" style="margin:0 auto;">No technical skills needed. Jerry guides you through everything.</p>
+    </div>
+    <div class="steps reveal">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3>Buy & Deploy</h3>
+        <p>Purchase your license. Deploy to Railway, Render, or your own server with one click.</p>
+        <div class="step-line"></div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3>Setup Wizard</h3>
+        <p>Jerry walks you through: AI provider, restaurant details, WhatsApp connection. 3 steps.</p>
+        <div class="step-line"></div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3>Go Live</h3>
+        <p>Your AI bot starts handling reservations on WhatsApp, Instagram, and web. You focus on cooking.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ PRICING ═══ -->
+<section id="pricing">
+  <div class="container">
+    <div style="text-align:center; margin-bottom:3rem;" class="reveal">
+      <div class="section-badge" style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);color:var(--emerald);">PRICING</div>
+      <h2 class="section-title">One-time payment. Yours forever.</h2>
+      <p class="section-sub" style="margin:0 auto;">No monthly fees. No per-seat pricing. No surprises. Just your AI restaurant platform.</p>
+      <div class="guarantee-badge">✓ 14-Day Money-Back Guarantee</div>
+    </div>
+    <div class="pricing-grid reveal">
+      <!-- STARTER -->
+      <div class="price-card">
+        <div class="price-name">Starter</div>
+        <div class="price-amount"><span style="text-decoration:line-through;font-size:0.5em;color:var(--text-muted,rgba(255,255,255,0.3));vertical-align:middle;">$69</span> $46</div>
+        <div class="price-period">One-time payment</div>
+        <ul class="price-features">
+          <li class="pf-yes">WhatsApp AI Bot</li>
+          <li class="pf-yes">Restaurant Dashboard</li>
+          <li class="pf-yes">CRM & Guest Profiles</li>
+          <li class="pf-yes">Feedback Collection</li>
+          <li class="pf-yes">Jerry AI Guardian</li>
+          <li class="pf-yes">Multi-Language (8)</li>
+          <li class="pf-yes">Setup Wizard</li>
+          <li class="pf-no">Multi-Channel</li>
+          <li class="pf-no">AI Waiter</li>
+        </ul>
+        <a href="https://tetagastro.gumroad.com/l/teta-starter" class="btn btn-ghost price-btn" target="_blank">Get Starter &rarr;</a>
+      </div>
+
+      <!-- PRO -->
+      <div class="price-card popular">
+        <div class="popular-tag">MOST POPULAR</div>
+        <div class="price-name">Pro</div>
+        <div class="price-amount"><span style="text-decoration:line-through;font-size:0.5em;color:var(--text-muted,rgba(255,255,255,0.3));vertical-align:middle;">$149</span> $82</div>
+        <div class="price-period">One-time payment</div>
+        <ul class="price-features">
+          <li class="pf-yes">Everything in Starter</li>
+          <li class="pf-yes">Instagram DM Bot</li>
+          <li class="pf-yes">Messenger Bot</li>
+          <li class="pf-yes">Web Chat Widget</li>
+          <li class="pf-yes">Google Business</li>
+          <li class="pf-yes">AI Waiter</li>
+          <li class="pf-yes">Voice Reservations</li>
+          <li class="pf-yes">No-Show Prediction</li>
+          <li class="pf-yes">Advanced Marketing</li>
+        </ul>
+        <a href="https://tetagastro.gumroad.com/l/teta-pro" class="btn btn-primary price-btn" target="_blank">Get Pro &rarr;</a>
+      </div>
+
+      <!-- ENTERPRISE -->
+      <div class="price-card">
+        <div class="best-value-tag">BEST VALUE</div>
+        <div class="price-name">Enterprise</div>
+        <div class="price-amount"><span style="text-decoration:line-through;font-size:0.5em;color:var(--text-muted,rgba(255,255,255,0.3));vertical-align:middle;">$228</span> $190</div>
+        <div class="price-period">One-time payment</div>
+        <ul class="price-features">
+          <li class="pf-yes">Everything in Pro</li>
+          <li class="pf-yes">Floor Plan & Tables</li>
+          <li class="pf-yes">Menu Management</li>
+          <li class="pf-yes">Virtual Waitlist</li>
+          <li class="pf-yes">Guest 360&deg; Profiles</li>
+          <li class="pf-yes">Pre-Order System</li>
+          <li class="pf-yes">API Access</li>
+          <li class="pf-yes">Priority Support</li>
+          <li class="pf-yes">Future Updates Free</li>
+        </ul>
+        <a href="https://tetagastro.gumroad.com/l/teta-enterprise" class="btn btn-gradient price-btn" target="_blank">Get Enterprise &rarr;</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ COMPARISON ═══ -->
+<section>
+  <div class="container">
+    <div style="text-align:center; margin-bottom:3rem;" class="reveal">
+      <h2 class="section-title">How we compare</h2>
+      <p class="section-sub" style="margin:0 auto;">The same features at a fraction of the cost. No monthly lock-in.</p>
+    </div>
+    <div style="border:1px solid var(--border); border-radius:16px; overflow:hidden;" class="reveal">
+      <table class="comp-table">
+        <thead>
+          <tr>
+            <th>Feature</th>
+            <th class="ours">Te Ta AI</th>
+            <th>OpenTable</th>
+            <th>SevenRooms</th>
+            <th>Botsify</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>AI Reservations</td>
+            <td class="ours comp-check">&#10003;</td>
+            <td class="comp-x">&#10007;</td>
+            <td class="comp-check">&#10003;</td>
+            <td class="comp-check">&#10003;</td>
+          </tr>
+          <tr>
+            <td>WhatsApp Bot</td>
+            <td class="ours comp-check">&#10003;</td>
+            <td class="comp-x">&#10007;</td>
+            <td class="comp-x">&#10007;</td>
+            <td class="comp-check">&#10003;</td>
+          </tr>
+          <tr>
+            <td>Multi-Channel</td>
+            <td class="ours comp-check">&#10003;</td>
+            <td class="comp-x">&#10007;</td>
+            <td class="comp-check">&#10003;</td>
+            <td class="comp-check">&#10003;</td>
+          </tr>
+          <tr>
+            <td>CRM & Guest Profiles</td>
+            <td class="ours comp-check">&#10003;</td>
+            <td class="comp-check">&#10003;</td>
+            <td class="comp-check">&#10003;</td>
+            <td class="comp-x">&#10007;</td>
+          </tr>
+          <tr>
+            <td>Self-Hosted</td>
+            <td class="ours comp-check">&#10003;</td>
+            <td class="comp-x">&#10007;</td>
+            <td class="comp-x">&#10007;</td>
+            <td class="comp-x">&#10007;</td>
+          </tr>
+          <tr>
+            <td>AI Guardian Agent</td>
+            <td class="ours comp-check">&#10003;</td>
+            <td class="comp-x">&#10007;</td>
+            <td class="comp-x">&#10007;</td>
+            <td class="comp-x">&#10007;</td>
+          </tr>
+          <tr>
+            <td>Floor Plan</td>
+            <td class="ours comp-check">&#10003;</td>
+            <td class="comp-check">&#10003;</td>
+            <td class="comp-check">&#10003;</td>
+            <td class="comp-x">&#10007;</td>
+          </tr>
+          <tr>
+            <td>One-Time Payment</td>
+            <td class="ours comp-check">&#10003;</td>
+            <td class="comp-x">&#10007;</td>
+            <td class="comp-x">&#10007;</td>
+            <td class="comp-x">&#10007;</td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td>Price</td>
+            <td class="ours">$46 once</td>
+            <td>$149/mo</td>
+            <td>$500+/mo</td>
+            <td>$19/mo</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FAQ ═══ -->
+<section id="faq">
+  <div class="container">
+    <div style="text-align:center; margin-bottom:3rem;" class="reveal">
+      <div class="section-badge" style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);color:var(--amber);">FAQ</div>
+      <h2 class="section-title">Frequently asked questions</h2>
+    </div>
+    <div class="faq-list reveal">
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          What AI providers do you support?
+          <span class="faq-arrow">+</span>
+        </div>
+        <div class="faq-a"><p>We support Anthropic (Claude), OpenAI (GPT-4), and Google Gemini. You choose your provider during setup and can switch anytime. You bring your own API key — costs are typically $2-5/month depending on volume.</p></div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          Is there a monthly fee?
+          <span class="faq-arrow">+</span>
+        </div>
+        <div class="faq-a"><p>No. Te Ta AI is a one-time purchase. The only recurring cost is your AI API usage (typically $2-5/month) and hosting (Railway free tier or ~$5/month). No hidden fees, no per-seat pricing, no surprises.</p></div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          Can I use it with Instagram and Messenger?
+          <span class="faq-arrow">+</span>
+        </div>
+        <div class="faq-a"><p>Yes! The Pro plan includes Instagram DM, Facebook Messenger, Web Chat widget, and Google Business Messages — all feeding into one unified inbox. The Starter plan includes WhatsApp only.</p></div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          How long does setup take?
+          <span class="faq-arrow">+</span>
+        </div>
+        <div class="faq-a"><p>About 5 minutes. Our setup wizard (guided by Jerry, your AI assistant) walks you through 3 simple steps: choose your AI provider, enter restaurant details, and connect WhatsApp. No coding required.</p></div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          Do I need technical knowledge?
+          <span class="faq-arrow">+</span>
+        </div>
+        <div class="faq-a"><p>No. We offer one-click deploy to Railway, Docker support, and a step-by-step setup wizard. If you can click a button, you can run Te Ta AI. Our INSTALL guide covers everything.</p></div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          Can I use it for multiple restaurants?
+          <span class="faq-arrow">+</span>
+        </div>
+        <div class="faq-a"><p>Yes, unlimited. The platform supports multi-tenant architecture. Each restaurant gets its own dashboard, settings, and bot. One license covers all your locations.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ TESTIMONIAL ═══ -->
+<section style="padding: 4rem 0 0;">
+  <div class="container">
+    <div class="reveal" style="max-width: 760px; margin: 0 auto; padding: 2.5rem 2rem; border: 1px solid rgba(245,158,11,0.22); border-radius: 24px; background: linear-gradient(180deg, rgba(245,158,11,0.06), rgba(245,158,11,0.02)); text-align: center;">
+      <div style="font-size: 2.2rem; line-height: 1; color: #F59E0B; margin-bottom: 1rem;">&ldquo;</div>
+      <p style="font-size: 1.2rem; line-height: 1.6; font-weight: 500; color: var(--text); margin: 0 0 1.25rem;">Te Ta AI handles 90% of our WhatsApp reservations automatically. We saved 3 hours/day.</p>
+      <div style="font-size: 0.95rem; color: var(--text-dim); font-weight: 600;">&mdash; Te Ta Gastronomi, Albania</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ CTA ═══ -->
+<section class="cta-section">
+  <div class="container" style="position:relative;">
+    <div class="cta-glow"></div>
+    <div class="reveal" style="position:relative; z-index:2;">
+      <h2 class="section-title">Ready to transform your restaurant?</h2>
+      <p class="section-sub" style="margin:0 auto 2rem;">Replace $299/month tools with a one-time $82 AI platform. Self-hosted. Yours forever.</p>
+      <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap;">
+        <a href="https://tetagastro.gumroad.com/l/teta-pro" class="btn btn-primary btn-lg" target="_blank">Get Te Ta AI &mdash; $82 &rarr;</a>
+        <a href="/demo" class="btn btn-ghost btn-lg">Try Live Demo</a>
+        <a href="https://wa.me/355693720144" class="btn btn-ghost btn-lg" target="_blank">Talk to Us</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FOOTER ═══ -->
+<footer>
+  <div class="inner">
+    <p>&copy; 2026 Te Ta AI &mdash; Built in Albania</p>
+    <div class="links">
+      <a href="https://github.com/tetagastronomi-glitch" target="_blank">GitHub</a>
+      <a href="mailto:support@teta-ai.com">Contact</a>
+      <a href="/privacy.html">Privacy Policy</a>
+      <a href="/terms.html">Terms of Service</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+// Nav scroll effect
+var navEl = document.getElementById('nav');
+window.addEventListener('scroll', function() {
+  navEl.classList.toggle('scrolled', window.scrollY > 20);
+});
+
+// Scroll reveal disabled — all sections visible immediately
+
+// Animated counters
+function animateCounters() {
+  var nums = document.querySelectorAll('.stat-num[data-count]');
+  nums.forEach(function(el) {
+    var target = parseInt(el.getAttribute('data-count'));
+    var duration = 2000;
+    var start = 0;
+    var startTime = null;
+    function step(timestamp) {
+      if (!startTime) startTime = timestamp;
+      var progress = Math.min((timestamp - startTime) / duration, 1);
+      var eased = 1 - Math.pow(1 - progress, 3);
+      var current = Math.floor(eased * target);
+      el.textContent = current.toLocaleString() + '+';
+      if (progress < 1) requestAnimationFrame(step);
+    }
+    var io = new IntersectionObserver(function(entries) {
+      if (entries[0].isIntersecting) {
+        requestAnimationFrame(step);
+        io.unobserve(el);
+      }
+    }, { threshold: 0.5 });
+    io.observe(el);
+  });
+}
+animateCounters();
+
+// Smooth scroll for anchor links
+document.querySelectorAll('a[href^="#"]').forEach(function(a) {
+  a.addEventListener('click', function(e) {
+    var target = document.querySelector(this.getAttribute('href'));
+    if (target) {
+      e.preventDefault();
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
+});
+
+// ═══ THEME TOGGLE ═══
+window.ttTheme = (function() {
+  var html = document.documentElement;
+  var btn = document.getElementById('tt-theme-toggle');
+  var stored = localStorage.getItem('tta_theme');
+  var isDark = stored ? stored === 'dark' : true;
+
+  function apply() {
+    html.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    if (btn) btn.innerHTML = isDark
+      ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>'
+      : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>';
+  }
+
+  apply();
+  return {
+    toggle: function() {
+      isDark = !isDark;
+      localStorage.setItem('tta_theme', isDark ? 'dark' : 'light');
+      apply();
+    }
+  };
+})();
+</script>
+<script>
+// ═══ DEMO CHAT WIDGET (no backend needed) ═══
+(function () {
+  if (window.__ttaDemoWidgetMounted) return;
+  window.__ttaDemoWidgetMounted = true;
+
+  var responses = [
+    { match: /table|book|reserv|seat/i, reply: "Of course! For how many guests and what time would you like?" },
+    { match: /(\d+)\s*(people|person|guest|pax)/i, reply: "Great! What time works for you?" },
+    { match: /(\d{1,2})[:\.]?(\d{2})?\s*(pm|am)?/i, reply: "Perfect! I've noted your preferred time. In the full version, this would be a confirmed reservation sent straight to the restaurant dashboard." },
+    { match: /open|hour|when|schedule/i, reply: "We're open Monday to Saturday, 11:00 AM - 11:00 PM, and Sunday 12:00 PM - 10:00 PM." },
+    { match: /menu|food|dish|eat|special/i, reply: "Our menu features Mediterranean cuisine with daily specials. In the full version, I can show you the interactive digital menu!" },
+    { match: /cancel|change|modify/i, reply: "No problem! In the full version, I handle cancellations and modifications instantly via WhatsApp." },
+    { match: /price|cost|how much|pay/i, reply: "Te Ta AI starts at just $46 one-time. No monthly fees, no hidden costs. Your AI assistant works 24/7 forever." },
+    { match: /hi|hello|hey|hej|pershendetje|mir/i, reply: "Hello! Welcome to Te Ta AI demo. Try asking me to book a table or check our opening hours!" },
+    { match: /whatsapp|instagram|messenger/i, reply: "In the full version, I handle reservations on WhatsApp, Instagram DM, Messenger, and Web Chat — all in one unified inbox." },
+    { match: /thank|faleminderit/i, reply: "You're welcome! Remember, in the full version I work 24/7 handling real reservations on WhatsApp." }
+  ];
+  var fallback = "I'd love to help! In the full version, I handle real reservations on WhatsApp, Instagram, and web 24/7. Try asking: 'Book a table for 4' or 'Are you open today?'";
+
+  var style = document.createElement('style');
+  style.textContent = '#tta-demo-root{position:fixed;right:18px;bottom:18px;z-index:99999;font-family:"Plus Jakarta Sans",system-ui,sans-serif}#tta-demo-bubble{width:58px;height:58px;border:none;border-radius:999px;cursor:pointer;font-size:22px;background:linear-gradient(135deg,#D97706,#F59E0B);box-shadow:0 14px 35px rgba(0,0,0,.45)}#tta-demo-panel{display:none;position:absolute;right:0;bottom:70px;width:360px;height:520px;background:#0B0B0E;border:1px solid rgba(255,255,255,.08);border-radius:16px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.55)}#tta-demo-panel.open{display:flex;flex-direction:column}#tta-demo-head{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.08);color:#FAFAFA}#tta-demo-head button{background:transparent;color:#A1A1AA;border:none;cursor:pointer;font-size:18px}#tta-demo-msgs{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:8px}#tta-demo-msgs::-webkit-scrollbar{width:4px}#tta-demo-msgs::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}.tta-demo-msg{max-width:82%;padding:9px 11px;border-radius:11px;font-size:13px;line-height:1.45;white-space:pre-wrap}.tta-demo-msg.bot{color:#FAFAFA;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);align-self:flex-start}.tta-demo-msg.user{color:#111;background:linear-gradient(135deg,#D97706,#F59E0B);align-self:flex-end}#tta-demo-form{display:flex;gap:8px;padding:10px;border-top:1px solid rgba(255,255,255,.08)}#tta-demo-input{flex:1;background:#09090B;color:#FAFAFA;border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:9px 10px;outline:none}#tta-demo-input:focus{border-color:rgba(245,158,11,.4)}#tta-demo-send{border:none;border-radius:10px;padding:9px 12px;cursor:pointer;font-weight:700;background:linear-gradient(135deg,#D97706,#F59E0B);color:#111}@media(max-width:520px){#tta-demo-root{right:10px;bottom:10px}#tta-demo-panel{position:fixed;left:10px;right:10px;bottom:76px;width:auto;height:62vh}}';
+  document.head.appendChild(style);
+
+  var root = document.createElement('div');
+  root.id = 'tta-demo-root';
+  root.innerHTML = '<div id="tta-demo-panel"><div id="tta-demo-head"><strong>Live Demo Bot</strong><button type="button" id="tta-demo-close">&times;</button></div><div id="tta-demo-msgs"></div><form id="tta-demo-form"><input id="tta-demo-input" placeholder="Ask the bot..." autocomplete="off" /><button id="tta-demo-send" type="submit">Send</button></form></div><button id="tta-demo-bubble" aria-label="Open demo chat">&#128172;</button>';
+  document.body.appendChild(root);
+
+  var panel = document.getElementById('tta-demo-panel');
+  var bubble = document.getElementById('tta-demo-bubble');
+  var closeBtn = document.getElementById('tta-demo-close');
+  var form = document.getElementById('tta-demo-form');
+  var input = document.getElementById('tta-demo-input');
+  var msgs = document.getElementById('tta-demo-msgs');
+
+  function add(role, text) {
+    var d = document.createElement('div');
+    d.className = 'tta-demo-msg ' + role;
+    d.textContent = text;
+    msgs.appendChild(d);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+
+  function getReply(text) {
+    for (var i = 0; i < responses.length; i++) {
+      if (responses[i].match.test(text)) return responses[i].reply;
+    }
+    return fallback;
+  }
+
+  bubble.addEventListener('click', function () {
+    panel.classList.toggle('open');
+    if (panel.classList.contains('open') && msgs.children.length === 0) {
+      add('bot', 'Welcome! Try asking me to book a table, check opening hours, or anything about the restaurant.');
+    }
+  });
+  closeBtn.addEventListener('click', function () { panel.classList.remove('open'); });
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var text = input.value.trim();
+    if (!text) return;
+    add('user', text);
+    input.value = '';
+    var typing = document.createElement('div');
+    typing.className = 'tta-demo-msg bot';
+    typing.textContent = 'Typing...';
+    msgs.appendChild(typing);
+    msgs.scrollTop = msgs.scrollHeight;
+    setTimeout(function() {
+      typing.remove();
+      add('bot', getReply(text));
+    }, 600 + Math.random() * 800);
+  });
+})();
+</script>
+</body>
+</html>

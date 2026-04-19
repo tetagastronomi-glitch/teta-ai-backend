@@ -1,174 +1,71 @@
 <!DOCTYPE html>
-<html lang="sq">
+<html lang="en" data-theme="dark">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Te Ta AI — Dashboard Pronari</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root {
-      --primary: #b45309;
-      --primary-light: #d97706;
-      --bg: #fafaf8;
-      --surface: #ffffff;
-      --border: #e7e5e4;
-      --border2: #d6d3d1;
-      --text: #1a1a18;
-      --text2: #57534e;
-      --text3: #78716c;
-      --error: #ef4444;
-      --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    }
-    body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
-
-    nav { position: sticky; top: 0; z-index: 100; background: rgba(250,250,248,0.92); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); padding: 0 24px; }
-    .nav-inner { max-width: 1100px; margin: 0 auto; height: 60px; display: flex; align-items: center; justify-content: space-between; }
-    .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
-    .nav-logo-icon { width: 34px; height: 34px; background: linear-gradient(135deg, var(--primary), var(--primary-light)); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 0.78rem; letter-spacing: -0.5px; }
-    .nav-logo-text { font-weight: 700; font-size: 1rem; color: var(--text); letter-spacing: -0.3px; }
-    .nav-back { display: flex; align-items: center; gap: 6px; color: var(--text2); text-decoration: none; font-size: 0.875rem; font-weight: 500; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border); transition: border-color 0.15s, color 0.15s; }
-    .nav-back:hover { border-color: var(--border2); color: var(--text); }
-
-    main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 48px 24px; }
-
-    .login-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; box-shadow: 0 4px 24px rgba(0,0,0,0.07); padding: 44px 40px; width: 100%; max-width: 420px; }
-    .card-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; justify-content: center; }
-    .card-logo-icon { width: 40px; height: 40px; background: linear-gradient(135deg, var(--primary), var(--primary-light)); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 0.9rem; }
-    .card-logo-text { font-weight: 700; font-size: 1.15rem; color: var(--text); letter-spacing: -0.4px; }
-
-    h2 { font-size: 1.5rem; font-weight: 600; text-align: center; letter-spacing: -0.5px; margin-bottom: 8px; }
-    .subtitle { font-size: 0.9375rem; color: var(--text2); text-align: center; margin-bottom: 32px; }
-
-    .pin-input {
-      width: 100%;
-      padding: 16px 18px;
-      border: 1.5px solid var(--border2);
-      border-radius: 12px;
-      font-size: 2rem;
-      font-family: var(--font);
-      font-weight: 700;
-      color: var(--text);
-      background: var(--bg);
-      outline: none;
-      text-align: center;
-      letter-spacing: 1rem;
-      transition: border-color 0.15s, box-shadow 0.15s;
-      margin-bottom: 14px;
-    }
-    .pin-input::placeholder { font-size: 1.5rem; letter-spacing: 0.5rem; color: var(--border2); font-weight: 400; }
-    .pin-input:focus { border-color: var(--primary); background: var(--surface); box-shadow: 0 0 0 3px rgba(180,83,9,0.08); }
-
-    .login-btn { width: 100%; padding: 14px; background: linear-gradient(135deg, var(--primary), var(--primary-light)); color: #fff; border: none; border-radius: 10px; font-size: 0.9375rem; font-weight: 600; font-family: var(--font); cursor: pointer; transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s; }
-    .login-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(180,83,9,0.28); }
-    .login-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-
-    #loginErr { display: none; color: var(--error); font-size: 0.875rem; text-align: center; margin-top: 12px; padding: 10px 14px; background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; }
-
-    .contact-note { text-align: center; font-size: 0.8125rem; color: var(--text3); margin-top: 20px; }
-    .contact-note a { color: var(--primary); text-decoration: none; font-weight: 500; }
-    .contact-note a:hover { text-decoration: underline; }
-
-    footer { padding: 20px 24px; text-align: center; border-top: 1px solid var(--border); }
-    .footer-copy { font-size: 0.8rem; color: var(--text3); }
-
-    @media (max-width: 480px) { .login-card { padding: 32px 24px; } }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Te Ta AI — Sign In</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/owner-light.css">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#09090B;--surface:rgba(255,255,255,0.03);--border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.12);--text:#FAFAFA;--text2:rgba(255,255,255,0.5);--text3:rgba(255,255,255,0.3);--amber:#F59E0B;--amber2:#D97706;--emerald:#10B981;--red:#EF4444;--font:'Plus Jakarta Sans',sans-serif;--mono:'JetBrains Mono',monospace}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 600px 400px at 70% 20%,rgba(245,158,11,0.06),transparent),radial-gradient(ellipse 500px 500px at 20% 80%,rgba(139,92,246,0.04),transparent);pointer-events:none}
+.grid-bg{position:fixed;inset:0;background-image:linear-gradient(rgba(255,255,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.02) 1px,transparent 1px);background-size:64px 64px}
+.wrapper{position:relative;z-index:1;width:100%;max-width:400px;padding:0 24px}
+.logo{display:flex;align-items:center;gap:12px;justify-content:center;margin-bottom:48px}
+.logo-icon{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,var(--amber),var(--amber2));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:#fff;box-shadow:0 0 40px rgba(245,158,11,0.2)}
+.logo-text{font-size:26px;font-weight:800;letter-spacing:-0.5px}.logo-text span{color:var(--amber)}
+.card{background:var(--surface);backdrop-filter:blur(40px);border:1px solid var(--border);border-radius:24px;padding:44px 40px;box-shadow:0 0 80px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.04);text-align:center}
+h2{font-size:22px;font-weight:700;margin-bottom:6px}
+.subtitle{font-size:14px;color:var(--text2);margin-bottom:36px}
+.pin-group{display:flex;gap:14px;justify-content:center;margin-bottom:28px}
+.pin-box{width:68px;height:78px;background:rgba(255,255,255,0.04);border:1.5px solid var(--border2);border-radius:16px;text-align:center;font-size:32px;font-weight:800;font-family:var(--mono);color:var(--text);outline:none;transition:all 0.2s;caret-color:var(--amber)}
+.pin-box:focus{border-color:var(--amber);box-shadow:0 0 24px rgba(245,158,11,0.15);background:rgba(245,158,11,0.04)}
+.pin-box::placeholder{color:var(--text3);font-size:28px}
+.btn{width:100%;padding:16px;border:none;border-radius:14px;font-size:16px;font-weight:700;font-family:var(--font);cursor:pointer;transition:all 0.25s;background:linear-gradient(135deg,var(--amber),var(--amber2));color:#fff;box-shadow:0 4px 20px rgba(245,158,11,0.2)}
+.btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(245,158,11,0.3)}
+.btn:active{transform:translateY(0)}
+.error-msg{display:none;margin-top:18px;padding:12px 16px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.15);border-radius:12px;color:var(--red);font-size:13px;animation:shake 0.4s ease}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+.secure-badge{display:flex;align-items:center;gap:6px;justify-content:center;margin-top:22px;font-size:11px;font-family:var(--mono);color:var(--emerald);letter-spacing:0.05em;text-transform:uppercase}
+.secure-dot{width:6px;height:6px;background:var(--emerald);border-radius:50%;box-shadow:0 0 8px var(--emerald);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.footer-link{text-align:center;margin-top:28px;font-size:13px;color:var(--text3)}.footer-link a{color:var(--amber);text-decoration:none;font-weight:600}.footer-link a:hover{text-decoration:underline}
+.version{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);font-size:11px;font-family:var(--mono);color:var(--text3)}
+@media(max-width:480px){.card{padding:36px 28px}.pin-box{width:58px;height:66px;font-size:26px}}
+</style>
 </head>
 <body>
-<nav>
-  <div class="nav-inner">
-    <a href="/platform" class="nav-logo">
-      <div class="nav-logo-icon">TT</div>
-      <span class="nav-logo-text">Te Ta AI</span>
-    </a>
-    <a href="/platform" class="nav-back">← Faqja kryesore</a>
-  </div>
-</nav>
-
-<main>
-  <div class="login-card">
-    <div class="card-logo">
-      <div class="card-logo-icon">TT</div>
-      <span class="card-logo-text">Te Ta AI</span>
-    </div>
-    <h2>Dashboard Pronari</h2>
-    <p class="subtitle">Futni kodin 4-shifror të restorantit</p>
-
-    <input
-      type="text"
-      id="pinInput"
-      class="pin-input"
-      inputmode="numeric"
-      pattern="[0-9]*"
-      maxlength="4"
-      placeholder="• • • •"
-      autocomplete="off"
-      autofocus
-    />
-
-    <button class="login-btn" onclick="doLogin()">Hyr →</button>
-    <div id="loginErr"></div>
-
-    <p class="contact-note">
-      Nuk keni kod? <a href="https://wa.me/355693720144" target="_blank">Na kontaktoni</a>
-    </p>
-  </div>
-</main>
-
-<footer>
-  <p class="footer-copy">© 2026 Te Ta AI · Ndërtuar në Shqipëri</p>
-</footer>
-
+<div class="grid-bg"></div>
+<div class="wrapper">
+<div class="logo"><div class="logo-icon">TT</div><div class="logo-text">Te Ta <span>AI</span></div></div>
+<div class="card">
+<h2 data-i18n="login.welcome">Welcome back</h2>
+<p class="subtitle" data-i18n="login.subtitle">Enter your 4-digit restaurant code</p>
+<div class="pin-group">
+<input type="text" class="pin-box" maxlength="1" inputmode="numeric" placeholder="·" id="p1" autofocus>
+<input type="text" class="pin-box" maxlength="1" inputmode="numeric" placeholder="·" id="p2">
+<input type="text" class="pin-box" maxlength="1" inputmode="numeric" placeholder="·" id="p3">
+<input type="text" class="pin-box" maxlength="1" inputmode="numeric" placeholder="·" id="p4">
+</div>
+<button class="btn" onclick="doLogin()" data-i18n="login.sign_in">Sign In →</button>
+<div class="error-msg" id="err"></div>
+<div class="secure-badge"><div class="secure-dot"></div><span data-i18n="login.secure">Secure encryption active</span></div>
+</div>
+<p class="footer-link"><span data-i18n="login.need_access">Need access?</span> <a href="mailto:support@teta-ai.com" data-i18n="login.contact_us">Contact us</a></p>
+</div>
+<div class="version">Te Ta AI v1.0.0</div>
 <script>
-  async function doLogin() {
-    const pin = document.getElementById('pinInput').value.trim();
-    if (!pin || pin.length < 4) return;
-
-    const btn = document.querySelector('.login-btn');
-    const errEl = document.getElementById('loginErr');
-    errEl.style.display = 'none';
-    btn.disabled = true;
-    btn.textContent = 'Duke hyrë...';
-
-    try {
-      const res = await fetch('/auth/pin-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin })
-      });
-      const data = await res.json();
-
-      if (res.ok && data.success) {
-        localStorage.setItem('tta_owner_key', data.owner_key);
-        localStorage.setItem('tta_restaurant_id', data.restaurant_id);
-        localStorage.setItem('tta_restaurant_name', data.restaurant_name);
-        window.location.href = '/dashboard';
-      } else {
-        errEl.textContent = data.error || 'Kodi nuk është i saktë';
-        errEl.style.display = 'block';
-        btn.disabled = false;
-        btn.textContent = 'Hyr →';
-      }
-    } catch (err) {
-      errEl.textContent = 'Gabim lidhjeje. Provoni përsëri.';
-      errEl.style.display = 'block';
-      btn.disabled = false;
-      btn.textContent = 'Hyr →';
-    }
-  }
-
-  document.getElementById('pinInput').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') doLogin();
-  });
-
-  // Auto-submit when 4 digits entered
-  document.getElementById('pinInput').addEventListener('input', (e) => {
-    e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4);
-    if (e.target.value.length === 4) doLogin();
-  });
+const pins=[...document.querySelectorAll('.pin-box')];
+pins.forEach((p,i)=>{
+p.addEventListener('input',e=>{e.target.value=e.target.value.replace(/\D/g,'').slice(0,1);if(e.target.value&&i<3)pins[i+1].focus();if(i===3&&e.target.value)doLogin();});
+p.addEventListener('keydown',e=>{if(e.key==='Backspace'&&!e.target.value&&i>0){pins[i-1].focus();pins[i-1].value='';}if(e.key==='Enter')doLogin();});
+p.addEventListener('paste',e=>{e.preventDefault();const d=(e.clipboardData.getData('text')||'').replace(/\D/g,'').slice(0,4);d.split('').forEach((c,j)=>{if(pins[j])pins[j].value=c;});if(d.length===4)doLogin();});
+});
+async function doLogin(){const pin=pins.map(p=>p.value).join('');if(pin.length<4)return;const err=document.getElementById('err');err.style.display='none';try{const r=await fetch('/auth/pin-login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin})});const d=await r.json();if(r.ok&&d.success){localStorage.setItem('tta_owner_key',d.owner_key);localStorage.setItem('tta_restaurant_id',d.restaurant_id);localStorage.setItem('tta_restaurant_name',d.restaurant_name);window.location.href='/dashboard';}else{err.textContent=d.error||window.t('login.invalid_code','Invalid code. Please try again.');err.style.display='block';pins.forEach(p=>p.value='');pins[0].focus();}}catch(e){err.textContent=window.t('microcopy.network_error','Connection lost. Check your internet.');err.style.display='block';}}
 </script>
+<script src="/i18n.js"></script>
+<script src="/js/theme.js" defer></script>
 </body>
 </html>

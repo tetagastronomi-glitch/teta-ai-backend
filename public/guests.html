@@ -2,11 +2,9 @@
 <html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
 <title>Te Ta AI — Guest Profiles</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/dashboard-theme.css">
-<script src="/js/theme.js" defer></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#09090B;--bg2:#0F0F12;--surface:rgba(255,255,255,0.03);--surface2:rgba(255,255,255,0.06);--border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.12);--text:#FAFAFA;--text2:rgba(255,255,255,0.5);--text3:rgba(255,255,255,0.3);--amber:#F59E0B;--amber2:#D97706;--violet:#8B5CF6;--emerald:#10B981;--red:#EF4444;--blue:#3B82F6;--font:'Plus Jakarta Sans',sans-serif;--mono:'JetBrains Mono',monospace}
@@ -112,6 +110,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 
 @media(max-width:768px){.main{margin-left:0}.table-header,.table-row{grid-template-columns:1.5fr 1fr 0.6fr 0.8fr}.table-header>:nth-child(5),.table-header>:nth-child(6),.table-row>:nth-child(5),.table-row>:nth-child(6){display:none}.side-panel{width:100%}}
 </style>
+  <link rel="stylesheet" href="/hd.css">
 </head>
 <body>
 <aside class="sidebar">
@@ -212,9 +211,15 @@ async function exportCsv(type) {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-  } catch (_e) {
-    alert('Export failed. Please try again.');
+  } catch (error) {
+    alert(humanizeError(error.message));
   }
+}
+
+function humanizeError(message) {
+  const text = String(message || '').toLowerCase();
+  if (text.includes('network') || text.includes('fetch')) return window.t('microcopy.network_error');
+  return window.t('dashboard.error_generic', 'Diçka shkoi keq. Provo përsëri.');
 }
 
 const avatarColors = ['linear-gradient(135deg,#F59E0B,#D97706)', 'linear-gradient(135deg,#8B5CF6,#7C3AED)', 'linear-gradient(135deg,#10B981,#059669)', 'linear-gradient(135deg,#3B82F6,#2563EB)', 'linear-gradient(135deg,#EF4444,#DC2626)', 'linear-gradient(135deg,#EC4899,#DB2777)'];
@@ -264,7 +269,7 @@ async function loadGuests() {
 function renderGuests() {
   const el = document.getElementById('guestList');
   if (!allGuests.length) {
-    el.innerHTML = `<div class="empty-state"><div class="icon">👥</div><div class="msg">No guests yet</div><div class="sub">Guests will appear here as reservations come in</div></div>`;
+    el.innerHTML = `<div class="empty-state"><div class="icon">👥</div><div class="msg">${window.t('microcopy.no_guests', 'No guests yet.')}</div><div class="sub">${window.t('guests.empty_sub', 'Guest profiles are created automatically with each reservation.')}</div></div>`;
     return;
   }
 
@@ -448,8 +453,8 @@ if (exportBtn && exportMenu && exportWrap) {
 loadGuests();
 </script>
 <script src="/i18n.js"></script>
-<script src="/js/mobile-nav.js"></script>
+<script src="/js/owner-shell.js"></script>
+<script src="/js/theme.js" defer></script>
+  <script defer src="/hd-ux.js"></script>
 </body>
 </html>
-
-

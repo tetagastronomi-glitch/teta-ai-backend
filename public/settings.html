@@ -2,11 +2,9 @@
 <html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
 <title>Te Ta AI — Settings</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/dashboard-theme.css">
-<script src="/js/theme.js" defer></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#09090B;--bg2:#0F0F12;--surface:rgba(255,255,255,0.03);--surface2:rgba(255,255,255,0.06);--border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.12);--text:#FAFAFA;--text2:rgba(255,255,255,0.5);--text3:rgba(255,255,255,0.3);--amber:#F59E0B;--amber2:#D97706;--violet:#8B5CF6;--emerald:#10B981;--red:#EF4444;--blue:#3B82F6;--font:'Plus Jakarta Sans',sans-serif;--mono:'JetBrains Mono',monospace}
@@ -49,7 +47,12 @@ a{text-decoration:none;color:inherit}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
 .form-row.single{grid-template-columns:1fr}
 .form-group{margin-bottom:0}
-.form-label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);margin-bottom:6px;font-family:var(--mono)}
+.label-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.form-label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);font-family:var(--mono)}
+.help{position:relative}
+.help-btn{width:18px;height:18px;border-radius:50%;border:1px solid var(--border2);background:var(--surface2);color:var(--text2);font:700 10px/1 var(--font);cursor:pointer}
+.help-pop{position:absolute;top:24px;left:0;width:220px;padding:10px 12px;border-radius:12px;background:#141419;border:1px solid var(--border2);color:var(--text2);font-size:12px;line-height:1.5;box-shadow:0 14px 30px rgba(0,0,0,0.35);opacity:0;visibility:hidden;transform:translateY(6px);transition:all 0.2s;z-index:20}
+.help.open .help-pop{opacity:1;visibility:visible;transform:translateY(0)}
 .form-input{width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;color:var(--text);font-family:var(--font);font-size:13px;outline:none;transition:border-color 0.2s}
 .form-input:focus{border-color:var(--amber)}
 .form-input::placeholder{color:var(--text3)}
@@ -92,6 +95,7 @@ select.form-input option{background:var(--bg2);color:var(--text)}
 
 @media(max-width:768px){.main{margin-left:0}.form-row{grid-template-columns:1fr}}
 </style>
+  <link rel="stylesheet" href="/hd.css">
 </head>
 <body>
 
@@ -133,15 +137,21 @@ select.form-input option{background:var(--bg2);color:var(--text)}
 </div>
 </div>
 <div class="form-row">
-<div class="form-group"><label class="form-label" data-i18n="settings.restaurant_name">Restaurant Name</label><input class="form-input" id="setName" type="text" placeholder="Your Restaurant"></div>
-<div class="form-group"><label class="form-label" data-i18n="settings.phone">Phone</label><input class="form-input" id="setPhone" type="tel" placeholder="+355 69 123 4567"></div>
+<div class="form-group">
+<div class="label-row"><label class="form-label" data-i18n="settings.restaurant_name">Restaurant Name</label><div class="help"><button type="button" class="help-btn" data-help-toggle>?</button><div class="help-pop" data-i18n="setup.help.restaurant_name">Emri që do shfaqet kur boti flet me klientët</div></div></div>
+<input class="form-input" id="setName" type="text" placeholder="Your Restaurant"></div>
+<div class="form-group">
+<div class="label-row"><label class="form-label" data-i18n="settings.phone">Phone</label><div class="help"><button type="button" class="help-btn" data-help-toggle>?</button><div class="help-pop" data-i18n="setup.help.whatsapp_number">Numri ku klientët ju dërgojnë mesazh. Boti do përgjigjet në këtë numër.</div></div></div>
+<input class="form-input" id="setPhone" type="tel" placeholder="+355 69 123 4567"></div>
 </div>
 <div class="form-row single">
-<div class="form-group"><label class="form-label" data-i18n="settings.address">Address</label><input class="form-input" id="setAddress" type="text" placeholder="Street, City, Country"></div>
+<div class="form-group">
+<div class="label-row"><label class="form-label" data-i18n="settings.address">Address</label><div class="help"><button type="button" class="help-btn" data-help-toggle>?</button><div class="help-pop" data-i18n="settings.help.address">Adresa që shfaqet në profilin e restorantit dhe ndihmon botin të japë përgjigje më të sakta.</div></div></div>
+<input class="form-input" id="setAddress" type="text" placeholder="Street, City, Country"></div>
 </div>
 <div class="form-row">
-<div class="form-group"><label class="form-label" data-i18n="settings.email">Email</label><input class="form-input" id="setEmail" type="email" placeholder="info@restaurant.com"></div>
-<div class="form-group"><label class="form-label" data-i18n="settings.timezone">Timezone</label>
+<div class="form-group"><div class="label-row"><label class="form-label" data-i18n="settings.email">Email</label></div><input class="form-input" id="setEmail" type="email" placeholder="info@restaurant.com"></div>
+<div class="form-group"><div class="label-row"><label class="form-label" data-i18n="settings.timezone">Timezone</label><div class="help"><button type="button" class="help-btn" data-help-toggle>?</button><div class="help-pop" data-i18n="settings.help.timezone">Përdoret që rezervimet, raportet dhe njoftimet të shfaqen në orën e duhur.</div></div></div>
 <select class="form-input" id="setTimezone">
 <option value="Europe/Tirane">Europe/Tirane</option>
 <option value="Europe/Rome">Europe/Rome</option>
@@ -157,11 +167,11 @@ select.form-input option{background:var(--bg2);color:var(--text)}
 </div>
 </div>
 <div class="form-row">
-<div class="form-group"><label class="form-label" data-i18n="settings.opening_hour">Opening Hour</label><input class="form-input" id="setOpenHour" type="number" min="0" max="23" placeholder="9"></div>
-<div class="form-group"><label class="form-label" data-i18n="settings.closing_hour">Closing Hour</label><input class="form-input" id="setCloseHour" type="number" min="0" max="23" placeholder="23"></div>
+<div class="form-group"><div class="label-row"><label class="form-label" data-i18n="settings.opening_hour">Opening Hour</label><div class="help"><button type="button" class="help-btn" data-help-toggle>?</button><div class="help-pop" data-i18n="setup.help.business_hours">The bot shares your hours with customers automatically</div></div></div><input class="form-input" id="setOpenHour" type="time" placeholder="11:00"></div>
+<div class="form-group"><div class="label-row"><label class="form-label" data-i18n="settings.closing_hour">Closing Hour</label><div class="help"><button type="button" class="help-btn" data-help-toggle>?</button><div class="help-pop" data-i18n="setup.help.business_hours">The bot shares your hours with customers automatically</div></div></div><input class="form-input" id="setCloseHour" type="time" placeholder="21:00"></div>
 </div>
 <div class="form-row">
-<div class="form-group"><label class="form-label" data-i18n="settings.language">Language</label>
+<div class="form-group"><div class="label-row"><label class="form-label" data-i18n="settings.language">Language</label><div class="help"><button type="button" class="help-btn" data-help-toggle>?</button><div class="help-pop" data-i18n="setup.help.language">Gjuha kryesore në të cilën flet boti me klientët</div></div></div>
 <select class="form-input" id="setLanguage">
 <option value="sq">Shqip</option>
 <option value="en">English</option>
@@ -175,6 +185,18 @@ select.form-input option{background:var(--bg2);color:var(--text)}
 </select>
 </div>
 <div></div>
+</div>
+<div class="form-row single">
+<div class="form-group">
+<div class="label-row"><label class="form-label" data-i18n="setup.description">Përshkrimi i restorantit</label><div class="help"><button type="button" class="help-btn" data-help-toggle>?</button><div class="help-pop" data-i18n="setup.help.description">Boti përdor këtë për t'iu përgjigjur pyetjeve rreth restorantit</div></div></div>
+<textarea class="form-input" id="setDescription" style="height:110px;padding:12px 14px;resize:vertical"></textarea>
+</div>
+</div>
+<div class="form-row single">
+<div class="form-group">
+<div class="label-row"><label class="form-label" data-i18n="setup.bot_personality">Personaliteti i botit</label><div class="help"><button type="button" class="help-btn" data-help-toggle>?</button><div class="help-pop" data-i18n="setup.help.bot_personality">Stili i komunikimit — formal, miqësor, humoristik, etj.</div></div></div>
+<textarea class="form-input" id="setPersonality" style="height:110px;padding:12px 14px;resize:vertical"></textarea>
+</div>
 </div>
 <button class="btn-save" id="btnSaveInfo" onclick="saveSettings()" data-i18n="settings.save_changes">Save Changes</button>
 </div>
@@ -244,6 +266,32 @@ select.form-input option{background:var(--bg2);color:var(--text)}
 </div>
 </div>
 
+<!-- WhatsApp Connection -->
+<div class="settings-card" id="whatsapp-card">
+<div class="card-header">
+<div class="card-icon">📱</div>
+<div>
+<div class="card-title">WhatsApp Connection</div>
+<div class="card-desc">Scan the QR code to link your restaurant's WhatsApp to Jerry.</div>
+</div>
+</div>
+<div id="waStatusWrap" style="padding:16px 0">
+  <div class="hd-row" style="gap:10px;margin-bottom:12px">
+    <span id="waStatusDot" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--ink-mute)"></span>
+    <strong id="waStatusText">Checking connection…</strong>
+    <button type="button" class="btn btn-secondary" id="waRefreshBtn" style="margin-left:auto;padding:6px 12px;font-size:12px">Refresh</button>
+  </div>
+  <div id="waQrWrap" style="display:none;text-align:center;padding:12px;background:var(--surface-sunk);border-radius:12px">
+    <img id="waQrImg" alt="WhatsApp QR" style="max-width:260px;border-radius:8px;background:#fff;padding:8px" />
+    <p style="margin-top:8px;font-size:13px;color:var(--ink-mute)">Open WhatsApp → Settings → Linked Devices → Link a Device, then scan.</p>
+  </div>
+  <div id="waConnectedWrap" style="display:none;padding:12px;background:var(--ok-bg);border-radius:10px;color:var(--ok)">
+    ✓ Connected as <strong id="waPhoneLabel"></strong>. Jerry is live and answering customers.
+  </div>
+  <div id="waErrorWrap" style="display:none;padding:12px;background:var(--err-bg);border-radius:10px;color:var(--err);font-size:13px"></div>
+</div>
+</div>
+
 <!-- Danger Zone -->
 <div class="settings-card danger">
 <div class="card-header">
@@ -291,16 +339,18 @@ async function loadSettings() {
     const res = await API('/settings');
     if (!res.ok) throw new Error('Failed to load settings');
     const data = await res.json();
-    const s = data.settings || data;
+    const s = data.data || data.settings || data;
 
     if (s.name) document.getElementById('setName').value = s.name;
     if (s.address) document.getElementById('setAddress').value = s.address;
     if (s.phone) document.getElementById('setPhone').value = s.phone;
-    if (s.email) document.getElementById('setEmail').value = s.email;
-    if (s.open_hour !== undefined) document.getElementById('setOpenHour').value = s.open_hour;
-    if (s.close_hour !== undefined) document.getElementById('setCloseHour').value = s.close_hour;
+    if (s.owner_email) document.getElementById('setEmail').value = s.owner_email;
+    if (s.opening_hour !== undefined) document.getElementById('setOpenHour').value = String(s.opening_hour).slice(0, 5);
+    if (s.closing_hour !== undefined) document.getElementById('setCloseHour').value = String(s.closing_hour).slice(0, 5);
     if (s.timezone) document.getElementById('setTimezone').value = s.timezone;
     if (s.language) document.getElementById('setLanguage').value = s.language;
+    if (s.restaurant_description !== undefined) document.getElementById('setDescription').value = s.restaurant_description;
+    if (s.bot_personality !== undefined) document.getElementById('setPersonality').value = s.bot_personality;
 
     if (s.ai_provider) document.getElementById('aiProvider').textContent = s.ai_provider;
     if (s.ai_model) document.getElementById('aiModel').textContent = s.ai_model;
@@ -310,7 +360,7 @@ async function loadSettings() {
     if (s.notif_daily_report !== undefined) document.getElementById('notifDailyReport').checked = s.notif_daily_report;
     if (s.notif_feedback !== undefined) document.getElementById('notifFeedback').checked = s.notif_feedback;
   } catch (e) {
-    console.error('Load settings error:', e);
+    showToast(humanizeError(e.message), 'error');
   }
 }
 
@@ -323,11 +373,13 @@ async function saveSettings() {
     name: document.getElementById('setName').value.trim(),
     address: document.getElementById('setAddress').value.trim(),
     phone: document.getElementById('setPhone').value.trim(),
-    email: document.getElementById('setEmail').value.trim(),
-    open_hour: parseInt(document.getElementById('setOpenHour').value) || 9,
-    close_hour: parseInt(document.getElementById('setCloseHour').value) || 23,
+    owner_email: document.getElementById('setEmail').value.trim(),
+    opening_hour: document.getElementById('setOpenHour').value || '11:00',
+    closing_hour: document.getElementById('setCloseHour').value || '21:00',
     timezone: document.getElementById('setTimezone').value,
     language: document.getElementById('setLanguage').value,
+    restaurant_description: document.getElementById('setDescription').value.trim(),
+    bot_personality: document.getElementById('setPersonality').value.trim(),
     notif_email: document.getElementById('notifEmail').checked,
     notif_whatsapp: document.getElementById('notifWhatsApp').checked,
     notif_daily_report: document.getElementById('notifDailyReport').checked,
@@ -339,14 +391,23 @@ async function saveSettings() {
       method: 'PUT',
       body: JSON.stringify(payload)
     });
-    if (!res.ok) throw new Error('Failed to save');
-    showToast('Settings saved successfully!', 'success');
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.error || 'Failed to save');
+    showToast(window.t('settings.saved_success', 'Ndryshimet u ruajtën me sukses.'), 'success');
   } catch (e) {
-    showToast('Failed to save settings: ' + e.message, 'error');
+    showToast(humanizeError(e.message), 'error');
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Save Changes';
+    btn.textContent = window.t('settings.save_changes', 'Save Changes');
   }
+}
+
+function humanizeError(message) {
+  const text = String(message || '').toLowerCase();
+  if (text.includes('network') || text.includes('fetch')) return window.t('microcopy.network_error');
+  if (text.includes('unauthorized') || text.includes('401')) return window.t('microcopy.session_expired');
+  if (text.includes('database')) return window.t('microcopy.database_error');
+  return window.t('dashboard.error_generic', 'Diçka shkoi keq. Provo përsëri.');
 }
 
 function showToast(msg, type) {
@@ -356,9 +417,90 @@ function showToast(msg, type) {
   setTimeout(() => t.classList.remove('show'), 3000);
 }
 
+document.querySelectorAll('[data-help-toggle]').forEach((button) => {
+  button.addEventListener('click', function (event) {
+    const item = event.currentTarget.parentElement;
+    const open = item.classList.contains('open');
+    document.querySelectorAll('.help.open').forEach((entry) => entry.classList.remove('open'));
+    if (!open) item.classList.add('open');
+  });
+});
+
+document.addEventListener('click', (event) => {
+  if (!event.target.closest('.help')) {
+    document.querySelectorAll('.help.open').forEach((entry) => entry.classList.remove('open'));
+  }
+});
+
 loadSettings();
 </script>
 <script src="/i18n.js"></script>
-<script src="/js/mobile-nav.js"></script>
+<script src="/js/owner-shell.js"></script>
+<script src="/js/theme.js" defer></script>
+  <script defer src="/hd-ux.js"></script>
+<script>
+(function(){
+  const statusText = document.getElementById('waStatusText');
+  const statusDot = document.getElementById('waStatusDot');
+  const qrWrap = document.getElementById('waQrWrap');
+  const qrImg = document.getElementById('waQrImg');
+  const connectedWrap = document.getElementById('waConnectedWrap');
+  const phoneLabel = document.getElementById('waPhoneLabel');
+  const errWrap = document.getElementById('waErrorWrap');
+  const refreshBtn = document.getElementById('waRefreshBtn');
+  if (!statusText) return;
+
+  function hideAll(){
+    qrWrap.style.display = 'none';
+    connectedWrap.style.display = 'none';
+    errWrap.style.display = 'none';
+  }
+
+  async function poll(){
+    try {
+      const ownerKey = localStorage.getItem('tta_owner_key') || '';
+      if (!ownerKey) {
+        statusText.textContent = 'Owner key missing — please log in again';
+        statusDot.style.background = 'var(--err)';
+        return;
+      }
+      const r = await fetch('/api/whatsapp/status', { headers: { 'x-owner-key': ownerKey } });
+      const j = await r.json();
+      hideAll();
+      if (j.status === 'ready' || j.status === 'connected') {
+        statusText.textContent = 'Connected';
+        statusDot.style.background = 'var(--ok)';
+        connectedWrap.style.display = 'block';
+        phoneLabel.textContent = j.phone || 'your restaurant';
+      } else if (j.status === 'pending' && j.qr) {
+        statusText.textContent = 'Waiting for scan';
+        statusDot.style.background = 'var(--warn)';
+        qrImg.src = j.qr;
+        qrWrap.style.display = 'block';
+      } else if (j.status === 'disconnected') {
+        statusText.textContent = 'Not connected';
+        statusDot.style.background = 'var(--ink-mute)';
+        errWrap.style.display = 'block';
+        errWrap.textContent = j.error || 'WhatsApp bridge is not configured yet. Contact support.';
+      } else {
+        statusText.textContent = 'Error';
+        statusDot.style.background = 'var(--err)';
+        errWrap.style.display = 'block';
+        errWrap.textContent = j.error || 'Unknown status';
+      }
+    } catch (e) {
+      hideAll();
+      statusText.textContent = 'Network error';
+      statusDot.style.background = 'var(--err)';
+      errWrap.style.display = 'block';
+      errWrap.textContent = e.message;
+    }
+  }
+
+  refreshBtn.addEventListener('click', poll);
+  poll();
+  setInterval(poll, 20000);
+})();
+</script>
 </body>
 </html>

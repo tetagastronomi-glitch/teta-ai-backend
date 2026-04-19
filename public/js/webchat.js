@@ -102,7 +102,7 @@
       '</div>' +
       '<div id="tta-wc-messages"></div>' +
       '<div id="tta-wc-input-wrap">' +
-        '<input type="text" id="tta-wc-input" placeholder="Shkruani mesazhin..." />' +
+        '<input type="text" id="tta-wc-input" placeholder="Type a message..." />' +
         '<button id="tta-wc-send" disabled>' +
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>' +
         '</button>' +
@@ -125,7 +125,7 @@
     sendBtn.addEventListener('click', sendMessage);
 
     // Welcome message
-    addMessage('bot', 'Mire se erdhet! Si mund t\'ju ndihmoj sot? Mund te bej rezervime, t\'ju tregoj per menune, ose t\'ju ndihmoj me cdo pyetje tjeter.');
+    addMessage('bot', 'Welcome! How can I help you today? I can take reservations, tell you about the menu, or help with any other question.');
   }
 
   function togglePanel() {
@@ -159,7 +159,7 @@
     document.getElementById('tta-wc-send').disabled = true;
 
     // Show typing indicator
-    var typing = addMessage('bot', 'Duke menduar...');
+    var typing = addMessage('bot', 'Thinking...');
     typing.classList.add('typing');
 
     fetch(baseUrl + '/webhook/webchat', {
@@ -178,12 +178,12 @@
       if (data.reply) {
         addMessage('bot', data.reply);
       } else {
-        addMessage('bot', 'Na vjen keq, nuk arrita te pergjigjem. Provoni perseri.');
+        addMessage('bot', 'Sorry, I could not respond. Please try again.');
       }
     })
     .catch(function() {
       typing.remove();
-      addMessage('bot', 'Gabim lidhjeje. Kontrollo internetin dhe provo perseri.');
+      addMessage('bot', 'Connection error. Check your internet and try again.');
     });
   }
 
